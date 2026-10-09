@@ -1,8 +1,12 @@
 /** Pure auth rules. No database, no Next.js, so they are easy to test. */
 import { EDITOR_ROLES, type Editor, type EditorRole } from "@/db/schema";
 
+/**
+ * NFKC first, so a look-alike character (for example a fullwidth `＠`) becomes plain ASCII before
+ * the lookup and the format check. Then trim and lowercase.
+ */
 export function normalizeEmail(raw: string): string {
-  return raw.trim().toLowerCase();
+  return raw.normalize("NFKC").trim().toLowerCase();
 }
 
 /**
@@ -26,7 +30,9 @@ export interface InviteInput {
 
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// No spaces, `@`, `"`, `,`, `<`, or `>` inside the parts: those can turn one address into several
+// (or into a display name) in a mail parser.
+const EMAIL = /^[^\s@",<>]+@[^\s@",<>]+\.[^\s@",<>]+$/;
 
 /** A simple shape check. The magic link proves that the address works. */
 export function isValidEmail(email: string): boolean {

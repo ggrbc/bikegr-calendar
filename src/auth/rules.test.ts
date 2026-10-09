@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canInvite, canSignIn, normalizeEmail, parseInviteInput } from "./rules";
+import { canInvite, canSignIn, isValidEmail, normalizeEmail, parseInviteInput } from "./rules";
 
 describe("canSignIn", () => {
   it("invited active Editor may sign in", () => {
@@ -27,6 +27,23 @@ describe("canInvite", () => {
 describe("normalizeEmail", () => {
   it("email lookup ignores case and spaces", () => {
     expect(normalizeEmail("  Jeremy@BikeGR.org ")).toBe("jeremy@bikegr.org");
+  });
+
+  it("applies NFKC, so look-alike characters become plain ASCII", () => {
+    // U+FF20 FULLWIDTH COMMERCIAL AT and fullwidth letters.
+    expect(normalizeEmail("ｊｅｒｅｍｙ＠bikegr.org")).toBe("jeremy@bikegr.org");
+  });
+});
+
+describe("isValidEmail", () => {
+  it("accepts a plain address", () => {
+    expect(isValidEmail("new.editor+tag@example.org")).toBe(true);
+  });
+
+  it('refuses ", comma, <, and >, which can split one address into several', () => {
+    for (const bad of ['"a"@b.org', "a,b@c.org", "a@b.org,c@d.org", "<a@b.org>", "a@b.org>"]) {
+      expect(isValidEmail(bad), bad).toBe(false);
+    }
   });
 });
 
