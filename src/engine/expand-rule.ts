@@ -16,7 +16,7 @@
  *
  * `EXDATE`s are not applied here; `expand-occurrences.ts` applies them.
  */
-import { RRule } from "rrule";
+import { RRule, type Options } from "rrule";
 import type { OriginalStart, Timing } from "./types";
 import { timingStart } from "./timing";
 import { fromFloating, fromFloatingDate, toFloating, utcToWallClock } from "./wall-clock";
@@ -83,18 +83,25 @@ function floatingUntil(value: string): string {
   return `${utcToWallClock(instant).replace(/[-:]/g, "")}00`;
 }
 
-const ruleCache = new Map<string, RRule>();
+/** Parsed rule options by rule text. Only the parse step is cached; it holds no results. */
+const parsedRules = new Map<string, Partial<Options>>();
+const MAX_PARSED_RULES = 500;
 
-function buildRule(timing: Timing, rrule: string): RRule {
-  const start = timingStart(timing);
-  const key = `${start}|${rrule}`;
-  let rule = ruleCache.get(key);
-  if (!rule) {
-    rule = new RRule({ ...RRule.parseString(normalizeRule(rrule)), dtstart: toFloating(start) });
-    if (ruleCache.size > 500) ruleCache.clear();
-    ruleCache.set(key, rule);
+function parseRule(rrule: string): Partial<Options> {
+  let options = parsedRules.get(rrule);
+  if (!options) {
+    options = RRule.parseString(normalizeRule(rrule));
+    if (parsedRules.size >= MAX_PARSED_RULES) parsedRules.clear();
+    parsedRules.set(rrule, options);
   }
-  return rule;
+  return options;
+}
+
+/** A new `RRule` for the Event's first time slot. Exported for tests. */
+export function buildRule(timing: Timing, rrule: string): RRule {
+  const dtstart = toFloating(timingStart(timing));
+  // noCache = true: rrule's own result cache keeps every window ever asked, with no limit.
+  return new RRule({ ...parseRule(rrule), dtstart }, true);
 }
 
 function format(timing: Timing, date: Date): OriginalStart {

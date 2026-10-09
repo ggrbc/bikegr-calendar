@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { InvalidRuleError, isRuleStart, nextRuleStart, ruleStartsBetween } from "./expand-rule";
+import {
+  buildRule,
+  InvalidRuleError,
+  isRuleStart,
+  nextRuleStart,
+  ruleStartsBetween,
+} from "./expand-rule";
 import { allDay, timed } from "./test-helpers";
 
 const tuesday6pm = timed("2026-09-08T18:00", "2026-09-08T21:00");
@@ -44,6 +50,13 @@ describe("expand-rule", () => {
     expect(isRuleStart(tuesday6pm, "FREQ=WEEKLY;BYDAY=TU", "2026-10-06T18:00")).toBe(true);
     expect(isRuleStart(tuesday6pm, "FREQ=WEEKLY;BYDAY=TU", "2026-10-07T18:00")).toBe(false);
     expect(isRuleStart(tuesday6pm, "FREQ=WEEKLY;BYDAY=TU", "2026-10-06T18:30")).toBe(false);
+  });
+
+  it("rrule keeps no result cache, so memory does not grow with each window", () => {
+    const rule = buildRule(tuesday6pm, "FREQ=WEEKLY;BYDAY=TU");
+    rule.between(new Date("2026-09-01T00:00:00Z"), new Date("2026-12-01T00:00:00Z"), true);
+    rule.after(new Date("2026-10-01T00:00:00Z"));
+    expect((rule as unknown as { _cache: unknown })._cache).toBeNull();
   });
 
   it.each([
