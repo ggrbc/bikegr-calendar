@@ -36,3 +36,7 @@ tmp/
 .DS_Store
 .idea/
 *.swp
+
+# Playwright MCP scratch
+.playwright-mcp/
+*.pem
