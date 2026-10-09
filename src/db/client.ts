@@ -27,17 +27,25 @@ export function driverFor(databaseUrl: string): Driver {
 
 export interface OpenDb {
   db: Db;
-  /** Ends the pool or client. Call it when the request or script is done. */
+  driver: Driver;
+  /** The Neon `Pool`, so the app can attach it to the Vercel function life cycle. */
+  neonPool?: Pool;
+  /** Ends the pool or client. Scripts call it when they are done. */
   close: () => Promise<void>;
 }
 
 export function openDb(databaseUrl: string, options: { max?: number } = {}): OpenDb {
   if (driverFor(databaseUrl) === "neon") {
     const pool = new Pool({ connectionString: databaseUrl, max: options.max });
-    return { db: drizzleNeon({ client: pool, schema }), close: () => pool.end() };
+    return {
+      db: drizzleNeon({ client: pool, schema }),
+      driver: "neon",
+      neonPool: pool,
+      close: () => pool.end(),
+    };
   }
   const client = postgres(databaseUrl, { max: options.max ?? 5 });
-  return { db: drizzlePostgres({ client, schema }), close: () => client.end() };
+  return { db: drizzlePostgres({ client, schema }), driver: "postgres-js", close: () => client.end() };
 }
 
 export function requireDatabaseUrl(): string {

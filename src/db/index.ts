@@ -1,29 +1,26 @@
 import "server-only";
-import { after } from "next/server";
-import { cache } from "react";
-import { driverFor, openDb, requireDatabaseUrl } from "./client";
+import { attachDatabasePool } from "@vercel/functions";
+import { openDb, requireDatabaseUrl } from "./client";
 import type { Db } from "./types";
 
 export type { Db } from "./types";
 
-// postgres-js (Docker) keeps one client for the life of the dev server. `globalThis` keeps it
-// across hot reloads.
-const local = globalThis as unknown as { __bikegrLocalDb?: Db };
+// One database handle per server instance. `globalThis` keeps it across dev hot reloads.
+const instance = globalThis as unknown as { __bikegrDb?: Db };
 
 /**
- * The database for the current request. Nothing connects until the first call, so `next build`
- * needs no database.
+ * The app's database. Nothing connects until the first call, so `next build` needs no database.
  *
- * On Neon, this follows Neon's serverless guidance: one `Pool` per request, ended with `after()`
- * when the response is done. React `cache` makes the calls in one request share that Pool.
+ * - Neon (production, and local dev with a Neon URL): one module-scope WebSocket `Pool`, attached
+ *   with `attachDatabasePool` (Vercel Fluid compute guidance). Vercel keeps the function instance
+ *   alive until idle connections are closed, and requests on the same instance share the Pool.
+ *   Outside Vercel, `attachDatabasePool` does nothing.
+ * - postgres-js (Docker): one client for the life of the server.
  */
-export const getDb = cache((): Db => {
-  const url = requireDatabaseUrl();
-  if (driverFor(url) === "neon") {
-    const { db, close } = openDb(url);
-    after(close);
-    return db;
-  }
-  local.__bikegrLocalDb ??= openDb(url).db;
-  return local.__bikegrLocalDb;
-});
+export function getDb(): Db {
+  if (instance.__bikegrDb) return instance.__bikegrDb;
+  const opened = openDb(requireDatabaseUrl());
+  if (opened.neonPool) attachDatabasePool(opened.neonPool);
+  instance.__bikegrDb = opened.db;
+  return opened.db;
+}
