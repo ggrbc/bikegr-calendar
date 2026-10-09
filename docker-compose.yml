@@ -1,0 +1,21 @@
+# Local Postgres for development. Matches DATABASE_URL in .env.example.
+# Set BIKEGR_PG_PORT if port 5432 is already in use on your machine (then change DATABASE_URL too).
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: bikegr
+      POSTGRES_PASSWORD: bikegr
+      POSTGRES_DB: bikegr
+    ports:
+      - "${BIKEGR_PG_PORT:-5432}:5432"
+    volumes:
+      - bikegr-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bikegr -d bikegr"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  bikegr-pg:
