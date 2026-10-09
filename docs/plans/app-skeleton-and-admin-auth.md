@@ -15,24 +15,27 @@ built in parallel by another stream. This stream does not change `src/engine/**`
 |---|---|---|
 | ORM | `drizzle-orm` 0.45 (latest stable) + `drizzle-kit` 0.31 | 1.0 is still RC. 0.45 is what `@auth/drizzle-adapter` 1.11 is built against. Upgrade to 1.0 when it is stable. |
 | Auth | `next-auth` 5 beta (Auth.js v5) + `@auth/drizzle-adapter` | The design says Auth.js. v5 is still "beta" after 2 years and gets mostly maintenance now (the Better Auth team owns it). It declares `next ^16` as a peer. Better Auth is the active alternative, but it is a design change; not proposed now. |
-| Production driver | `drizzle-orm/neon-http` (`@neondatabase/serverless`) | As the design says. One HTTP request per query, no pool, good for serverless. **Limit:** no interactive transactions — only `db.batch([...])`. See "Decision for Jeremy". |
-| Local driver | `drizzle-orm/postgres-js` (`postgres`) against Docker Postgres 17 | Plain TCP, no native build step. The `db` module picks the driver: a `DATABASE_URL` host that ends in `.neon.tech` uses `neon-http`; all other hosts use `postgres-js`. Both are typed as one `Db` type (`PgDatabase<…, typeof schema>`), so callers never see the driver. |
+| Production driver | `drizzle-orm/neon-serverless` (WebSocket `Pool` from `@neondatabase/serverless`) | Decided by Jeremy (Option B, below). Interactive `db.transaction(async tx => …)` works in production and locally, so code cannot pass locally and fail only in production. Cost: a WebSocket per request and more cold-start time than HTTP. One `Pool` per request, ended after the response (`after()`), all inside the one `db` module. |
+| Local driver | `drizzle-orm/postgres-js` (`postgres`) against Docker Postgres 17 | Plain TCP, no native build step. The `db` module picks the driver: a `DATABASE_URL` host that ends in `.neon.tech` uses `neon-serverless`; all other hosts use `postgres-js`. Both are typed as one `Db` type (`PgDatabase<…, typeof schema>`), so callers never see the driver. |
 | Test database | `@electric-sql/pglite` (real Postgres compiled to WASM, in process) via `drizzle-orm/pglite` | Tests run the real migration SQL, CHECK constraints, and FKs with no Docker and no network, so `pnpm test` works in CI. Cost: a third driver, test-only. Docker Postgres is still used for the end-to-end login check. |
 | Email | `resend` SDK when `RESEND_API_KEY` is set; else a console transport that prints the magic link | The Submissions milestone reuses the same mailer module. |
 | Seed and scripts | `tsx` (dev dependency) runs `src/db/seed.ts` | Node 24 type stripping cannot resolve the `@/` alias. |
 
-### Decision for Jeremy — transactions on Neon HTTP
+### Decided — transactions use the Neon WebSocket Pool (Option B)
 
-This stream needs no transactions (each write is one statement). The Admin milestone does: the
-`version` check plus the `event_history` snapshot, and the Series split, must be atomic.
+The Admin milestone needs atomic writes: the `version` check plus the `event_history` snapshot, and
+the Series split.
 
-- **Option A (my default):** keep `neon-http` and write those paths as `db.batch([...])`
-  (non-interactive, one round trip, atomic). Read-then-decide logic happens before the batch; the
-  `version` predicate in the `update … where` keeps it safe.
-- **Option B:** use `drizzle-orm/neon-serverless` (WebSocket `Pool`) in production. Full interactive
-  transactions, but a socket per invocation and more cold-start cost.
+- **Option A (rejected):** `neon-http` with `db.batch([...])`. A batch cannot stop when the `version`
+  check updates 0 rows (the `event_history` insert still runs). Also `neon-http` throws on
+  `db.transaction`, but postgres-js allows it, so code would pass locally and fail only in production.
+- **Option B (chosen by Jeremy):** `drizzle-orm/neon-serverless` with a WebSocket `Pool`. Both drivers
+  support interactive `db.transaction(async tx => …)`.
 
-I build the `db` module so that either option is a one-file change. No answer is needed before "go".
+Neon's serverless guidance: make the `Pool` inside the request and end it when the request is done.
+The `db` module does this: `getDb()` makes one `Pool` per request (memoized with React `cache`) and
+registers `pool.end()` with `after()`. Scripts and tests use `openDb()`, which returns the `db` and a
+`close()` function. Node 24 has a global `WebSocket`, so no `ws` package is needed.
 
 ## Time storage — why these column types
 
@@ -275,7 +278,7 @@ Unit tests (no database):
 - **Override with no changes maps to only its key** — no `undefined` keys.
 - **Enum values match the engine contract** — `calendar` = `CalendarSlug`, `schedule_status` =
   `StoredScheduleStatus` (type-level and value-level).
-- **Driver choice by host** — a `.neon.tech` URL picks `neon-http`; `localhost` picks `postgres-js`.
+- **Driver choice by host** — a `.neon.tech` URL picks `neon-serverless`; `localhost` picks `postgres-js`.
 
 Database tests (PGlite, real migration SQL):
 
