@@ -30,6 +30,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "resend": "^6.32.1",
+    "rrule": "2.8.1",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
