@@ -24,25 +24,30 @@ no `VTIMEZONE`).
   edit in Tockify before cutover.
 - Expected rule per Series (I checked the date gaps and the nth weekday):
 
-  | Series (Source ID) | Occurrences | Expected rule |
-  |---|---|---|
-  | Wednesday Evening Rides (1) | 109 | weekly WE; 1 cancelled Override (2026-09-30) |
-  | Switchback Community Ride (2) | 109 | weekly TH |
-  | Ada Park Thursday Group Ride (61) | 109 | weekly TH |
-  | Kent County Road Commission Meeting (3) | 67 | monthly `BYDAY=2TU,4TU` |
-  | ENTF Transportation Subcommittee (7) | 33 | monthly `BYDAY=2TU` |
-  | Mobile GR Commission Meeting (8) | 34 | monthly `BYDAY=2WE` |
-  | ENTF Transportation Committee Meeting (12) | 34 | monthly `BYDAY=4TU` |
-  | Hair of the Dog Ride (9) | 3 | yearly Jan 1; 3 tentative Overrides |
-  | 11th Annual CDR (59) | 3 | yearly Jul 4 |
-  | Luton Loops & Libations (40) | 4 | weekly WE |
-  | VBF Tuesday Night Road Ride (52) | 8 | weekly TU |
-  | Kentwood Challenger (55) | 8 | weekly WE |
-  | Dawn Patrol (56) | 8 | weekly SA; zero-length Occurrences |
-  | Gravel Grinders (57) | 7 | weekly MO |
-  | Grand Rapids Bike Polo (58) | 2 | all-day, weekly `INTERVAL=2` TH |
+  | Series (Source ID) | Occurrences | Last date | Expected rule | Expected end |
+  |---|---|---|---|---|
+  | Wednesday Evening Rides (1) | 109 | 2028-10-04 | weekly WE; 1 cancelled Override (2026-09-30) | UNTIL (see horizon note) |
+  | Switchback Community Ride (2) | 109 | 2028-10-05 | weekly TH | UNTIL (see horizon note) |
+  | Ada Park Thursday Group Ride (61) | 109 | 2028-10-05 | weekly TH | UNTIL (see horizon note) |
+  | Kent County Road Commission Meeting (3) | 67 | 2029-06-26 | monthly `BYDAY=2TU,4TU` | open-ended |
+  | ENTF Transportation Subcommittee (7) | 33 | 2029-06-12 | monthly `BYDAY=2TU` | open-ended |
+  | Mobile GR Commission Meeting (8) | 34 | 2029-06-13 | monthly `BYDAY=2WE` | open-ended |
+  | ENTF Transportation Committee Meeting (12) | 34 | 2029-06-26 | monthly `BYDAY=4TU` | open-ended |
+  | Hair of the Dog Ride (9) | 3 | 2029-01-01 | yearly Jan 1; 3 tentative Overrides | open-ended |
+  | 11th Annual CDR (59) | 3 | 2029-07-04 | yearly Jul 4 | open-ended |
+  | Luton Loops & Libations (40) | 4 | 2026-09-30 | weekly WE | UNTIL |
+  | VBF Tuesday Night Road Ride (52) | 8 | 2026-10-27 | weekly TU | UNTIL |
+  | Kentwood Challenger (55) | 8 | 2026-10-28 | weekly WE | UNTIL |
+  | Dawn Patrol (56) | 8 | 2026-10-31 | weekly SA; zero-length Occurrences | UNTIL |
+  | Gravel Grinders (57) | 7 | 2026-10-26 | weekly MO | UNTIL |
+  | Grand Rapids Bike Polo (58) | 2 | 2026-09-24 | all-day, weekly `INTERVAL=2` TH | UNTIL |
 
   So I expect all 15 to rebuild with an exact-match rule and 0 flagged. The fixture test proves it.
+
+  **Feed horizon:** 2029-07-04 (the latest Occurrence start in the whole feed: 11th Annual CDR).
+  **Horizon note:** the three weekly 109-Occurrence rides stop on 2028-10-04/05, nine months before
+  the feed horizon. Tockify seems to stop weekly expansions before monthly and yearly ones. With the
+  approved rule, these rides get an `UNTIL` in 2028-10. Editors must check them (see the report).
 - Schedule status in the feed: 1 `**Cancelled**` (with `STATUS:CANCELLED`), 3
   `**Provisional (date to be confirmed)**`. 547 of 551 `SUMMARY` values start with a space.
 - `LOCATION` and `DESCRIPTION` use ICS escapes (`\,` `\;` `\n`). No HTML.
@@ -50,7 +55,7 @@ no `VTIMEZONE`).
   contains `:`, so the value starts after the first `:` that is not inside a quoted parameter.
 - All-day `DTEND` is exclusive (`20260901` to `20261001`). Our `endDate` is inclusive, so I subtract
   one day.
-- Vital Streets Oversight Commission (28) runs 2026-12-14 13:00 to 2026-12-21 15:00 (7 days). That
+- Vital Streets Oversight Commission (29) runs 2026-12-14 13:00 to 2026-12-21 15:00 (7 days). That
   is most likely a data error in Tockify. I report it; I do not fix it.
 
 ## Approach
@@ -118,8 +123,19 @@ New dependency: `pnpm add rrule`. Nothing else.
 - **Tag names** stay as Tockify writes them (`Group-Ride`); slugs are lowercase kebab-case
   (`group-ride`). Editors rename later (the slug stays). Tags belong to one Calendar, so a name used
   in both Calendars gives two Tags.
-- **`UNTIL` of a rebuilt Series** is the last date in the feed. The feed stops at its own horizon
-  (the 109-Occurrence rides end 2028-10), so Editors must check the end date in the admin review.
+- **Open-ended Series at the feed horizon** (Jeremy's change, 2026-10-09). The **feed horizon** is
+  the latest Occurrence start date in the whole feed. The **next rule date** of a Series is the first
+  date that its rule (with no `UNTIL`) makes after its last feed Occurrence. Precise definition: a
+  Series is **open-ended** (no `UNTIL`) if its next rule date is after the feed horizon, because the
+  feed would show that date if it existed. If not, the Series ends clearly before the horizon and
+  gets `UNTIL=<last date>T235959`. This is "within one repeat period of the horizon", but it is exact
+  for weekly, every-other-week, nth-weekday monthly, and yearly rules.
+- **Exact-match check is bounded by the horizon.** For every rebuilt Series (open-ended or not), the
+  check expands the final rule through the engine for the window `[first date, horizon + 1 day)` and
+  compares the result with the feed Occurrences. A rule with `UNTIL` must also make no date after its
+  last Occurrence in that window.
+- The `series` report entry has `until: string | null` (`null` = open-ended), so Editors can check
+  the end of each Series.
 
 ## Module layout
 
@@ -167,7 +183,8 @@ interface ImportResult {
   tags: { calendar: CalendarSlug; name: string; slug: string }[];
   flags: { sourceId: string; title: string; reason: "ruleNotInferred" | "contentDiffers"; detail: string }[];
   series: { sourceId: string; title: string; occurrences: number;
-            outcome: "rule" | "flagged"; rrule: string | null; exdates: number; overrides: number }[];
+            outcome: "rule" | "flagged"; rrule: string | null; until: string | null;
+            exdates: number; overrides: number }[];
 }
 ```
 
@@ -260,6 +277,10 @@ interface ImportResult {
 - Irregular dates are flagged and imported as one-time Events
 - Exact-match check rejects a rule that expands to one extra date
 - Too many EXDATEs are flagged
+- Open-ended weekly Series at the horizon has no UNTIL
+- Series that ends before the horizon keeps its UNTIL
+- Exact-match check is bounded by the horizon
+- Next rule date is exact for monthly nth-weekday and yearly rules
 
 ### Import — Series build
 
@@ -274,6 +295,8 @@ interface ImportResult {
 
 - Fixture has 551 Occurrences, 28 Events, and 15 Series
 - Every Series is rebuilt by an exact-match rule or flagged, and the report matches the expected table
+  (rule, and open-ended or UNTIL)
+- Feed horizon is 2029-07-04
 - Every rebuilt Series, with its Overrides, expands through the engine to exactly its feed Occurrences
 - Wednesday Evening Rides on 2026-09-30 is a cancelled Override
 - Hair of the Dog Ride is yearly with three tentative Overrides
@@ -294,7 +317,8 @@ interface ImportResult {
 6. **ics-parser** — parser tests, then `ics.ts`.
 7. **tockify-occurrence-mapping** — mapping tests, then `tockify-occurrence.ts`.
 8. **calendar-and-tag-cleanup** — tests, then `calendar-and-tags.ts`.
-9. **rule-inference** — tests, then `infer-rule.ts` with the exact-match check through the engine.
+9. **rule-inference** — tests, then `infer-rule.ts` with the feed horizon, open-ended Series, and
+   the exact-match check through the engine.
 10. **series-build** — tests, then `build-series.ts` (base values, Overrides, flags, fallback).
 11. **import-entry-point-and-fixture-check** — fixture tests, then `import-tockify.ts`.
 12. **refactor-and-verify** — clean up; `pnpm test`, `pnpm lint`, `pnpm typecheck` all pass.
