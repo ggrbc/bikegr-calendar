@@ -185,6 +185,22 @@ describe("schema", () => {
     );
   });
 
+  it("tag keeps who changed and who retired it", async () => {
+    const [editor] = await db.insert(editors).values({ email: "tagger@example.org" }).returning();
+    const [tag] = await db
+      .insert(tags)
+      .values({ calendar: "rides", name: "Gravel", slug: "gravel", createdBy: editor.id })
+      .returning();
+    expect(tag.updatedAt).toBeInstanceOf(Date);
+    const [retired] = await db
+      .update(tags)
+      .set({ retiredAt: new Date(), retiredBy: editor.id, updatedBy: editor.id })
+      .where(eq(tags.id, tag.id))
+      .returning();
+    expect(retired.retiredBy).toBe(editor.id);
+    expect(retired.updatedBy).toBe(editor.id);
+  });
+
   it("tag from the other Calendar is refused", async () => {
     const [ride] = await db.insert(events).values(timed).returning();
     const [advocacyTag] = await db

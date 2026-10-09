@@ -146,8 +146,11 @@ CREATE TABLE "tags" (
 	"name" text NOT NULL,
 	"slug" text NOT NULL,
 	"retired_at" timestamp with time zone,
+	"retired_by" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"created_by" uuid,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_by" uuid,
 	CONSTRAINT "tags_calendar_slug_unique" UNIQUE("calendar","slug"),
 	CONSTRAINT "tags_id_calendar_unique" UNIQUE("id","calendar"),
 	CONSTRAINT "tags_slug_format" CHECK ("tags"."slug" ~ '^[a-z0-9]+(-[a-z0-9]+)*$')
@@ -169,7 +172,9 @@ ALTER TABLE "events" ADD CONSTRAINT "events_deleted_by_editors_id_fk" FOREIGN KE
 ALTER TABLE "overrides" ADD CONSTRAINT "overrides_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "overrides" ADD CONSTRAINT "overrides_created_by_editors_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."editors"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "overrides" ADD CONSTRAINT "overrides_updated_by_editors_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."editors"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "tags" ADD CONSTRAINT "tags_retired_by_editors_id_fk" FOREIGN KEY ("retired_by") REFERENCES "public"."editors"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "tags" ADD CONSTRAINT "tags_created_by_editors_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."editors"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "tags" ADD CONSTRAINT "tags_updated_by_editors_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."editors"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "auth_sessions_user_idx" ON "auth_sessions" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "event_history_event_idx" ON "event_history" USING btree ("event_id","changed_at");--> statement-breakpoint
 CREATE INDEX "event_tags_tag_idx" ON "event_tags" USING btree ("tag_id");--> statement-breakpoint

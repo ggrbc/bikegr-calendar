@@ -1,5 +1,5 @@
 {
-  "id": "b8b6f960-8d63-42ca-a8c7-3ab4d3c9c116",
+  "id": "08383e3b-705b-42aa-952f-56316f6d51c3",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1075,6 +1075,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "retired_by": {
+          "name": "retired_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1087,16 +1093,55 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
       "foreignKeys": {
+        "tags_retired_by_editors_id_fk": {
+          "name": "tags_retired_by_editors_id_fk",
+          "tableFrom": "tags",
+          "tableTo": "editors",
+          "columnsFrom": [
+            "retired_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
         "tags_created_by_editors_id_fk": {
           "name": "tags_created_by_editors_id_fk",
           "tableFrom": "tags",
           "tableTo": "editors",
           "columnsFrom": [
             "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "tags_updated_by_editors_id_fk": {
+          "name": "tags_updated_by_editors_id_fk",
+          "tableFrom": "tags",
+          "tableTo": "editors",
+          "columnsFrom": [
+            "updated_by"
           ],
           "columnsTo": [
             "id"

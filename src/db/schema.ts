@@ -229,8 +229,11 @@ export const tags = pgTable(
     /** Stable, URL-safe. Renaming a Tag keeps it. */
     slug: text("slug").notNull(),
     retiredAt: instant("retired_at"),
+    retiredBy: uuid("retired_by").references(() => editors.id),
     createdAt: createdAt(),
     createdBy: uuid("created_by").references(() => editors.id),
+    updatedAt: updatedAt(),
+    updatedBy: uuid("updated_by").references(() => editors.id),
   },
   (t) => [
     unique("tags_calendar_slug_unique").on(t.calendar, t.slug),
