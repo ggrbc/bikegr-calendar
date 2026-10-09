@@ -28,13 +28,18 @@ export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** A simple shape check. The magic link proves that the address works. */
+export function isValidEmail(email: string): boolean {
+  return EMAIL.test(email);
+}
+
 export function parseInviteInput(raw: {
   email: unknown;
   role: unknown;
   name?: unknown;
 }): ParseResult<InviteInput> {
   const email = typeof raw.email === "string" ? normalizeEmail(raw.email) : "";
-  if (!EMAIL.test(email)) return { ok: false, error: "Enter a valid email address." };
+  if (!isValidEmail(email)) return { ok: false, error: "Enter a valid email address." };
 
   const role = raw.role;
   if (typeof role !== "string" || !(EDITOR_ROLES as readonly string[]).includes(role)) {
