@@ -50,14 +50,31 @@ describe("schema", () => {
   });
 
   it("local time stays wall-clock", async () => {
-    // 2026-11-03 is after the DST change (2026-11-01). The stored value must not shift.
-    await db.execute(sql`set time zone 'UTC'`);
+    // 2026-11-03 is after the DST change (2026-11-01). Write with the session in Detroit, read with
+    // the session in UTC: a `timestamptz` column would come back 5 hours later; a wall-clock
+    // `timestamp` column comes back unchanged.
+    await db.execute(sql`set time zone 'America/Detroit'`);
     const [row] = await db.insert(events).values(timed).returning();
-    expect(row.startLocal).toBe("2026-11-03T18:00");
-    const [read] = await db.select().from(events).where(eq(events.id, row.id));
-    expect(read.startLocal).toBe("2026-11-03T18:00");
-    expect(read.endLocal).toBe("2026-11-03T20:00");
-    expect(read.timeZone).toBe("America/Detroit");
+    await db.execute(sql`set time zone 'UTC'`);
+    try {
+      const [read] = await db.select().from(events).where(eq(events.id, row.id));
+      expect(read.startLocal).toBe("2026-11-03T18:00");
+      expect(read.endLocal).toBe("2026-11-03T20:00");
+      expect(read.timeZone).toBe("America/Detroit");
+    } finally {
+      await db.execute(sql`reset time zone`);
+    }
+
+    // PGlite returns `{ rows }`; the result type is driver-generic, so read it as that shape.
+    const columns = (await db.execute(sql`
+      select column_name, data_type from information_schema.columns
+      where table_name in ('events', 'overrides') and column_name in ('start_local', 'end_local')`)) as unknown as {
+      rows: { data_type: string }[];
+    };
+    expect(columns.rows).toHaveLength(4);
+    for (const column of columns.rows) {
+      expect(column.data_type).toBe("timestamp without time zone");
+    }
   });
 
   it("timing shape must be complete", async () => {
