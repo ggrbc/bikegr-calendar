@@ -18,7 +18,7 @@
 import { expandOccurrences } from "@/engine/expand-occurrences";
 import { nextRuleStart, ruleStartsBetween } from "@/engine/expand-rule";
 import type { LocalDate, OriginalStart, Timing } from "@/engine/types";
-import { addDays, toFloating } from "@/engine/wall-clock";
+import { addDays, daysBetween, toFloating } from "@/engine/wall-clock";
 
 export interface InferRuleInput {
   /** Time slot of the first Occurrence, at the Series' usual time of day and length. */
@@ -93,7 +93,9 @@ export function exactMatch(
     { from: dateOf(originalStarts[0]), to: addDays(feedHorizon, 1) },
   );
   const made = occurrences.map((occurrence) => occurrence.originalStart);
-  return made.length === originalStarts.length && made.every((start, i) => start === originalStarts[i]);
+  return (
+    made.length === originalStarts.length && made.every((start, i) => start === originalStarts[i])
+  );
 }
 
 function fitCandidate(
@@ -113,9 +115,10 @@ function fitCandidate(
   const openEnded = next === null || dateOf(next) > feedHorizon;
   const originals = new Set(originalStarts);
   const exdates = made.filter((start) => start <= last && !originals.has(start));
-  return openEnded
-    ? { rrule: candidate, exdates, until: null }
-    : { rrule: `${candidate};UNTIL=${dateOf(last).replace(/-/g, "")}T235959`, exdates, until: dateOf(last) };
+  if (openEnded) return { rrule: candidate, exdates, until: null };
+
+  const until = dateOf(last);
+  return { rrule: `${candidate};UNTIL=${until.replace(/-/g, "")}T235959`, exdates, until };
 }
 
 /** Candidate rules with no `UNTIL`, simplest first. */
@@ -126,7 +129,8 @@ function candidateRules(dates: LocalDate[]): string[] {
 
   // Weekly. With one weekday, INTERVAL is the largest step that fits every gap.
   const interval = weekdays.length === 1 ? weeklyInterval(dates) : 1;
-  const weekly = `FREQ=WEEKLY${interval > 1 ? `;INTERVAL=${interval}` : ""};BYDAY=${weekdays.join(",")}`;
+  const intervalPart = interval > 1 ? `;INTERVAL=${interval}` : "";
+  const weekly = `FREQ=WEEKLY${intervalPart};BYDAY=${weekdays.join(",")}`;
   candidates.push(weekly);
   if (months.length < 12) candidates.push(`${weekly};BYMONTH=${months.join(",")}`);
 
@@ -135,10 +139,10 @@ function candidateRules(dates: LocalDate[]): string[] {
     const positions = unique(dates.map((date) => Math.ceil(Number(date.slice(8, 10)) / 7)));
     if (positions.length <= 2) {
       const sorted = positions.sort((a, b) => a - b);
-      candidates.push(`FREQ=MONTHLY;BYDAY=${sorted.map((n) => `${n}${weekdays[0]}`).join(",")}`);
+      const byDay = (ns: number[]) => ns.map((n) => `${n}${weekdays[0]}`).join(",");
+      candidates.push(`FREQ=MONTHLY;BYDAY=${byDay(sorted)}`);
       if (sorted.includes(5)) {
-        const withLast = sorted.map((n) => (n === 5 ? -1 : n));
-        candidates.push(`FREQ=MONTHLY;BYDAY=${withLast.map((n) => `${n}${weekdays[0]}`).join(",")}`);
+        candidates.push(`FREQ=MONTHLY;BYDAY=${byDay(sorted.map((n) => (n === 5 ? -1 : n)))}`);
       }
     }
   }
@@ -157,7 +161,7 @@ function candidateRules(dates: LocalDate[]): string[] {
 function weeklyInterval(dates: LocalDate[]): number {
   let result = 0;
   for (let i = 1; i < dates.length; i++) {
-    const days = Math.round((toFloating(dates[i]).getTime() - toFloating(dates[i - 1]).getTime()) / 86_400_000);
+    const days = daysBetween(dates[i - 1], dates[i]);
     if (days % 7 !== 0) return 1;
     result = gcd(result, days / 7);
   }

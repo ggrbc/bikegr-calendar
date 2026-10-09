@@ -32,7 +32,8 @@ export function buildEvent(group: TockifyOccurrence[], feedHorizon: LocalDate): 
   );
 
   if (occurrences.length === 1) {
-    return { events: [oneTimeEvent(occurrences[0], sourceId, calendar)], overrides: [], flags: [], report: null };
+    const event = oneTimeEvent(occurrences[0], sourceId, calendar);
+    return { events: [event], overrides: [], flags: [], report: null };
   }
 
   const base = baseValues(occurrences);
