@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@auth/core':
+        specifier: 0.41.3
+        version: 0.41.3
       '@auth/drizzle-adapter':
         specifier: ^1.11.3
         version: 1.11.3

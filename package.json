@@ -19,6 +19,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@auth/core": "0.41.3",
     "@auth/drizzle-adapter": "^1.11.3",
     "@neondatabase/serverless": "^1.2.0",
     "@vercel/functions": "^3.9.11",
