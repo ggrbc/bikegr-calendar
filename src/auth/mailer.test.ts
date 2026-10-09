@@ -44,8 +44,9 @@ describe("createMailer", () => {
     expect(log.mock.calls[0][0]).toContain("a@b.org");
   });
 
-  it("console transport is refused in Vercel production", () => {
-    expect(() => createMailer({ env: { VERCEL_ENV: "production" } })).toThrow(/RESEND_API_KEY/);
+  it("console transport is refused on every Vercel deployment, Preview included", () => {
+    expect(() => createMailer({ env: { VERCEL: "1", VERCEL_ENV: "production" } })).toThrow(/RESEND_API_KEY/);
+    expect(() => createMailer({ env: { VERCEL: "1", VERCEL_ENV: "preview" } })).toThrow(/RESEND_API_KEY/);
   });
 
   it("resend transport sends the link", async () => {

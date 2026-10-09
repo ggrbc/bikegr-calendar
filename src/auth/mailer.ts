@@ -1,6 +1,6 @@
 /**
  * Sends magic-link emails. Resend when `RESEND_API_KEY` is set; else the console transport prints
- * the link (local development only — it is refused in Vercel production).
+ * the link (local development only — it is refused on every Vercel deployment).
  */
 import { Resend } from "resend";
 import type { Editor } from "@/db/schema";
@@ -91,8 +91,10 @@ export function createMailer(options: MailerOptions = {}): Mailer {
     };
   }
 
-  if (env.VERCEL_ENV === "production") {
-    throw new Error("RESEND_API_KEY is not set. The console transport is not allowed in production.");
+  // Vercel sets VERCEL=1 on every deployment (Production and Preview). Its logs must never hold
+  // magic links.
+  if (env.VERCEL) {
+    throw new Error("RESEND_API_KEY is not set. The console transport is not allowed on Vercel.");
   }
   const log = options.log ?? ((line: string) => console.info(line));
   return {
