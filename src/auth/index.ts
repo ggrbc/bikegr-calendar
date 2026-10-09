@@ -5,7 +5,7 @@
  * and each request uses the request's own database Pool.
  */
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
-import NextAuth from "next-auth";
+import NextAuth, { AuthError } from "next-auth";
 import Resend from "next-auth/providers/resend";
 import { getDb } from "@/db";
 import { authAccounts, authSessions, authVerificationTokens, editors } from "@/db/schema";
@@ -14,6 +14,8 @@ import { createMailer, magicLinkKind } from "./mailer";
 import { canSignIn, normalizeEmail } from "./rules";
 
 export const LOGIN_PATH = "/login";
+
+const EXPECTED_ERRORS = new Set<string>(["AccessDenied", "Verification"]);
 
 export const { handlers, auth, signIn, signOut } = NextAuth(() => {
   const db = getDb();
@@ -25,6 +27,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
       verificationTokensTable: authVerificationTokens,
     }),
     session: { strategy: "database" },
+    logger: {
+      // A refused email and a used or expired link are normal events, not errors: one line, no stack.
+      error(error) {
+        if (error instanceof AuthError && EXPECTED_ERRORS.has(error.type)) {
+          console.warn(`[auth] ${error.type}`);
+          return;
+        }
+        console.error(error);
+      },
+    },
     pages: { signIn: LOGIN_PATH, verifyRequest: LOGIN_PATH, error: LOGIN_PATH },
     providers: [
       Resend({
