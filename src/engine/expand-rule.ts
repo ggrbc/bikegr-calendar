@@ -30,9 +30,30 @@ export class InvalidRuleError extends Error {
 
 const FREQUENCIES = new Set(["YEARLY", "MONTHLY", "WEEKLY", "DAILY"]);
 const WEEKDAY = /^([+-]?\d{1,2})?(MO|TU|WE|TH|FR|SA|SU)$/;
-const NUMBER_LIST = /^[+-]?\d{1,3}(,[+-]?\d{1,3})*$/;
+const SIGNED_INTEGER = /^[+-]?\d{1,3}$/;
 const POSITIVE_INTEGER = /^[1-9]\d*$/;
 const UNTIL_VALUE = /^(\d{8})(T(\d{6})(Z)?)?$/;
+
+/** A comma list of integers, each in `min..max`, or in `-max..-min` too if `signed`. */
+function integerList(min: number, max: number, signed: boolean) {
+  return (value: string) =>
+    value.split(",").every((item) => {
+      if (!SIGNED_INTEGER.test(item)) return false;
+      const n = Number(item);
+      const size = Math.abs(n);
+      return (signed || n > 0) && size >= min && size <= max;
+    });
+}
+
+/** BYDAY: weekdays, each with an optional ordinal in ±1..53. */
+function weekdayList(value: string): boolean {
+  return value.split(",").every((day) => {
+    const match = WEEKDAY.exec(day);
+    if (!match) return false;
+    const size = match[1] === undefined ? 1 : Math.abs(Number(match[1]));
+    return size >= 1 && size <= 53;
+  });
+}
 
 /** Parts that may appear in a rule, with a check for each value. */
 const PART_CHECKS: Record<string, (value: string) => boolean> = {
@@ -41,19 +62,22 @@ const PART_CHECKS: Record<string, (value: string) => boolean> = {
   COUNT: (value) => POSITIVE_INTEGER.test(value),
   UNTIL: (value) => UNTIL_VALUE.test(value),
   WKST: (value) => /^(MO|TU|WE|TH|FR|SA|SU)$/.test(value),
-  BYDAY: (value) => value.split(",").every((day) => WEEKDAY.test(day)),
-  BYMONTH: (value) => NUMBER_LIST.test(value),
-  BYMONTHDAY: (value) => NUMBER_LIST.test(value),
-  BYYEARDAY: (value) => NUMBER_LIST.test(value),
-  BYWEEKNO: (value) => NUMBER_LIST.test(value),
-  BYSETPOS: (value) => NUMBER_LIST.test(value),
+  BYDAY: weekdayList,
+  BYMONTH: integerList(1, 12, false),
+  BYMONTHDAY: integerList(1, 31, true),
+  BYYEARDAY: integerList(1, 366, true),
+  BYWEEKNO: integerList(1, 53, true),
+  BYSETPOS: integerList(1, 366, true),
 };
 
 /** Checks the rule and rewrites `UNTIL` as floating wall-clock time. */
 function normalizeRule(rrule: string): string {
-  if (rrule.trim() === "") throw new InvalidRuleError(rrule, "the rule is empty");
+  // One trailing ";" is allowed.
+  const body = rrule.endsWith(";") ? rrule.slice(0, -1) : rrule;
+  if (body.trim() === "") throw new InvalidRuleError(rrule, "the rule is empty");
   const seen = new Set<string>();
-  const parts = rrule.split(";").map((part) => {
+  const values = new Map<string, string>();
+  const parts = body.split(";").map((part) => {
     const [name, value, ...rest] = part.split("=");
     const check = PART_CHECKS[name];
     if (!check) throw new InvalidRuleError(rrule, `unknown part "${name}"`);
@@ -62,9 +86,13 @@ function normalizeRule(rrule: string): string {
     }
     if (seen.has(name)) throw new InvalidRuleError(rrule, `${name} is given twice`);
     seen.add(name);
+    values.set(name, value);
     return name === "UNTIL" ? `UNTIL=${floatingUntil(value)}` : part;
   });
   if (!seen.has("FREQ")) throw new InvalidRuleError(rrule, "FREQ is missing");
+  if (values.get("FREQ") === "WEEKLY" && /\d/.test(values.get("BYDAY") ?? "")) {
+    throw new InvalidRuleError(rrule, "BYDAY cannot have an ordinal (such as 2TU) with WEEKLY");
+  }
   if (seen.has("UNTIL") && seen.has("COUNT")) {
     throw new InvalidRuleError(rrule, "UNTIL and COUNT cannot both be given");
   }
