@@ -3,12 +3,12 @@
 import { useActionState } from "react";
 import { requestMagicLink, type LoginState } from "./actions";
 
-const initial: LoginState = { status: "idle" };
+const initial: LoginState = { result: "idle" };
 
 export function LoginForm() {
   const [state, action, pending] = useActionState(requestMagicLink, initial);
 
-  if (state.status === "sent") {
+  if (state.result === "sent") {
     return (
       <p role="status" className="rounded border border-green-700 bg-green-50 p-4">
         If <strong>{state.email}</strong> belongs to an Editor, we sent a sign-in link. No email?
@@ -30,7 +30,7 @@ export function LoginForm() {
         required
         className="rounded border border-gray-400 px-3 py-2"
       />
-      {state.status === "error" && (
+      {state.result === "error" && (
         <p role="alert" className="text-red-700">
           {state.message}
         </p>

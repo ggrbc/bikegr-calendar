@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { inviteEditorAction, type InviteState } from "./actions";
 
-const initial: InviteState = { status: "idle" };
+const initial: InviteState = { result: "idle" };
 
 export function InviteForm() {
   const [state, action, pending] = useActionState(inviteEditorAction, initial);
@@ -36,12 +36,12 @@ export function InviteForm() {
         <option value="editor">Editor</option>
         <option value="admin">Admin</option>
       </select>
-      {state.status === "error" && (
+      {state.result === "error" && (
         <p role="alert" className="text-red-700">
           {state.message}
         </p>
       )}
-      {state.status === "sent" && (
+      {state.result === "sent" && (
         <p role="status" className="text-green-800">
           Invite sent to {state.email}.
         </p>

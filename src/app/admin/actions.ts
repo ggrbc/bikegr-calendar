@@ -12,9 +12,9 @@ export async function signOutAction() {
 }
 
 export type InviteState =
-  | { status: "idle" }
-  | { status: "sent"; email: string }
-  | { status: "error"; message: string };
+  | { result: "idle" }
+  | { result: "sent"; email: string }
+  | { result: "error"; message: string };
 
 /** Admin only: creates the Editor, then sends the invite magic link. */
 export async function inviteEditorAction(_prev: InviteState, formData: FormData): Promise<InviteState> {
@@ -25,14 +25,14 @@ export async function inviteEditorAction(_prev: InviteState, formData: FormData)
     role: formData.get("role"),
     name: formData.get("name"),
   });
-  if (!parsed.ok) return { status: "error", message: parsed.error };
+  if (!parsed.ok) return { result: "error", message: parsed.error };
 
   const result = await inviteEditor(
     getDb(),
     { id: admin.id, role: admin.role, deactivatedAt: null },
     parsed.value,
   );
-  if (!result.ok) return { status: "error", message: result.error };
+  if (!result.ok) return { result: "error", message: result.error };
 
   try {
     await signIn("resend", { email: result.editor.email, redirect: false, redirectTo: "/admin" });
@@ -40,9 +40,9 @@ export async function inviteEditorAction(_prev: InviteState, formData: FormData)
     if (!(error instanceof AuthError)) throw error;
     console.error("[auth] Invite email failed:", error.type);
     return {
-      status: "error",
+      result: "error",
       message: `${result.editor.email} is now an Editor, but the invite email failed. They can get a link at /login.`,
     };
   }
-  return { status: "sent", email: result.editor.email };
+  return { result: "sent", email: result.editor.email };
 }
