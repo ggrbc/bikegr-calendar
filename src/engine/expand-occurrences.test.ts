@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { expandOccurrences } from "./expand-occurrences";
 import { allDay, makeEvent, timed } from "./test-helpers";
+import { timingStart } from "./timing";
+import type { Occurrence } from "./types";
 
 const october = { from: "2026-10-01", to: "2026-11-01" };
 
@@ -75,5 +77,146 @@ describe("expandOccurrences — one-time Events and the window", () => {
     const event = makeEvent(timed("2026-10-03T09:00", "2026-10-03T14:00"));
     expect(expandOccurrences(event, [], { from: "2026-10-03", to: "2026-10-03" })).toEqual([]);
     expect(expandOccurrences(event, [], { from: "2026-11-01", to: "2026-10-01" })).toEqual([]);
+  });
+});
+
+const starts = (occurrences: Occurrence[]) => occurrences.map((o) => timingStart(o.timing));
+
+describe("expandOccurrences — Series expansion", () => {
+  const tuesdayRide = makeEvent(timed("2026-09-08T18:00", "2026-09-08T21:00"), {
+    rrule: "FREQ=WEEKLY;BYDAY=TU",
+  });
+
+  it("weekly Series gives only the Occurrences in the window", () => {
+    expect(starts(expandOccurrences(tuesdayRide, [], october))).toEqual([
+      "2026-10-06T18:00",
+      "2026-10-13T18:00",
+      "2026-10-20T18:00",
+      "2026-10-27T18:00",
+    ]);
+  });
+
+  it("Tuesday 6 pm ride stays 6 pm across the November DST change", () => {
+    // DST ends Sunday 2026-11-01 in Detroit.
+    const result = expandOccurrences(tuesdayRide, [], { from: "2026-10-27", to: "2026-11-04" });
+    expect(starts(result)).toEqual(["2026-10-27T18:00", "2026-11-03T18:00"]);
+  });
+
+  it("Tuesday 6 pm ride stays 6 pm across the March DST change", () => {
+    // DST starts Sunday 2027-03-14 in Detroit.
+    const result = expandOccurrences(tuesdayRide, [], { from: "2027-03-09", to: "2027-03-17" });
+    expect(starts(result)).toEqual(["2027-03-09T18:00", "2027-03-16T18:00"]);
+  });
+
+  it("wall-clock length is kept on every Occurrence", () => {
+    const result = expandOccurrences(tuesdayRide, [], { from: "2026-10-27", to: "2026-11-04" });
+    expect(result.map((o) => o.timing)).toEqual([
+      timed("2026-10-27T18:00", "2026-10-27T21:00"),
+      timed("2026-11-03T18:00", "2026-11-03T21:00"),
+    ]);
+  });
+
+  it("first Occurrence is the Event's own start", () => {
+    const result = expandOccurrences(tuesdayRide, [], { from: "2026-09-01", to: "2026-09-10" });
+    expect(starts(result)).toEqual(["2026-09-08T18:00"]);
+  });
+
+  it("EXDATE skips one Occurrence", () => {
+    const event = { ...tuesdayRide, exdates: ["2026-10-13T18:00"] };
+    expect(starts(expandOccurrences(event, [], october))).toEqual([
+      "2026-10-06T18:00",
+      "2026-10-20T18:00",
+      "2026-10-27T18:00",
+    ]);
+  });
+
+  it("wall-clock UNTIL includes the last day", () => {
+    const event = { ...tuesdayRide, rrule: "FREQ=WEEKLY;BYDAY=TU;UNTIL=20261020T235959" };
+    expect(starts(expandOccurrences(event, [], october))).toEqual([
+      "2026-10-06T18:00",
+      "2026-10-13T18:00",
+      "2026-10-20T18:00",
+    ]);
+  });
+
+  it("date-only UNTIL includes the whole last day", () => {
+    const event = { ...tuesdayRide, rrule: "FREQ=WEEKLY;BYDAY=TU;UNTIL=20261020" };
+    expect(starts(expandOccurrences(event, [], october)).at(-1)).toBe("2026-10-20T18:00");
+  });
+
+  it("UTC UNTIL is read as Detroit wall-clock", () => {
+    // 2026-10-20T22:30Z is 6:30 pm EDT, after the 6 pm start, so 2026-10-20 is included.
+    const included = { ...tuesdayRide, rrule: "FREQ=WEEKLY;BYDAY=TU;UNTIL=20261020T223000Z" };
+    expect(starts(expandOccurrences(included, [], october)).at(-1)).toBe("2026-10-20T18:00");
+    // 2026-10-20T21:30Z is 5:30 pm EDT, before the 6 pm start, so 2026-10-20 is excluded.
+    const excluded = { ...tuesdayRide, rrule: "FREQ=WEEKLY;BYDAY=TU;UNTIL=20261020T213000Z" };
+    expect(starts(expandOccurrences(excluded, [], october)).at(-1)).toBe("2026-10-13T18:00");
+  });
+
+  it("COUNT limits the Series", () => {
+    const event = { ...tuesdayRide, rrule: "FREQ=WEEKLY;BYDAY=TU;COUNT=6" };
+    // 09-08, 09-15, 09-22, 09-29, 10-06, 10-13.
+    expect(starts(expandOccurrences(event, [], october))).toEqual([
+      "2026-10-06T18:00",
+      "2026-10-13T18:00",
+    ]);
+  });
+
+  it("seasonal BYMONTH Series skips the winter months", () => {
+    const event = makeEvent(timed("2026-04-02T18:00", "2026-04-02T20:00"), {
+      rrule: "FREQ=WEEKLY;BYDAY=TH;BYMONTH=4,5,6,7,8,9,10",
+    });
+    const result = expandOccurrences(event, [], { from: "2026-10-20", to: "2027-04-10" });
+    expect(starts(result)).toEqual([
+      "2026-10-22T18:00",
+      "2026-10-29T18:00",
+      "2027-04-01T18:00",
+      "2027-04-08T18:00",
+    ]);
+  });
+
+  it("monthly Series on the 2nd and 4th Tuesday", () => {
+    const event = makeEvent(timed("2026-09-22T08:00", "2026-09-22T09:00"), {
+      rrule: "FREQ=MONTHLY;BYDAY=2TU,4TU",
+    });
+    expect(starts(expandOccurrences(event, [], { from: "2026-09-01", to: "2026-12-01" }))).toEqual([
+      "2026-09-22T08:00",
+      "2026-10-13T08:00",
+      "2026-10-27T08:00",
+      "2026-11-10T08:00",
+      "2026-11-24T08:00",
+    ]);
+  });
+
+  it("yearly Series on a fixed date falls on different weekdays", () => {
+    const event = makeEvent(timed("2027-01-01T10:00", "2027-01-01T13:00"), {
+      rrule: "FREQ=YEARLY",
+    });
+    expect(starts(expandOccurrences(event, [], { from: "2027-01-01", to: "2030-01-01" }))).toEqual([
+      "2027-01-01T10:00",
+      "2028-01-01T10:00",
+      "2029-01-01T10:00",
+    ]);
+  });
+
+  it("all-day Series every other Thursday", () => {
+    const event = makeEvent(allDay("2026-09-10"), { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=TH" });
+    const result = expandOccurrences(event, [], { from: "2026-09-01", to: "2026-10-10" });
+    expect(result.map((o) => o.timing)).toEqual([
+      allDay("2026-09-10"),
+      allDay("2026-09-24"),
+      allDay("2026-10-08"),
+    ]);
+    expect(result.map((o) => o.originalStart)).toEqual(["2026-09-10", "2026-09-24", "2026-10-08"]);
+  });
+
+  it("multi-day Series Occurrence that starts before the window is included", () => {
+    const event = makeEvent(allDay("2026-09-26", "2026-10-02"), { rrule: "FREQ=YEARLY" });
+    expect(starts(expandOccurrences(event, [], october))).toEqual(["2026-09-26"]);
+  });
+
+  it("bad RRULE gives a clear error", () => {
+    const event = { ...tuesdayRide, rrule: "FREQ=FORTNIGHTLY" };
+    expect(() => expandOccurrences(event, [], october)).toThrow(/RRULE/);
   });
 });
