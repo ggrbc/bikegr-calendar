@@ -166,7 +166,8 @@ describe("Auth.js wiring", () => {
         cause: driverError,
       });
       const config = buildAuthConfig({ db, mailer, getClientIp: async () => null });
-      config.logger!.error!(new AdapterError(queryError));
+      // As Auth.js does it (`lib/init.js`: `new AdapterError(e)`). The public type allows only a string.
+      config.logger!.error!(new AdapterError(queryError as unknown as string));
 
       expect(lines).toHaveLength(1);
       expect(lines[0]).toMatch(/^\[auth\] Auth\.js error: AdapterError cause Error cause Error code=22021/);
