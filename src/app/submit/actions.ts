@@ -54,7 +54,7 @@ export async function submitEventAction(_prev: SubmitState, data: FormData): Pro
     {
       today: todayInDetroit(new Date()),
       hitRateLimit: (rule, key) => hitRateLimit(db, rule, key),
-      verifyTurnstile: (token, from) => verifyTurnstile(token, from, { secret: config.secret }),
+      verifyTurnstile: (token, from) => verifyTurnstile(token, from, { secret: config.secret, url: config.verifyUrl }),
       storeImage: store ? (bytes) => uploadEventImage(bytes, { store }) : null,
     },
   );

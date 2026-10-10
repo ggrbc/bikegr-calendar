@@ -12,7 +12,7 @@ import { todayInDetroit } from "@/agenda/dates";
 import { ruleInputToColumns } from "@/db/mappers";
 import * as schema from "@/db/schema";
 import type { EventRuleInput, Timing } from "@/engine";
-import { E2E_DATABASE_URL, fixtureDates, IDS } from "./fixture";
+import { E2E_DATABASE_URL, E2E_EDITOR, fixtureDates, IDS } from "./fixture";
 
 const timed = (day: string, from = "18:00", to = "20:00"): Timing => ({
   kind: "timed",
@@ -41,7 +41,21 @@ export default async function globalSetup() {
   const db = drizzle({ client, schema });
   try {
     await migrate(db, { migrationsFolder: join(process.cwd(), "drizzle") });
-    await db.execute(sql`truncate events, tags, event_tags, overrides, event_history cascade`);
+    await db.execute(
+      sql`truncate events, tags, event_tags, overrides, event_history, rate_limits, auth_sessions, editors cascade`,
+    );
+    await db.insert(schema.editors).values({
+      id: E2E_EDITOR.id,
+      email: E2E_EDITOR.email,
+      name: E2E_EDITOR.name,
+      role: "editor",
+      emailVerified: new Date(),
+    });
+    await db.insert(schema.authSessions).values({
+      sessionToken: E2E_EDITOR.sessionToken,
+      userId: E2E_EDITOR.id,
+      expires: new Date(Date.now() + 24 * 3600 * 1000),
+    });
 
     const dates = fixtureDates(todayInDetroit(new Date()));
     const description = "A no-drop ride along the river. Lights required after dark. ".repeat(6).trim();

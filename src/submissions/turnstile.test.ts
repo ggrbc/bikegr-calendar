@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { TURNSTILE_TEST_KEYS, turnstileConfig, verifyTurnstile } from "./turnstile";
+import { SITEVERIFY_URL, TURNSTILE_TEST_KEYS, turnstileConfig, verifyTurnstile } from "./turnstile";
 
 function fakeFetch(body: unknown, status = 200) {
   return vi.fn<typeof fetch>(async () => new Response(JSON.stringify(body), { status }));
@@ -10,17 +10,31 @@ describe("turnstileConfig", () => {
     expect(turnstileConfig({ TURNSTILE_SITE_KEY: "site", TURNSTILE_SECRET_KEY: "secret" })).toEqual({
       siteKey: "site",
       secret: "secret",
+      verifyUrl: SITEVERIFY_URL,
     });
   });
 
   it("with no keys off Vercel, uses Cloudflare's always-pass test keys", () => {
-    expect(turnstileConfig({})).toEqual({ siteKey: TURNSTILE_TEST_KEYS.sitePass, secret: TURNSTILE_TEST_KEYS.secretPass });
+    expect(turnstileConfig({})).toEqual({
+      siteKey: TURNSTILE_TEST_KEYS.sitePass,
+      secret: TURNSTILE_TEST_KEYS.secretPass,
+      verifyUrl: SITEVERIFY_URL,
+    });
   });
 
   it("on Vercel, a missing key or secret closes the form", () => {
     expect(turnstileConfig({ VERCEL: "1" })).toBeNull();
     expect(turnstileConfig({ VERCEL: "1", TURNSTILE_SITE_KEY: "site" })).toBeNull();
     expect(turnstileConfig({ VERCEL: "1", TURNSTILE_SECRET_KEY: "secret" })).toBeNull();
+  });
+
+  it("the local siteverify stand-in works only off Vercel, only over http on localhost", () => {
+    const local = "http://localhost:4100/turnstile/siteverify";
+    const keys = { TURNSTILE_SITE_KEY: "s", TURNSTILE_SECRET_KEY: "k" };
+    expect(turnstileConfig({ TURNSTILE_SITEVERIFY_URL: local })?.verifyUrl).toBe(local);
+    expect(turnstileConfig({ ...keys, VERCEL: "1", TURNSTILE_SITEVERIFY_URL: local })?.verifyUrl).toBe(SITEVERIFY_URL);
+    expect(turnstileConfig({ TURNSTILE_SITEVERIFY_URL: "https://other.example/ok" })?.verifyUrl).toBe(SITEVERIFY_URL);
+    expect(turnstileConfig({ TURNSTILE_SITEVERIFY_URL: "not a url" })?.verifyUrl).toBe(SITEVERIFY_URL);
   });
 });
 

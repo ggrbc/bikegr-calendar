@@ -4,7 +4,7 @@
  * serves the Embed test host pages on port 4100 (a second origin).
  */
 import { defineConfig, devices } from "@playwright/test";
-import { APP, APP_PORT, E2E_DATABASE_URL, HOST, HOST_PORT } from "./e2e/fixture";
+import { APP, APP_PORT, E2E_AUTH_SECRET, E2E_DATABASE_URL, HOST, HOST_PORT } from "./e2e/fixture";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -23,6 +23,19 @@ export default defineConfig({
       env: {
         DATABASE_URL: E2E_DATABASE_URL,
         EMBED_EXTRA_FRAME_ANCESTORS: HOST,
+        // Test-only values. Empty Turnstile keys give Cloudflare's always-pass test keys; the tests
+        // serve a stub widget script, and the host server stands in for siteverify: no network.
+        // No Resend and no Blob: the console email transport, and no image field.
+        AUTH_SECRET: E2E_AUTH_SECRET,
+        AUTH_URL: APP,
+        AUTH_TRUST_HOST: "true",
+        TURNSTILE_SITE_KEY: "",
+        TURNSTILE_SECRET_KEY: "",
+        TURNSTILE_SITEVERIFY_URL: `${HOST}/turnstile/siteverify`,
+        RESEND_API_KEY: "",
+        BLOB_READ_WRITE_TOKEN: "",
+        BLOB_STORE_ID: "",
+        VERCEL_OIDC_TOKEN: "",
       },
     },
     {
