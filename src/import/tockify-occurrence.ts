@@ -17,10 +17,11 @@ const TOCKIFY_UID = /^TKF\/[^/]+\/([^/]+)\/(\d+)\/\d+\/\d+$/;
 const ICS_DATE = /^(\d{4})(\d{2})(\d{2})$/;
 const ICS_DATE_TIME = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z?)$/;
 
-/** Schedule status prefixes that Tockify adds to `SUMMARY`. */
+/** Schedule status prefixes that Tockify adds to `SUMMARY`, in lower case. */
 const STATUS_PREFIXES: Record<string, StoredScheduleStatus> = {
-  Cancelled: "cancelled",
-  "Provisional (date to be confirmed)": "tentative",
+  cancelled: "cancelled",
+  canceled: "cancelled",
+  "provisional (date to be confirmed)": "tentative",
 };
 const PREFIX = /^\*\*([^*]+)\*\*\s*/;
 
@@ -29,7 +30,7 @@ export function toTockifyOccurrence(event: IcsEvent): TockifyOccurrence {
   const uidMatch = TOCKIFY_UID.exec(uid);
   if (!uidMatch) throw new Error(`Not a Tockify UID: "${uid}"`);
 
-  const { title, prefixStatus } = splitSummary(text(event, "SUMMARY") ?? "");
+  const { title, prefixStatus, unknownPrefix } = splitSummary(text(event, "SUMMARY") ?? "");
   const icsStatus = firstProperty(event, "STATUS")?.value.toUpperCase();
 
   return {
@@ -45,6 +46,7 @@ export function toTockifyOccurrence(event: IcsEvent): TockifyOccurrence {
     categories: readCategories(event),
     imageUrl: firstProperty(event, "X-TKF-FEATURED-IMAGE")?.value.trim() || null,
     cta: readCta(firstProperty(event, "X-TKF-PROMOTION-BUTTON")),
+    unknownTitlePrefix: unknownPrefix,
   };
 }
 
@@ -53,11 +55,17 @@ function text(event: IcsEvent, name: string): string | undefined {
   return property ? textValue(property.value).trim() : undefined;
 }
 
-function splitSummary(summary: string): { title: string; prefixStatus?: StoredScheduleStatus } {
+/** Removes a known Schedule status prefix (any case). An unknown prefix stays in the title. */
+function splitSummary(summary: string): {
+  title: string;
+  prefixStatus?: StoredScheduleStatus;
+  unknownPrefix: string | null;
+} {
   const match = PREFIX.exec(summary);
-  const prefixStatus = match ? STATUS_PREFIXES[match[1].trim()] : undefined;
-  if (!match || !prefixStatus) return { title: summary };
-  return { title: summary.slice(match[0].length).trim(), prefixStatus };
+  if (!match) return { title: summary, unknownPrefix: null };
+  const prefixStatus = STATUS_PREFIXES[match[1].trim().toLowerCase()];
+  if (!prefixStatus) return { title: summary, unknownPrefix: match[0].trim() };
+  return { title: summary.slice(match[0].length).trim(), prefixStatus, unknownPrefix: null };
 }
 
 function readTiming(event: IcsEvent, uid: string): Timing {

@@ -18,6 +18,7 @@ function occurrence(date: string, changes: Partial<TockifyOccurrence> = {}): Toc
     categories: ["Group-Ride", "Non-Drop", "Tuesday"],
     imageUrl: "https://img.example/ride.png",
     cta: { label: "Ride Details", url: "https://example.org/ride" },
+    unknownTitlePrefix: null,
     ...changes,
   };
 }
@@ -147,6 +148,28 @@ describe("Series build", () => {
     expect(built.flags[0].detail).toContain(field);
     // The most common value is kept.
     expect(built.events[0].description).toBe("Road ride.");
+  });
+
+  it("an unknown title prefix flags unknownTitlePrefix once for the Event", () => {
+    const prefixed = { title: "**Sold out** VBF Tuesday Night Road Ride", unknownTitlePrefix: "**Sold out**" };
+    const occurrences = tuesdays(4).map((date, i) => occurrence(date, i >= 2 ? prefixed : {}));
+    const built = buildEvent(occurrences, HORIZON);
+    expect(built.flags).toEqual([
+      {
+        sourceId: "52",
+        title: "VBF Tuesday Night Road Ride",
+        reason: "unknownTitlePrefix",
+        detail: 'Unknown title prefix "**Sold out**" on 2 Occurrences. It stays in the title.',
+      },
+    ]);
+  });
+
+  it("an unknown title prefix on a one-time Event is flagged", () => {
+    const built = buildEvent(
+      [occurrence("2026-09-08", { title: "**Sold out** Ride", unknownTitlePrefix: "**Sold out**" })],
+      HORIZON,
+    );
+    expect(built.flags.map((flag) => flag.reason)).toEqual(["unknownTitlePrefix"]);
   });
 
   it("the same Tags in a different order do not flag contentDiffers", () => {

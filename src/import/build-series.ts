@@ -50,11 +50,12 @@ export function buildEvent(group: TockifyOccurrence[], feedHorizon: LocalDate): 
   if (occurrences.length === 1) {
     const event = oneTimeEvent(occurrences[0], sourceId, calendar);
     const tags = importedTags(calendar, cleanTags(occurrences[0].categories));
-    return { events: [event], overrides: [], flags: [], tags, report: null };
+    const flags = unknownPrefixFlags(occurrences, sourceId, event.title);
+    return { events: [event], overrides: [], flags, tags, report: null };
   }
 
   const base = baseValues(occurrences);
-  const flags: ImportFlag[] = [];
+  const flags: ImportFlag[] = unknownPrefixFlags(occurrences, sourceId, base.title);
   if (base.differing.length > 0) {
     flags.push({
       sourceId,
@@ -163,6 +164,26 @@ function oneTimeEvent(
       scheduleNote: null,
     },
   };
+}
+
+/** One `unknownTitlePrefix` flag for the Event if any Occurrence has an unknown title prefix. */
+function unknownPrefixFlags(
+  occurrences: TockifyOccurrence[],
+  sourceId: string,
+  title: string,
+): ImportFlag[] {
+  const prefixed = occurrences.filter((o) => o.unknownTitlePrefix !== null);
+  if (prefixed.length === 0) return [];
+  const prefixes = [...new Set(prefixed.map((o) => `"${o.unknownTitlePrefix}"`))].join(", ");
+  const count = prefixed.length === 1 ? "1 Occurrence" : `${prefixed.length} Occurrences`;
+  return [
+    {
+      sourceId,
+      title,
+      reason: "unknownTitlePrefix",
+      detail: `Unknown title prefix ${prefixes} on ${count}. It stays in the title.`,
+    },
+  ];
 }
 
 /** One Tag record for each slug, in first-seen order. */

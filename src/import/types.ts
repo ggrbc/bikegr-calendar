@@ -33,6 +33,8 @@ export interface TockifyOccurrence {
   categories: string[];
   imageUrl: string | null;
   cta: Cta | null;
+  /** A `**…**` title prefix that is not a known Schedule status. It stays in `title`. */
+  unknownTitlePrefix: string | null;
 }
 
 export interface ImportedEvent {
@@ -56,7 +58,7 @@ export interface ImportedTag {
   slug: string;
 }
 
-export type ImportFlagReason = "ruleNotInferred" | "contentDiffers";
+export type ImportFlagReason = "ruleNotInferred" | "contentDiffers" | "unknownTitlePrefix";
 
 /** Something an Editor must check by hand after the import. */
 export interface ImportFlag {

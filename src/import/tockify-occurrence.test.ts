@@ -104,10 +104,27 @@ describe("Tockify Occurrence mapping", () => {
     expect(occurrence.title).toBe("Hair of the Dog Ride");
   });
 
-  it("an unknown prefix stays in the title", () => {
+  it.each([
+    ["**CANCELLED** Dawn Patrol", "cancelled"],
+    ["**Canceled** Dawn Patrol", "cancelled"],
+    ["**cancelled**Dawn Patrol", "cancelled"],
+    ["**PROVISIONAL (date to be confirmed)** Dawn Patrol", "tentative"],
+  ])("prefix %s is matched without regard to case", (summary, status) => {
+    const occurrence = vevent({ SUMMARY: `SUMMARY:${summary}` });
+    expect(occurrence.scheduleStatus).toBe(status);
+    expect(occurrence.title).toBe("Dawn Patrol");
+    expect(occurrence.unknownTitlePrefix).toBeNull();
+  });
+
+  it("an unknown prefix stays in the title and is reported", () => {
     const occurrence = vevent({ SUMMARY: "SUMMARY:**Sold out** PEDALS 2026" });
     expect(occurrence.scheduleStatus).toBe("scheduled");
     expect(occurrence.title).toBe("**Sold out** PEDALS 2026");
+    expect(occurrence.unknownTitlePrefix).toBe("**Sold out**");
+  });
+
+  it("a title with no prefix reports no unknown prefix", () => {
+    expect(vevent().unknownTitlePrefix).toBeNull();
   });
 
   it("leading space in SUMMARY is removed", () => {
