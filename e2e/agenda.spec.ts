@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { todayInDetroit } from "@/agenda/dates";
+import { addDays } from "@/engine";
 import { fixtureDates, IDS, segment } from "./fixture";
 
 const today = todayInDetroit(new Date());
@@ -69,6 +70,42 @@ test("Back keeps the day boxes in step with the URL", async ({ page }) => {
   await expect(page).toHaveURL(/\/rides$/);
   await expect(tue).not.toBeChecked();
   await expect(thu).not.toBeChecked();
+});
+
+test("text typed in the search while a filter loads stays", async ({ page }) => {
+  await page.goto("/rides");
+  await page.route("**/rides?*", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await route.continue();
+  });
+  await page.getByText("Filter", { exact: true }).click();
+  await page.getByRole("checkbox", { name: "Fri", exact: true }).check();
+  const search = page.getByRole("searchbox", { name: "Search" });
+  await search.fill("Wee");
+  await expect(page).toHaveURL(/\?day=fri$/);
+  await page.waitForTimeout(300);
+  await expect(search).toHaveValue("Wee");
+});
+
+test("From and then To both arrive in the URL", async ({ page }) => {
+  const from = addDays(today, 10);
+  const to = addDays(today, 15);
+  await page.goto("/rides");
+  await page.getByText("Filter", { exact: true }).click();
+  await page.getByLabel("From").fill(from);
+  await page.getByLabel("To").fill(to);
+  await page.keyboard.press("Tab");
+  await expect(page).toHaveURL(new RegExp(`\\?from=${from}&to=${to}$`));
+});
+
+test("a From change moves the default range; to stays out of the URL", async ({ page }) => {
+  const from = addDays(today, 10);
+  await page.goto("/rides");
+  await page.getByText("Filter", { exact: true }).click();
+  await page.getByLabel("From").fill(from);
+  await page.keyboard.press("Tab");
+  await expect(page).toHaveURL(new RegExp(`\\?from=${from}$`));
+  await expect(page.getByLabel("To")).toHaveValue(addDays(from, 55));
 });
 
 test("the list is marked busy while a filter click loads", async ({ page }) => {
