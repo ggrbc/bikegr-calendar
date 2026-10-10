@@ -1,0 +1,90 @@
+/** Text for the admin: Detroit times, the conflict message, history labels. Pure. */
+import { clockTime, dayHeading, shortDate } from "@/agenda/dates";
+import { type LocalDate, utcToWallClock } from "@/engine";
+
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+/** "October 27, 2028". */
+export function longDate(date: LocalDate): string {
+  return `${MONTHS[Number(date.slice(5, 7)) - 1]} ${Number(date.slice(8, 10))}, ${date.slice(0, 4)}`;
+}
+
+/** An instant as Detroit wall-clock time: "3:12 pm on Saturday, October 10, 2026". */
+export function formatInstantDetroit(instant: Date): string {
+  const wallClock = utcToWallClock(instant);
+  const date = wallClock.slice(0, 10);
+  return `${clockTime(wallClock)} on ${dayHeading(date)}, ${date.slice(0, 4)}`;
+}
+
+export function conflictMessage(changedAt: Date): string {
+  return `Another Editor changed this Event at ${formatInstantDetroit(changedAt)} (Detroit time). Reload to see their change.`;
+}
+
+export const DELETED_MESSAGE = "This Event was deleted.";
+export const NOT_FOUND_MESSAGE = "This Event does not exist.";
+
+/** Facts in `event_history.snapshot.detail`. */
+export interface HistoryDetail {
+  originalStart?: string;
+  splitDate?: string;
+  successorId?: string;
+  predecessorId?: string;
+  removedOverrides?: string[];
+}
+
+/** History actions written by the admin and the import. */
+export type HistoryAction =
+  | "create"
+  | "edit"
+  | "change-time-or-repeat"
+  | "split"
+  | "create-from-split"
+  | "stop-series"
+  | "override"
+  | "clear-override"
+  | "delete"
+  | "restore"
+  | "import";
+
+export function historyActionLabel(action: string, detail: HistoryDetail): string {
+  const day = (value?: string) => (value ? shortDate(value.slice(0, 10)) : "");
+  switch (action) {
+    case "create":
+      return "Created";
+    case "edit":
+      return "Edited";
+    case "change-time-or-repeat":
+      return "Changed the time or the repeat";
+    case "split":
+      return `Series split: dates from ${day(detail.splitDate)} moved to a new Event`;
+    case "create-from-split":
+      return `Created by a Series split, from ${day(detail.splitDate)}`;
+    case "stop-series":
+      return `Series stopped: no dates from ${day(detail.splitDate)}`;
+    case "override":
+      return `Changed one date (${day(detail.originalStart)})`;
+    case "clear-override":
+      return `Removed the change to one date (${day(detail.originalStart)})`;
+    case "delete":
+      return "Deleted";
+    case "restore":
+      return "Restored";
+    case "import":
+      return "Import";
+    default:
+      return action;
+  }
+}
