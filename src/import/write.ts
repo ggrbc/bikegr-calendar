@@ -22,10 +22,21 @@ export interface WriteReport {
   updated: EventRef[];
   unchanged: EventRef[];
   failed: (EventRef & { message: string })[];
-  /** Updated Events that an Editor had changed. The import wrote them anyway. */
+  /**
+   * Updated Events that carry an Editor's mark (`updated_by`, or an Override's `created_by` /
+   * `updated_by`) but no Editor history row: a change made outside the admin (for example by SQL).
+   * The import wrote them anyway. Every admin write makes a history row, so admin changes are in
+   * `changedInAdmin` instead.
+   */
   editorOverwrites: EventRef[];
   /** Events in the database with a Source ID that the feed no longer has. Not deleted. */
   notInFeed: EventRef[];
+  /**
+   * Events that an Editor changed in the admin: a history row by an Editor (an edit, a split, a
+   * stop, an in-place change, an Override, a delete, a restore), or a successor from a split. The
+   * import never writes them: the admin wins.
+   */
+  changedInAdmin: EventRef[];
 }
 
 export interface WriteOptions {
@@ -38,7 +49,7 @@ export interface WriteOptions {
 }
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
-type Outcome = "inserted" | "updated" | "unchanged";
+type Outcome = "inserted" | "updated" | "unchanged" | "changedInAdmin";
 
 export async function writeImport(
   db: Db,
@@ -52,6 +63,7 @@ export async function writeImport(
     failed: [],
     editorOverwrites: [],
     notInFeed: [],
+    changedInAdmin: [],
   };
   const tagNames = new Map(result.tags.map((t) => [`${t.calendar}/${t.slug}`, t.name]));
   const overridesBySource = new Map<string, OverrideInput[]>();
@@ -92,8 +104,11 @@ async function writeEvent(
   eventOverrides: OverrideInput[],
   { imageCopied, tagNames }: { imageCopied: boolean; tagNames: Map<string, string> },
 ): Promise<{ outcome: Outcome; editorChanged: boolean }> {
-  const tagIds = await upsertTags(tx, event, tagNames);
   const [existing] = await tx.select().from(events).where(eq(events.sourceId, event.sourceId));
+  if (existing && (await changedInAdmin(tx, existing.id))) {
+    return { outcome: "changedInAdmin", editorChanged: false };
+  }
+  const tagIds = await upsertTags(tx, event, tagNames);
 
   const owned = {
     calendar: event.calendar,
@@ -162,6 +177,22 @@ async function writeEvent(
   await writeChildren(tx, row.id, event.calendar, eventOverrides, tagIds);
   await writeHistory(tx, row, eventOverrides.length, event.tagSlugs);
   return { outcome: "updated", editorChanged };
+}
+
+/** True if an Editor changed the Event in the admin: an Editor history row, or a successor. */
+async function changedInAdmin(tx: Tx, eventId: string): Promise<boolean> {
+  const [byEditor] = await tx
+    .select({ id: eventHistory.id })
+    .from(eventHistory)
+    .where(and(eq(eventHistory.eventId, eventId), isNotNull(eventHistory.changedBy)))
+    .limit(1);
+  if (byEditor) return true;
+  const [successor] = await tx
+    .select({ id: events.id })
+    .from(events)
+    .where(eq(events.predecessorId, eventId))
+    .limit(1);
+  return successor !== undefined;
 }
 
 /** Inserts missing Tags (by Calendar and slug) and returns the ids of the Event's Tags. */

@@ -7,6 +7,9 @@ import { createTestDb } from "@/db/test-db";
 import type { Db } from "@/db/types";
 import { importTockify } from "./import-tockify";
 import type { ImportResult, ImportedEvent } from "./types";
+import { editSeriesContent } from "@/admin/events/edit-event";
+import { splitSeries } from "@/admin/events/split-series";
+import { contentDraft } from "@/admin/events/test-helpers";
 import { writeImport } from "./write";
 
 const feed = new Uint8Array(
@@ -266,6 +269,158 @@ describe("import writer", () => {
     expect(report.updated).toHaveLength(2);
     expect((await eventBySource(db, "500")).reviewStatus).toBe("rejected");
     expect((await eventBySource(db, "501")).deletedAt).not.toBeNull();
+  });
+
+  it("Re-import does not change an Event that was split in the admin", async () => {
+    const series = oneTime("600", {
+      rule: {
+        eventId: "600",
+        timing: { kind: "timed", start: "2026-10-06T18:00", end: "2026-10-06T20:00" },
+        rrule: "FREQ=WEEKLY;BYDAY=TU",
+        exdates: [],
+        scheduleStatus: "scheduled",
+        scheduleNote: null,
+      },
+      tagSlugs: ["non-drop"],
+    });
+    const result = small([series], [{ calendar: "rides", name: "Non-Drop", slug: "non-drop" }]);
+    result.overrides = [{ eventId: "600", originalStart: "2026-10-13T18:00", scheduleStatus: "cancelled" }];
+    await writeImport(db, result);
+    const old = await eventBySource(db, "600");
+    // The admin split: the old Event ends; a new Event links to it.
+    await db
+      .update(events)
+      .set({ rrule: "FREQ=WEEKLY;BYDAY=TU;UNTIL=20261019T235959", version: 2 })
+      .where(eq(events.id, old.id));
+    await db.insert(events).values({
+      calendar: "rides",
+      title: "Event 600",
+      allDay: false,
+      startLocal: "2026-10-20T18:30",
+      endLocal: "2026-10-20T20:30",
+      rrule: "FREQ=WEEKLY;BYDAY=TU",
+      reviewStatus: "approved",
+      predecessorId: old.id,
+    });
+    const before = await counts(db);
+
+    const changed = structuredClone(result);
+    changed.events[0].title = "Changed in Tockify";
+    changed.events[0].tagSlugs = [];
+    changed.overrides = [];
+    const report = await writeImport(db, changed);
+
+    expect(report.changedInAdmin).toEqual([{ sourceId: "600", title: "Changed in Tockify" }]);
+    expect(report.updated).toEqual([]);
+    expect(report.unchanged).toEqual([]);
+    const row = await eventBySource(db, "600");
+    expect(row.title).toBe("Event 600");
+    expect(row.rrule).toBe("FREQ=WEEKLY;BYDAY=TU;UNTIL=20261019T235959");
+    expect(row.version).toBe(2);
+    expect(await counts(db)).toEqual(before);
+  });
+
+  it("Re-import still updates an Event with no successor", async () => {
+    const result = small([oneTime("601"), oneTime("602")]);
+    await writeImport(db, result);
+    const first = await eventBySource(db, "601");
+    // 602 is a predecessor of nothing; 601 is the successor of nothing either.
+    await db.insert(events).values({
+      calendar: "rides",
+      title: "Unrelated",
+      allDay: false,
+      startLocal: "2026-11-01T10:00",
+      endLocal: "2026-11-01T11:00",
+      predecessorId: null,
+    });
+    const changed = structuredClone(result);
+    changed.events[0].title = "Changed 601";
+    const report = await writeImport(db, changed);
+    expect(report.changedInAdmin).toEqual([]);
+    expect(report.updated.map((e) => e.sourceId)).toEqual(["601"]);
+    expect((await eventBySource(db, "601")).title).toBe("Changed 601");
+    expect((await eventBySource(db, "601")).version).toBe(first.version + 1);
+  });
+
+  /** A weekly Series on Tuesday from 2026-10-06, written by the import; and an Admin. */
+  async function importedSeries(sourceId: string) {
+    await seedAdmins(db);
+    const [admin] = await db.select().from(editors).limit(1);
+    const series = oneTime(sourceId, {
+      rule: {
+        eventId: sourceId,
+        timing: { kind: "timed", start: "2026-10-06T18:00", end: "2026-10-06T20:00" },
+        rrule: "FREQ=WEEKLY;BYDAY=TU",
+        exdates: [],
+        scheduleStatus: "scheduled",
+        scheduleNote: null,
+      },
+    });
+    const result = small([series]);
+    await writeImport(db, result);
+    const row = await eventBySource(db, sourceId);
+    const changed = structuredClone(result);
+    changed.events[0].title = "Changed in Tockify";
+    changed.events[0].rule.rrule = "FREQ=WEEKLY;BYDAY=TU;UNTIL=20271231T235959";
+    return { actor: { id: admin.id, role: admin.role }, row, changed };
+  }
+
+  const splitDraft = (splitDate: string, mode: "change" | "stop") => ({
+    ...contentDraft({ title: "Event 700", description: "", location: null }),
+    splitDate,
+    mode,
+    time: { kind: "timed" as const, startTime: "18:30", endTime: "20:30" },
+    rule: { kind: "same" as const },
+  });
+
+  it("Re-import does not change an Event that an Editor edited", async () => {
+    const { actor, row, changed } = await importedSeries("700");
+    const edit = await editSeriesContent(db, actor, { id: row.id, version: row.version }, {
+      ...contentDraft({ title: "Edited in the admin", description: "", location: null }),
+      exdateDates: [],
+    });
+    expect(edit.ok).toBe(true);
+    const before = await counts(db);
+    const report = await writeImport(db, changed);
+    expect(report.changedInAdmin).toEqual([{ sourceId: "700", title: "Changed in Tockify" }]);
+    expect(report.updated).toEqual([]);
+    expect(report.editorOverwrites).toEqual([]);
+    expect(await eventBySource(db, "700")).toMatchObject({ title: "Edited in the admin", rrule: "FREQ=WEEKLY;BYDAY=TU" });
+    expect(await counts(db)).toEqual(before);
+  });
+
+  it("Re-import does not undo Stop the Series", async () => {
+    const { actor, row, changed } = await importedSeries("701");
+    const stop = await splitSeries(db, actor, { id: row.id, version: row.version }, splitDraft("2026-11-03", "stop"), {
+      today: "2026-10-09",
+    });
+    expect(stop.ok).toBe(true);
+    const report = await writeImport(db, changed);
+    expect(report.changedInAdmin.map((e) => e.sourceId)).toEqual(["701"]);
+    expect((await eventBySource(db, "701")).rrule).toBe("FREQ=WEEKLY;BYDAY=TU;UNTIL=20261102T235959");
+  });
+
+  it("Re-import does not undo an in-place change", async () => {
+    const { actor, row, changed } = await importedSeries("702");
+    // No date before Oct 1, so the change is in place.
+    const inPlace = await splitSeries(db, actor, { id: row.id, version: row.version }, splitDraft("2026-10-01", "change"), {
+      today: "2026-10-01",
+    });
+    expect(inPlace).toMatchObject({ ok: true, kind: "in-place" });
+    const report = await writeImport(db, changed);
+    expect(report.changedInAdmin.map((e) => e.sourceId)).toEqual(["702"]);
+    expect((await eventBySource(db, "702")).startLocal).toBe("2026-10-06T18:30");
+  });
+
+  it("Re-import still updates an Event that only the import changed", async () => {
+    const { changed } = await importedSeries("703");
+    const report = await writeImport(db, changed);
+    expect(report.changedInAdmin).toEqual([]);
+    expect(report.updated.map((e) => e.sourceId)).toEqual(["703"]);
+    expect(await eventBySource(db, "703")).toMatchObject({
+      title: "Changed in Tockify",
+      rrule: "FREQ=WEEKLY;BYDAY=TU;UNTIL=20271231T235959",
+    });
   });
 
   it("an Event that the feed no longer has is reported and not deleted", async () => {
