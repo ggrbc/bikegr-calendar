@@ -15,6 +15,13 @@
       "when": 1791630405455,
       "tag": "0001_tag-names-without-dashes",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791648093924,
+      "tag": "0002_rate-limits",
+      "breakpoints": true
     }
   ]
 }
