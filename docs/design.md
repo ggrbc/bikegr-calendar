@@ -142,8 +142,13 @@ The admin offers three scopes when an Editor changes a Series. See
 ## Public side
 
 - **Views:** agenda at cutover. Month grid and cards (Tockify's "pinboard") after cutover.
-- **Calendar in the URL:** `calendar.bikegr.org/rides/…`, `/advocacy/…`. The standalone site has a
-  switcher: Rides & Events | Advocacy | All.
+- **Calendar in the URL:** `calendar.bikegr.org/rides/…`, `/advocacy/…`, and `/` for all. No
+  Calendar switcher on the pages (removed 2026-10-10, Jeremy): each page shows one Calendar, and
+  bikegr.org links to each one.
+- **Filters apply at once** (Tockify behavior): a day or Tag checkbox, or a date, changes the list at
+  once; the search applies on Enter. Without JavaScript, the Apply button submits the form. The
+  agenda pages are not streamed, so the first HTML has the events (also for bots and no-JavaScript
+  readers).
 - **Filters:** Tags, Day filter, text search, date range. All filter state is in the URL, so filtered
   views can be shared and embedded.
   - Between filters: AND (`?day=tue&tag=non-drop` = non-drop rides on Tuesday).
@@ -178,10 +183,21 @@ has a darker AA variant:
 | `brand-orange` | `#D04C27` | 4.43:1 | 3.96:1 | 4.43:1 | Large titles (24 px and more), borders, decoration |
 | `brand-orange-text` | `#BF4624` | 5.07:1 | 4.56:1 | 5.07:1 | Small titles, links, CTA button background |
 | `brand-green` | `#98AC43` | 2.52:1 | 2.26:1 | 2.52:1 | Borders, decoration, the no-image placeholder |
-| `brand-green-text` | `#67752E` | 5.05:1 | 4.51:1 | 5.05:1 | Tags, small text, toolbar and switcher buttons |
+| `brand-green-text` | `#67752E` | 5.05:1 | 4.51:1 | 5.05:1 | Tags, small text, outline buttons |
 
 Rule: text under 24 px and every button background use a `-text` variant; the brand colors are only
-for large titles, borders, and decoration. Text gray is `#424143`, the divider `#E5E5E5`.
+for large titles, borders, and decoration. Text gray is `#424142` (measured on bikegr.org), the
+divider `#E5E5E5`.
+
+**Blend into bikegr.org** (measured on www.bikegr.org, 2026-10-10; details in
+[plans/public-site-blend.md](plans/public-site-blend.md)): page gray `#F2F2F3`; a white header
+(118 px, 82 px on a phone) with the logo and a text nav in Open Sans 300 at 15.84 px; headings in
+Chivo 400 (not bold); body text Open Sans 300 at 15.84 px with a line height of about 1.9; buttons
+are pills (`border-radius: 300px`) in Chivo with white text. Flat sections, no boxed panels, no hard
+borders. The site's own orange is `#D14C27` (white text on it about 4.4:1); the calendar keeps the AA
+variant `#BF4624` behind white text. The standalone pages have a bikegr.org-like header (every link
+goes to www.bikegr.org); the Embed has no header and uses the page gray, the color of the
+Squarespace section around it.
 
 ## Embed
 
@@ -191,6 +207,10 @@ attribute (`data-calendar="advocacy"`).
 - `/events` shows `rides`; `/make-a-difference` shows `advocacy`.
 - Full CSS isolation from Squarespace.
 - Auto-resize via `postMessage` from the iframe to the host script.
+- **Filters in the host page URL** (Q44 = A, 2026-10-10): the host URL uses only the keys `bgr-tag`,
+  `bgr-day`, `bgr-q`, `bgr-from`, `bgr-to`, so they never clash with the host page's own keys
+  (Squarespace uses `?q=`). `embed.js` maps them to the short keys for the iframe. The calendar site
+  and the Feeds keep the short keys. Other host keys are never read or changed.
 - Must work in the narrow mobile layout (Tockify uses a separate mini embed there today).
 - Test on a hidden Squarespace page before cutover.
 - Trade-off: no SEO for the host page; the Event detail pages carry the SEO instead.
