@@ -9,6 +9,7 @@
  * width and height, so the layout does not shift.
  */
 import Image from "next/image";
+import { EscapeCloses } from "./escape-closes";
 
 const SITE = "https://www.bikegr.org";
 
@@ -63,7 +64,8 @@ export function SiteHeader() {
           </a>
         </nav>
 
-        <details className="relative lg:hidden">
+        <EscapeCloses detailsId="site-menu" />
+        <details id="site-menu" className="relative lg:hidden">
           <summary className="flex size-11 cursor-pointer list-none flex-col items-center justify-center gap-[7px] [&::-webkit-details-marker]:hidden">
             <span className="sr-only">Menu</span>
             <span aria-hidden="true" className="block h-px w-9 bg-brand-gray" />
