@@ -37,7 +37,7 @@ async function safeSend(kind: string, transport: EmailTransport, message: EmailM
 
 const defaultLog: Log = (line) => console.error(line);
 
-/** One email to all active Editors (not deactivated). */
+/** One email to each active Editor (not deactivated). */
 export async function notifyNewSubmission(
   db: Db,
   transport: EmailTransport,
@@ -66,7 +66,8 @@ export async function notifyNewSubmission(
     reviewUrl: `${origin}/admin/events/${event.id}`,
     queueUrl: `${origin}/admin/review`,
   });
-  await safeSend("new-submission", transport, { to, ...email }, log);
+  // One message per Editor: a shared `to` list would show each Editor's address to all the others.
+  for (const address of to) await safeSend("new-submission", transport, { to: [address], ...email }, log);
 }
 
 export async function notifyApproved(

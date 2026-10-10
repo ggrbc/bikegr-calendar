@@ -31,7 +31,7 @@ describe("notifyNewSubmission", () => {
   });
   afterEach(async () => close());
 
-  it("sends one email to all active Editors, not to a deactivated one, with the Calendar in the subject", async () => {
+  it("sends one email to each active Editor (no Editor sees another's address), not to a deactivated one", async () => {
     await addEditor(db, "Erin Editor");
     await addEditor(db, "Ada Admin", "admin");
     const gone = await addEditor(db, "Old Editor");
@@ -40,9 +40,12 @@ describe("notifyNewSubmission", () => {
 
     await notifyNewSubmission(db, transport, submitted, ORIGIN);
 
-    expect(transport.sent).toHaveLength(1);
+    expect(transport.sent).toHaveLength(2);
+    expect(transport.sent.map((m) => m.to)).toEqual(
+      expect.arrayContaining([["ada.admin@example.org"], ["erin.editor@example.org"]]),
+    );
+    expect(transport.sent[0].subject).toBe(transport.sent[1].subject);
     const [email] = transport.sent;
-    expect(email.to.sort()).toEqual(["ada.admin@example.org", "erin.editor@example.org"]);
     expect(email.subject).toBe("New Submission for Advocacy: Commission <b>Meeting</b>");
     expect(email.text).toContain(`${ORIGIN}/admin/events/${submitted.id}`);
     expect(email.text).toContain(`${ORIGIN}/admin/review`);
@@ -67,6 +70,25 @@ describe("notifyNewSubmission", () => {
     };
     await expect(notifyNewSubmission(db, failing, submitted, ORIGIN, log)).resolves.toBeUndefined();
     expect(log).toHaveBeenCalledWith("[email] new-submission failed: TypeError");
+  });
+
+  it("one failed send does not stop the emails to the other Editors", async () => {
+    await addEditor(db, "Erin Editor");
+    await addEditor(db, "Ada Admin", "admin");
+    const sent: string[][] = [];
+    let first = true;
+    const flaky: EmailTransport = {
+      kind: "resend",
+      send: async (message) => {
+        if (first) {
+          first = false;
+          throw new TypeError("network");
+        }
+        sent.push(message.to);
+      },
+    };
+    await notifyNewSubmission(db, flaky, submitted, ORIGIN, vi.fn());
+    expect(sent).toHaveLength(1);
   });
 });
 
