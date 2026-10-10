@@ -2,13 +2,7 @@
 
 import { useActionState } from "react";
 import type { CalendarSlug } from "@/engine";
-import {
-  addTagAction,
-  mergeTagAction,
-  renameTagAction,
-  setTagRetiredAction,
-  type TagFormState,
-} from "./actions";
+import { addTagAction, type TagFormState, tagRowAction } from "./actions";
 
 const idle: TagFormState = { result: "idle" };
 
@@ -61,9 +55,8 @@ export interface TagRowProps {
 
 /** The rename, retire or unretire, and merge controls of one Tag. */
 export function TagActions({ tag, mergeTargets }: TagRowProps) {
-  const [renameState, renameAction, renaming] = useActionState(renameTagAction, idle);
-  const [retireState, retireAction, retiring] = useActionState(setTagRetiredAction, idle);
-  const [mergeState, mergeAction, merging] = useActionState(mergeTagAction, idle);
+  // One action for the row, so the row shows only the last message.
+  const [state, action, pending] = useActionState(tagRowAction, idle);
 
   function confirmMerge(event: React.FormEvent<HTMLFormElement>) {
     const select = event.currentTarget.elements.namedItem("targetId") as HTMLSelectElement | null;
@@ -78,22 +71,23 @@ export function TagActions({ tag, mergeTargets }: TagRowProps) {
       <div className="flex flex-wrap gap-2">
         <details>
           <summary className="cursor-pointer underline">Rename</summary>
-          <form action={renameAction} className="mt-2 flex flex-wrap gap-2">
+          <form action={action} className="mt-2 flex flex-wrap gap-2">
             <input type="hidden" name="tagId" value={tag.id} />
+            <input type="hidden" name="intent" value="rename" />
             <label className="sr-only" htmlFor={`rename-${tag.id}`}>
               New name for {tag.name}
             </label>
             <input id={`rename-${tag.id}`} name="name" defaultValue={tag.name} required maxLength={40} className={input} />
-            <button type="submit" disabled={renaming} className={button}>
+            <button type="submit" disabled={pending} className={button}>
               Save
             </button>
           </form>
         </details>
 
-        <form action={retireAction}>
+        <form action={action}>
           <input type="hidden" name="tagId" value={tag.id} />
-          <input type="hidden" name="retire" value={tag.retired ? "no" : "yes"} />
-          <button type="submit" disabled={retiring} className={button}>
+          <input type="hidden" name="intent" value={tag.retired ? "unretire" : "retire"} />
+          <button type="submit" disabled={pending} className={button}>
             {tag.retired ? "Unretire" : "Retire"}
           </button>
         </form>
@@ -101,8 +95,9 @@ export function TagActions({ tag, mergeTargets }: TagRowProps) {
         {mergeTargets.length > 0 && (
           <details>
             <summary className="cursor-pointer underline">Merge into…</summary>
-            <form action={mergeAction} onSubmit={confirmMerge} className="mt-2 flex flex-wrap gap-2">
+            <form action={action} onSubmit={confirmMerge} className="mt-2 flex flex-wrap gap-2">
               <input type="hidden" name="tagId" value={tag.id} />
+              <input type="hidden" name="intent" value="merge" />
               <label className="sr-only" htmlFor={`merge-${tag.id}`}>
                 Merge {tag.name} into
               </label>
@@ -113,16 +108,14 @@ export function TagActions({ tag, mergeTargets }: TagRowProps) {
                   </option>
                 ))}
               </select>
-              <button type="submit" disabled={merging} className={button}>
+              <button type="submit" disabled={pending} className={button}>
                 Merge
               </button>
             </form>
           </details>
         )}
       </div>
-      <Message state={renameState} />
-      <Message state={retireState} />
-      <Message state={mergeState} />
+      <Message state={state} />
     </div>
   );
 }

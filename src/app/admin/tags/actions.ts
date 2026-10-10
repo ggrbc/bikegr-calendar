@@ -35,32 +35,38 @@ export async function addTagAction(_prev: TagFormState, formData: FormData): Pro
   return toState(result, (tag) => `Added "${tag.name}" (${tag.slug}).`);
 }
 
-export async function renameTagAction(_prev: TagFormState, formData: FormData): Promise<TagFormState> {
+/**
+ * One action for every control of a Tag row, so the row shows one message: the last one.
+ * `intent` is `rename`, `retire`, `unretire`, or `merge`.
+ */
+export async function tagRowAction(_prev: TagFormState, formData: FormData): Promise<TagFormState> {
   const editor = await requireEditor();
-  const result = await renameTag(getDb(), editor.id, { tagId: text(formData, "tagId"), name: formData.get("name") });
-  return toState(result, (tag) => `Renamed to "${tag.name}". The slug stays "${tag.slug}".`);
-}
-
-/** Retires the Tag when the form sends `retire=yes`, else unretires it. */
-export async function setTagRetiredAction(_prev: TagFormState, formData: FormData): Promise<TagFormState> {
-  const editor = await requireEditor();
+  const db = getDb();
   const tagId = text(formData, "tagId");
-  if (text(formData, "retire") === "yes") {
-    const result = await retireTag(getDb(), editor.id, { tagId });
-    return toState(result, (tag) => `Retired "${tag.name}".`);
-  }
-  const result = await unretireTag(getDb(), editor.id, { tagId });
-  return toState(result, (tag) => `"${tag.name}" is active again.`);
-}
 
-export async function mergeTagAction(_prev: TagFormState, formData: FormData): Promise<TagFormState> {
-  const editor = await requireEditor();
-  const result = await mergeTags(getDb(), editor.id, {
-    sourceId: text(formData, "tagId"),
-    targetId: text(formData, "targetId"),
-  });
-  return toState(result, ({ moved, duplicates }) =>
-    `Merged. ${moved} Event${moved === 1 ? "" : "s"} moved` +
-    (duplicates > 0 ? `; ${duplicates} already had the other Tag.` : "."),
-  );
+  switch (text(formData, "intent")) {
+    case "rename": {
+      const result = await renameTag(db, editor.id, { tagId, name: formData.get("name") });
+      return toState(result, (tag) => `Renamed to "${tag.name}". The slug stays "${tag.slug}".`);
+    }
+    case "retire": {
+      const result = await retireTag(db, editor.id, { tagId });
+      return toState(result, (tag) => `Retired "${tag.name}".`);
+    }
+    case "unretire": {
+      const result = await unretireTag(db, editor.id, { tagId });
+      return toState(result, (tag) => `"${tag.name}" is active again.`);
+    }
+    case "merge": {
+      const result = await mergeTags(db, editor.id, { sourceId: tagId, targetId: text(formData, "targetId") });
+      return toState(
+        result,
+        ({ moved, duplicates }) =>
+          `Merged and retired. ${moved} Event${moved === 1 ? "" : "s"} moved` +
+          (duplicates > 0 ? `; ${duplicates} already had the other Tag.` : "."),
+      );
+    }
+    default:
+      return { result: "error", message: "Unknown action. Reload the page." };
+  }
 }

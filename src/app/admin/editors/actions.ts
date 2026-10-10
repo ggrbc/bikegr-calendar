@@ -66,22 +66,31 @@ function toState(result: EditorResult<Editor>, message: (editor: Editor) => stri
   return { result: "ok", message: message(result.value) };
 }
 
-export async function changeRoleAction(_prev: EditorFormState, formData: FormData): Promise<EditorFormState> {
+/**
+ * One action for every control of an Editor row, so the row shows one message: the last one.
+ * `intent` is `role`, `deactivate`, or `reactivate`.
+ */
+export async function editorRowAction(_prev: EditorFormState, formData: FormData): Promise<EditorFormState> {
   const admin = await requireAdmin();
-  const role = parseRole(formData.get("role"));
-  if (!role) return { result: "error", message: "Select a role: Admin or Editor." };
-  const result = await changeEditorRole(getDb(), admin.id, { editorId: text(formData, "editorId"), role });
-  return toState(result, (e) => `${who(e)} is now ${e.role === "admin" ? "an Admin" : "an Editor"}.`);
-}
+  const db = getDb();
+  const editorId = text(formData, "editorId");
 
-export async function deactivateAction(_prev: EditorFormState, formData: FormData): Promise<EditorFormState> {
-  const admin = await requireAdmin();
-  const result = await deactivateEditor(getDb(), admin.id, { editorId: text(formData, "editorId") });
-  return toState(result, (e) => `${who(e)} is deactivated and signed out.`);
-}
-
-export async function reactivateAction(_prev: EditorFormState, formData: FormData): Promise<EditorFormState> {
-  const admin = await requireAdmin();
-  const result = await reactivateEditor(getDb(), admin.id, { editorId: text(formData, "editorId") });
-  return toState(result, (e) => `${who(e)} is active again. They can sign in at /login.`);
+  switch (text(formData, "intent")) {
+    case "role": {
+      const role = parseRole(formData.get("role"));
+      if (!role) return { result: "error", message: "Select a role: Admin or Editor." };
+      const result = await changeEditorRole(db, admin.id, { editorId, role });
+      return toState(result, (e) => `${who(e)} is now ${e.role === "admin" ? "an Admin" : "an Editor"}.`);
+    }
+    case "deactivate": {
+      const result = await deactivateEditor(db, admin.id, { editorId });
+      return toState(result, (e) => `${who(e)} is deactivated and signed out.`);
+    }
+    case "reactivate": {
+      const result = await reactivateEditor(db, admin.id, { editorId });
+      return toState(result, (e) => `${who(e)} is active again. They can sign in at /login.`);
+    }
+    default:
+      return { result: "error", message: "Unknown action. Reload the page." };
+  }
 }
