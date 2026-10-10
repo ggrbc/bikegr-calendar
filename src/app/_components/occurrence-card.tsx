@@ -34,7 +34,7 @@ export function OccurrenceCard({
   const description = moved ? "" : excerpt(row.description, 300);
 
   return (
-    <li className="flex gap-4 px-3 py-3 sm:gap-6 sm:px-2 sm:py-5">
+    <li className="flex gap-5 py-6 sm:gap-8 sm:py-8">
       <div className="order-last shrink-0 sm:order-first" aria-hidden="true">
         {row.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -52,11 +52,11 @@ export function OccurrenceCard({
       </div>
       <div className="min-w-0 flex-1">
         {showCalendar && (
-          <p className="text-xs font-bold uppercase tracking-wide text-brand-gray">
+          <p className="font-chivo text-[13px] uppercase tracking-[0.06em] text-brand-gray">
             {CALENDAR_NAMES[row.calendar]}
           </p>
         )}
-        <Title className="font-chivo text-[17px] leading-snug text-brand-orange-text sm:text-[26px] sm:text-brand-orange">
+        <Title className="font-chivo text-[19px] font-normal leading-snug text-brand-orange-text sm:text-[26px] sm:text-brand-orange">
           <Link
             href={href}
             {...linkProps}
@@ -65,28 +65,30 @@ export function OccurrenceCard({
             {row.title}
           </Link>
         </Title>
-        <p className="mt-1 font-chivo text-[15px] font-bold text-brand-gray sm:font-normal">
+        <p className="mt-1.5 font-chivo text-[15px] text-brand-gray">
           {dateLine(moved ? row.originalTiming : row.timing)}
           {entry.badge && <Badge text={entry.badge} />}
         </p>
         {!moved && row.scheduleNote && (
-          <p className="mt-1 text-sm font-bold text-brand-gray">{row.scheduleNote}</p>
+          <p className="mt-1 text-[15px] text-brand-gray">{row.scheduleNote}</p>
         )}
         {description && (
-          <p className="mt-2 line-clamp-2 text-sm font-light text-brand-gray sm:text-[15px]">{description}</p>
+          <p className="mt-2 line-clamp-2 text-[15px] font-light leading-[1.9] text-brand-gray sm:text-[15.84px]">
+            {description}
+          </p>
         )}
         {!moved && row.location && (
-          <p className="mt-2 text-sm font-bold text-brand-gray sm:hidden">{venueName(row.location)}</p>
+          <p className="mt-1 font-chivo text-[15px] text-brand-gray sm:hidden">{venueName(row.location)}</p>
         )}
         {!moved && row.tags.length > 0 && (
-          <p className="mt-2 hidden font-chivo text-sm font-bold text-brand-green-text sm:block">
+          <p className="mt-2 hidden font-chivo text-[15px] text-brand-green-text sm:block">
             {tagLine(row.tags)}
           </p>
         )}
         {!moved && row.cta && (
           <a
             href={row.cta.url}
-            className="mt-3 hidden rounded bg-brand-orange-text px-3 py-1.5 text-sm text-white hover:bg-brand-gray sm:inline-block"
+            className="mt-4 hidden rounded-[300px] bg-brand-orange-text px-[22px] py-[10px] font-chivo text-[13px] uppercase tracking-[0.02em] text-white hover:bg-brand-gray sm:inline-block"
             rel="noopener noreferrer"
             target="_blank"
           >

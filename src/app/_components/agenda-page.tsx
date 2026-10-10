@@ -1,12 +1,14 @@
-import Link from "next/link";
-import { Suspense } from "react";
 import type { FilterParams } from "@/agenda/filters";
 import type { CalendarSlug } from "@/engine";
 import { AgendaList } from "./agenda-list";
+import { SiteHeader } from "./site-header";
 
 /**
- * Static shell (prerendered) around the agenda. The agenda reads the search params and the
- * database at request time, so it is inside <Suspense>.
+ * The bikegr.org header, the page heading, and the agenda. Blocking, not streamed: each page file
+ * sets `instant = false`, and there is no <Suspense>, so the first HTML has the events. A streamed
+ * Suspense boundary needs JavaScript to show its content, and the filter form must work without
+ * JavaScript (the Apply button submits it). The snapshot is cached, so the wait is short.
+ * Flat like bikegr.org: the page gray, no boxed panels, a lot of white space.
  */
 export function AgendaPage({
   title,
@@ -18,26 +20,14 @@ export function AgendaPage({
   searchParams: Promise<FilterParams>;
 }) {
   return (
-    <main className="w-full flex-1 bg-brand-page text-brand-gray">
-      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-8">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <p className="font-chivo text-sm">
-            <Link href="/" className="underline">
-              Bike GR Calendar
-            </Link>
-          </p>
-          <a
-            href="https://www.bikegr.org"
-            className="rounded-[300px] bg-brand-green-text px-4 py-1.5 font-chivo text-sm font-bold text-white hover:bg-brand-gray"
-          >
-            Visit bikegr.org
-          </a>
-        </div>
-        <h1 className="mb-4 font-chivo text-[28px] leading-tight sm:text-[34px]">{title}</h1>
-        <Suspense fallback={<p>Loading events…</p>}>
+    <>
+      <SiteHeader />
+      <main className="w-full flex-1 bg-brand-page text-brand-gray">
+        <div className="mx-auto max-w-[1100px] px-6 py-12 sm:px-[38px] sm:py-16">
+          <h1 className="mb-8 font-chivo text-[34px] font-normal leading-tight sm:text-[46.72px]">{title}</h1>
           <AgendaList calendar={calendar} searchParams={searchParams} variant="site" />
-        </Suspense>
-      </div>
-    </main>
+        </div>
+      </main>
+    </>
   );
 }

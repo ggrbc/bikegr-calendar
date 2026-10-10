@@ -18,8 +18,8 @@ export type AgendaVariant = "site" | "embed";
 
 /**
  * The switcher, toolbar, "Events from …" heading, Occurrence list, and Feed link for one Calendar,
- * or all (`calendar` null). Reads the search params, the clock, and the (cached) database, so it
- * must render inside <Suspense>: `io()` stops the prerender here, and `next build` needs no
+ * or all (`calendar` null). Reads the search params, the clock, and the (cached) database. The
+ * pages are blocking (`instant = false`); `io()` stops any prerender here, and `next build` needs no
  * database.
  *
  * Headings: on the site, the page has the h1 (Calendar name), so "Events from …" is an h2 and each
@@ -64,16 +64,16 @@ export async function AgendaList({
       {embed && <ResizeReporter search={query} />}
       <FilterForm action={path} calendar={calendar} filters={filters} tags={calendarTags} today={today} />
 
-      <Heading className="mb-2 font-chivo text-2xl text-brand-gray sm:text-[34px] sm:leading-tight">
+      <Heading className="mb-2 font-chivo text-[26px] font-normal leading-tight text-brand-gray sm:text-[34px]">
         {eventsFromHeading(filters.from)}
       </Heading>
 
       {entries.length === 0 ? (
-        <p className="border-t border-brand-divider py-6 text-brand-gray">
+        <p className="py-6 font-light text-brand-gray">
           No events match. Change the filters or the dates.
         </p>
       ) : (
-        <ol className="divide-y divide-brand-divider border-t-4 border-brand-orange bg-white sm:border-t sm:border-brand-divider sm:bg-transparent">
+        <ol className="divide-y divide-brand-divider">
           {entries.map((entry) => (
             <OccurrenceCard
               key={entry.key}
@@ -86,12 +86,12 @@ export async function AgendaList({
         </ol>
       )}
 
-      <p className="mt-6 border-t border-brand-divider pt-4 text-sm text-brand-gray">
-        <a href={webcalUrl(feed)} className="font-bold text-brand-green-text underline" {...external}>
+      <p className="mt-10 text-[15px] font-light text-brand-gray">
+        <a href={webcalUrl(feed)} className="font-normal text-brand-green-text underline underline-offset-4" {...external}>
           Subscribe in your calendar app
         </a>
         {hasContentFilters(filters) ? " (with these filters)" : ""} · Feed URL:{" "}
-        <a href={feed} className="break-all text-brand-green-text underline" {...external}>
+        <a href={feed} className="break-all text-brand-green-text underline underline-offset-4" {...external}>
           {`calendar.bikegr.org${feed}`}
         </a>
       </p>

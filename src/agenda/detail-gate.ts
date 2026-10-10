@@ -41,7 +41,11 @@ const PAGE_TEXT = {
   410: { title: "Event removed", text: "This event was removed from the Bike GR Calendar." },
 } as const;
 
-/** A small, self-contained HTML page for a 404 or 410 from the proxy (no app CSS). */
+/**
+ * A small, self-contained HTML page for a 404 or 410 from the proxy (no app CSS, no web fonts), in
+ * the bikegr.org look: white header with the coalition name, the page gray, a heading in a regular
+ * weight, and pill links. Text colors follow the AA rule (#424142, #BF4624 behind white text).
+ */
 export function statusPageHtml(status: 404 | 410): string {
   const { title, text } = PAGE_TEXT[status];
   return `<!doctype html>
@@ -51,12 +55,23 @@ export function statusPageHtml(status: 404 | 410): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>${title} — Bike GR Calendar</title>
-<style>body{font-family:Arial,Helvetica,sans-serif;color:#171717;max-width:40rem;margin:3rem auto;padding:0 1.5rem;line-height:1.5}a{color:#1e40af}</style>
+<style>
+body{margin:0;background:#f2f2f3;color:#424142;font-family:"Open Sans",Arial,Helvetica,sans-serif;font-weight:300;font-size:15.84px;line-height:1.9}
+header{background:#fff;padding:28px 38px}
+header a{color:#424142;text-decoration:none;font-family:Chivo,Arial,sans-serif;font-weight:400;letter-spacing:.06em;text-transform:uppercase}
+main{max-width:1100px;margin:0 auto;padding:64px 38px}
+h1{font-family:Chivo,Arial,sans-serif;font-weight:400;font-size:46px;line-height:1.2;margin:0 0 16px}
+nav a{display:inline-block;margin:8px 8px 0 0;padding:10px 22px;border-radius:300px;background:#bf4624;color:#fff;text-decoration:none;font-family:Chivo,Arial,sans-serif;font-weight:400;font-size:13px;text-transform:uppercase}
+a:focus-visible{outline:2px solid #bf4624;outline-offset:2px}
+</style>
 </head>
 <body>
+<header><a href="https://www.bikegr.org/">Greater Grand Rapids Bicycle Coalition</a></header>
+<main>
 <h1>${title}</h1>
 <p>${text}</p>
-<p><a href="/rides">Rides &amp; Events</a> · <a href="/advocacy">Advocacy</a> · <a href="/">All events</a></p>
+<nav aria-label="Calendars"><a href="/rides">Rides &amp; Events</a><a href="/advocacy">Advocacy</a><a href="/">All events</a></nav>
+</main>
 </body>
 </html>
 `;
