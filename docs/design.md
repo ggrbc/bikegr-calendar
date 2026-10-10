@@ -140,6 +140,13 @@ The admin offers three scopes when an Editor changes a Series. See
   Editor whose Google email differs from the invite email uses the magic link. A deactivated
   Editor's Google link stays, and is refused. Google sign-ins have no rate limit (they send no
   email). Details: [plans/google-login.md](plans/google-login.md).
+  - **Exact invite address:** a Google sign-in needs the exact invite address (after lowercase).
+    No dots are removed, and `googlemail.com` or a `+tag` is not merged; an Editor whose Google
+    address has another form uses the magic link.
+  - **Redeploy after a change to `AUTH_GOOGLE_*`:** `/login` is a static shell, so the Google
+    button follows the env of the build, and the provider follows the env at run time.
+  - **A future email edit** in the admin must delete that Editor's `auth_accounts` rows: the link is
+    by Google `sub`, so it would still open the account after the email changes.
 - **Roles:**
   - `admin` — invite and deactivate Editors, change settings, restore deleted Events, plus everything
     an Editor does.
