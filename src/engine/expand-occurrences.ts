@@ -14,7 +14,15 @@
  *   ignored.
  */
 import { isRuleStart, ruleStartsBetween } from "./expand-rule";
-import { sameTiming, shiftTiming, timingLength, timingStart, touchesWindow } from "./timing";
+import {
+  checkLocalDate,
+  checkTiming,
+  sameTiming,
+  shiftTiming,
+  timingLength,
+  timingStart,
+  touchesWindow,
+} from "./timing";
 import type {
   EventRuleInput,
   ExpandOccurrences,
@@ -26,12 +34,17 @@ import type {
 import { addDays, addMinutes } from "./wall-clock";
 
 export const expandOccurrences: ExpandOccurrences = (event, overrides, window) => {
+  checkLocalDate(window.from, "window.from");
+  checkLocalDate(window.to, "window.to");
+  checkTiming(event.timing, `time slot of Event ${event.eventId}`);
+  const ownOverrides = overrides.filter((item) => item.eventId === event.eventId);
+  for (const item of ownOverrides) {
+    if (item.timing) checkTiming(item.timing, `Override time slot (${item.originalStart})`);
+  }
   if (window.from >= window.to) return [];
 
   const overridesByStart = new Map<OriginalStart, OverrideInput>();
-  for (const item of overrides) {
-    if (item.eventId === event.eventId) overridesByStart.set(item.originalStart, item);
-  }
+  for (const item of ownOverrides) overridesByStart.set(item.originalStart, item);
 
   const originalStarts = new Set(originalStartsNear(event, window));
   for (const item of overridesByStart.values()) {

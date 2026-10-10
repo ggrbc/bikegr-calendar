@@ -1,6 +1,48 @@
 /** Helpers for one {@link Timing}: start, shift, compare, and window test. Wall-clock only. */
 import type { OriginalStart, QueryWindow, Timing } from "./types";
-import { addDays, addMinutes, daysBetween, minutesBetween } from "./wall-clock";
+import {
+  addDays,
+  addMinutes,
+  daysBetween,
+  isLocalDate,
+  isLocalDateTime,
+  minutesBetween,
+  toFloating,
+} from "./wall-clock";
+
+/** Throws a clear error if `value` is not a real `LocalDate`. `label` names the input. */
+export function checkLocalDate(value: string, label: string): void {
+  if (!isLocalDate(value) || !isRealDate(value)) {
+    throw new Error(`Bad ${label} "${value}": not a local date (YYYY-MM-DD)`);
+  }
+}
+
+/**
+ * Throws a clear error if the time slot is not well formed: wall-clock values of the right kind,
+ * real dates, and an end that is not before the start.
+ */
+export function checkTiming(timing: Timing, label: string): void {
+  const [start, end] =
+    timing.kind === "timed" ? [timing.start, timing.end] : [timing.startDate, timing.endDate];
+  const rightForm = timing.kind === "timed" ? isLocalDateTime : isLocalDate;
+  const form =
+    timing.kind === "timed" ? "wall-clock date-time (YYYY-MM-DDTHH:mm)" : "date (YYYY-MM-DD)";
+  for (const value of [start, end]) {
+    if (!rightForm(value) || !isRealDate(value)) {
+      throw new Error(`Bad ${label}: "${value}" is not a ${form}`);
+    }
+  }
+  if (end < start) throw new Error(`Bad ${label}: it ends before it starts (${start} to ${end})`);
+}
+
+function isRealDate(value: string): boolean {
+  try {
+    toFloating(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /** The start of a time slot: a `LocalDateTime` (timed) or a `LocalDate` (all-day). */
 export function timingStart(timing: Timing): OriginalStart {

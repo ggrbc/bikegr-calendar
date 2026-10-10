@@ -73,6 +73,37 @@ describe("expandOccurrences — one-time Events and the window", () => {
     expect(expandOccurrences(event, [], october)).toHaveLength(1);
   });
 
+  it("a bad window date gives a clear error", () => {
+    const event = makeEvent(timed("2026-10-03T09:00", "2026-10-03T14:00"));
+    expect(() => expandOccurrences(event, [], { from: "2026-13-01", to: "2027-01-01" })).toThrow(
+      /window\.from/,
+    );
+    expect(() => expandOccurrences(event, [], { from: "2026-10-01", to: "2026/11/01" })).toThrow(
+      /window\.to/,
+    );
+  });
+
+  it("a timed Event that ends before it starts gives a clear error", () => {
+    const event = makeEvent(timed("2026-10-03T09:00", "2026-10-03T08:00"));
+    expect(() => expandOccurrences(event, [], october)).toThrow(/ends before it starts/);
+  });
+
+  it("an all-day Event that ends before it starts gives a clear error", () => {
+    const event = makeEvent(allDay("2026-10-03", "2026-10-02"));
+    expect(() => expandOccurrences(event, [], october)).toThrow(/ends before it starts/);
+  });
+
+  it("a timed Event with date-only values gives a clear error", () => {
+    const event = makeEvent(timed("2026-10-03", "2026-10-03"));
+    expect(() => expandOccurrences(event, [], october)).toThrow(/wall-clock/);
+  });
+
+  it("an Override time slot that ends before it starts gives a clear error", () => {
+    const event = makeEvent(timed("2026-10-03T09:00", "2026-10-03T14:00"));
+    const bad = override("2026-10-03T09:00", { timing: timed("2026-10-04T09:00", "2026-10-04T08:00") });
+    expect(() => expandOccurrences(event, [bad], october)).toThrow(/Override/);
+  });
+
   it("an empty or reversed window gives nothing", () => {
     const event = makeEvent(timed("2026-10-03T09:00", "2026-10-03T14:00"));
     expect(expandOccurrences(event, [], { from: "2026-10-03", to: "2026-10-03" })).toEqual([]);
