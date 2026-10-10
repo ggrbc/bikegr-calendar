@@ -106,6 +106,13 @@ describe("Tag management", () => {
       const result = await addTag(db, editorId, { calendar: "advocacy", name: "Family" });
       expect(result).toMatchObject({ ok: true, value: { calendar: "advocacy", slug: "family" } });
     });
+
+    it("Add refuses a name that another active Tag of that Calendar has after a rename", async () => {
+      const road = await tag("rides", "Road");
+      await renameTag(db, editorId, { tagId: road.id, name: "Gravel Road" });
+      const result = await addTag(db, editorId, { calendar: "rides", name: "gravel road" });
+      expect(result).toMatchObject({ ok: false, reason: "duplicate-name" });
+    });
   });
 
   describe("rename", () => {
@@ -186,6 +193,17 @@ describe("Tag management", () => {
     it("Unretire of an active Tag is refused", async () => {
       const t = await tag("rides", "Still Active");
       expect(await unretireTag(db, editorId, { tagId: t.id })).toMatchObject({ ok: false, reason: "not-retired" });
+    });
+
+    it("Unretire refuses a Tag whose name another active Tag now has", async () => {
+      const first = await tag("rides", "Vision Zero");
+      await retireTag(db, editorId, { tagId: first.id });
+      const safety = await tag("rides", "Safety");
+      expect(await renameTag(db, editorId, { tagId: safety.id, name: "Vision Zero" })).toMatchObject({ ok: true });
+      const result = await unretireTag(db, editorId, { tagId: first.id });
+      expect(result).toMatchObject({ ok: false, reason: "duplicate-name" });
+      if (!result.ok) expect(result.error).toBe("Another active Tag has this name. Rename one first.");
+      expect((await reload(first.id)).retiredAt).toBeInstanceOf(Date);
     });
 
     it("Retire of a missing Tag is refused", async () => {

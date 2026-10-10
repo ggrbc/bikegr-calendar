@@ -78,9 +78,38 @@ export async function listTagsForAdmin(db: Db, calendar: CalendarSlug): Promise<
 // ---------------------------------------------------------------------------------------------
 // Writes
 
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+
 /**
- * Adds a Tag. The slug comes from the name. One statement: the `(calendar, slug)` unique
- * constraint decides a race between two adds.
+ * True when an active Tag of the Calendar (not `exceptId`) has this name, case-insensitive. A check
+ * in the transaction, not a constraint (no schema change): two writes at the same time can still
+ * make two equal names, which is harmless.
+ */
+async function activeNameTaken(
+  tx: Tx,
+  calendar: CalendarSlug,
+  name: string,
+  exceptId: string | null,
+): Promise<boolean> {
+  const [clash] = await tx
+    .select({ id: tags.id })
+    .from(tags)
+    .where(
+      and(
+        eq(tags.calendar, calendar),
+        exceptId ? ne(tags.id, exceptId) : undefined,
+        isNull(tags.retiredAt),
+        sql`lower(${tags.name}) = lower(${name})`,
+      ),
+    )
+    .limit(1);
+  return clash !== undefined;
+}
+
+/**
+ * Adds a Tag. The slug comes from the name. Refused when an active Tag of the Calendar has the same
+ * name. The insert is one statement: the `(calendar, slug)` unique constraint decides a race
+ * between two adds.
  */
 export async function addTag(
   db: Db,
@@ -92,6 +121,9 @@ export async function addTag(
   const { name, slug } = parsed.value;
 
   return db.transaction(async (tx) => {
+    if (await activeNameTaken(tx, input.calendar, name, null)) {
+      return refuse("duplicate-name", `Another Tag in this Calendar is named "${name}".`);
+    }
     const [created] = await tx
       .insert(tags)
       .values({ calendar: input.calendar, name, slug, createdBy: editorId, updatedBy: editorId })
@@ -129,19 +161,7 @@ export async function renameTag(
     const [current] = await tx.select().from(tags).where(eq(tags.id, input.tagId)).for("update");
     if (!current) return NOT_FOUND;
 
-    const [clash] = await tx
-      .select({ id: tags.id })
-      .from(tags)
-      .where(
-        and(
-          eq(tags.calendar, current.calendar),
-          ne(tags.id, current.id),
-          isNull(tags.retiredAt),
-          sql`lower(${tags.name}) = lower(${name})`,
-        ),
-      )
-      .limit(1);
-    if (clash) return refuse("duplicate-name", `Another Tag in this Calendar is named "${name}".`);
+    if (await activeNameTaken(tx, current.calendar, name, current.id)) return refuse("duplicate-name", `Another Tag in this Calendar is named "${name}".`);
 
     const [updated] = await tx
       .update(tags)
@@ -168,18 +188,25 @@ export async function retireTag(db: Db, editorId: string, input: { tagId: string
   });
 }
 
-/** Makes a retired Tag active again. */
+/**
+ * Makes a retired Tag active again. Refused when another active Tag of the Calendar now has its
+ * name (for example after a rename while it was retired).
+ */
 export async function unretireTag(db: Db, editorId: string, input: { tagId: string }): Promise<TagResult<Tag>> {
   if (!isUuid(input.tagId)) return NOT_FOUND;
   return db.transaction(async (tx) => {
+    const [current] = await tx.select().from(tags).where(eq(tags.id, input.tagId)).for("update");
+    if (!current) return NOT_FOUND;
+    if (!current.retiredAt) return refuse("not-retired", "This Tag is not retired.");
+    if (await activeNameTaken(tx, current.calendar, current.name, current.id)) {
+      return refuse("duplicate-name", "Another active Tag has this name. Rename one first.");
+    }
     const [updated] = await tx
       .update(tags)
       .set({ retiredAt: null, retiredBy: null, updatedAt: new Date(), updatedBy: editorId })
-      .where(and(eq(tags.id, input.tagId), isNotNull(tags.retiredAt)))
+      .where(eq(tags.id, current.id))
       .returning();
-    if (updated) return { ok: true, value: updated } as const;
-    const [existing] = await tx.select({ id: tags.id }).from(tags).where(eq(tags.id, input.tagId));
-    return existing ? refuse("not-retired", "This Tag is not retired.") : NOT_FOUND;
+    return { ok: true, value: updated } as const;
   });
 }
 
