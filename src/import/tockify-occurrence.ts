@@ -16,6 +16,7 @@ import {
   type IcsEvent,
   type IcsProperty,
 } from "./ics";
+import { isHttpUrl } from "@/agenda/safe-url";
 import type { Cta, TockifyOccurrence } from "./types";
 
 /** `TKF/<calendarId>/<eventId>/<startMinutes>/0/0` */
@@ -117,8 +118,9 @@ function readCategories(event: IcsEvent): string[] {
     .filter((category) => category !== "");
 }
 
+/** A CTA URL that is not http or https is dropped (it would go into an href); the Event stays. */
 function readCta(property: IcsProperty | undefined): Cta | null {
   const label = property?.params.label?.trim();
   const url = property?.value.trim();
-  return label && url ? { label, url } : null;
+  return label && url && isHttpUrl(url) ? { label, url } : null;
 }
