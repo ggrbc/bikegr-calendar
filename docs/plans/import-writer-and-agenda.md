@@ -46,8 +46,11 @@ src/agenda/
   *.test.ts
 src/app/
   page.tsx                      All Calendars (replaces "Coming soon")
-  [calendar]/page.tsx           rides | advocacy; other slugs -> 404
-  _components/agenda-list.tsx   server component that reads the database (inside <Suspense>)
+  rides/page.tsx                Rides & Events
+  advocacy/page.tsx             Advocacy
+  _components/agenda-page.tsx   static shell: home link, heading, <Suspense>
+  _components/agenda-list.tsx   server component that reads the database (inside <Suspense>);
+                                a load error shows "Events could not load. Try again later."
 ```
 
 `package.json`: add `@vercel/blob`; add script `"import:tockify": "tsx src/import/cli.ts"`.
@@ -80,6 +83,10 @@ state and out of the update (see "image_url is never downgraded" below).
 - From the database: the Event row, its Overrides, and its Tag slugs; then `stateFromRows(…)`.
 - `sameState` compares a stable JSON form (sorted keys). Equal state means **no write at all**: no
   update, no `updated_at` change, no history row.
+- **Expected:** the open-ended cut-off (`openEndedAfter`, one year after the import date) moves
+  with the import date. So a later run can change a Series near the 12-month line (its `UNTIL`
+  goes away, or comes back) with no change in the feed. That is a real state change: one update and
+  one history row.
 
 Fields the import does **not** own, and never writes on an update: Review status, `reviewed_*`,
 `deleted_*`, `predecessor_id`, Submitter fields, `created_*`. So an Editor's reject or delete stays.
@@ -155,10 +162,11 @@ old `<eventId>` row is reported, and the fallback Events are new rows with `<eve
   2.5.0 (package CHANGELOG). Only the client-upload helpers in `client.js` need a read-write token;
   this import does not use them.
 - For each distinct image URL in the result (fetched once per run):
-  1. Download. Not HTTP 2xx, a network error, or a content type that is not `image/*` → keep the
-     Tockify URL, report it as failed.
+  1. Download, with a 15 s timeout. Not HTTP 2xx, a network error, a content type that is not
+     JPEG, PNG, GIF, WebP, or AVIF (no SVG), or more than 10 MB → keep the Tockify URL, report it
+     as failed.
   2. Path: `events/<sha256 of the bytes, hex>.<ext>`. `ext` from the content type (`jpg`, `png`,
-     `gif`, `webp`, `avif`); if unknown, from the URL path; else `img`.
+     `gif`, `webp`, `avif`).
   3. `head(path)`: found → use its URL ("already in Blob"); not found → `put` → use the new URL.
   4. Set `imageUrl` to the Blob URL on every Event that uses that Tockify URL.
 - **Idempotence:** the path depends only on the bytes, so the same image gives the same Blob URL on
@@ -167,12 +175,14 @@ old `<eventId>` row is reported, and the fallback Events are new rows with `<eve
   credentials)". The import still runs.
 - Trade-off: each run downloads every image again to hash it (about 20 small files). The other
   choice, a stored map from Tockify URL to Blob URL, needs a new column for little gain.
-- **`image_url` is never downgraded** (Jeremy, 2026-10-09). `copyImages` marks each Event as
-  `imageCopied: true | false`. When the image was not copied (no Blob credentials, failed download,
-  not an image), the writer leaves `image_url` out of the compared state and out of the update: the
-  value in the database stays, so a Blob URL from an earlier run is kept. Only a successful copy sets
-  `image_url`. A **new** Event with no successful copy is inserted with the Tockify URL. An Event
-  with no image in the feed has nothing to copy, so its `null` is compared and written as usual.
+- **`image_url` is never downgraded** (Jeremy, 2026-10-09; refined after review). `copyImages`
+  returns `uncopiedImages`, the Source IDs whose image was not copied (no Blob credentials, failed
+  download, refused type or size). For such an Event, the writer leaves `image_url` out of the
+  compared state and out of the update **only when the stored value is a Blob URL**, so a Blob URL
+  is never replaced by a Tockify URL. A stored null or Tockify URL is not a copy, so the feed's
+  Tockify URL is compared and written as usual. A **new** Event with no successful copy is inserted
+  with the Tockify URL. An Event with no image in the feed has nothing to copy, so its `null` is
+  compared and written as usual.
 - Copy only. No resize.
 
 ## Agenda query (`agenda-query`)
@@ -214,14 +224,13 @@ Sort: actual start (`timingStart`), then title, then Event id. A rescheduled Occ
 
 ### Routes
 
-- `src/app/[calendar]/page.tsx` with `generateStaticParams` → `rides`, `advocacy`. The page awaits
-  `params`; a slug that is not in `CALENDARS` calls `notFound()` (404). Cache Components does not
-  allow `dynamicParams`, so `notFound()` is the slug check (Next.js 16 docs, "dynamicParams is not
-  supported"). Static routes (`/admin`, `/login`) still win over the dynamic segment.
-- Built: the page reads `params` outside `<Suspense>`, because `notFound()` must run before
-  streaming starts to give status 404. `partialPrefetching` then shows the dev-only insight "URL data
-  outside of Suspense", so the route exports `instant = false`. The other choice is two static
-  folders (`/rides`, `/advocacy`) with no `params` at all.
+- **Two static folders** (Jeremy, after review): `src/app/rides/page.tsx` and
+  `src/app/advocacy/page.tsx`, each a few lines that render the shared `AgendaPage` with its
+  Calendar. No `params`, so every other path is a plain 404 on the first request.
+- Replaced: a dynamic `[calendar]` route with `generateStaticParams` and `notFound()`. Under Cache
+  Components (no `dynamicParams`), an unknown slug got status 200 on the first request (the empty
+  fallback shell was sent before `notFound()` ran), then a cached 404 — one cache entry per probe
+  path.
 - `src/app/page.tsx` → All Calendars.
 - Headings: "Rides & Events", "Advocacy", "All events".
 
@@ -280,6 +289,8 @@ Sort: actual start (`timingStart`), then title, then Event id. A rescheduled Occ
 - Changed Override updates only that Series and its Overrides
 - A run without Blob credentials keeps the Blob URL from an earlier run
 - A failed download keeps the existing Blob URL
+- Stored null, feed adds an image, copy fails → Tockify URL is written
+- Stored Tockify URL, feed has another one, copy fails → the new Tockify URL is written
 - A new Event with no copy gets the Tockify URL
 - An Override that is gone from the feed is deleted
 - A changed Tag list replaces the Event's Tags
@@ -301,7 +312,11 @@ Sort: actual start (`timingStart`), then title, then Event id. A rescheduled Occ
 - Second run gives the same Blob URLs, so the writer sees no change
 - Failed download keeps the Tockify URL and is reported
 - Response that is not an image keeps the Tockify URL and is reported
-- Extension comes from the content type, then the URL, then `img`
+- Extension comes from the content type
+- SVG and other image types that are not in the list are refused
+- Image over the size limit is refused and reported
+- Each download has a time limit
+- Blob URLs are told apart from Tockify URLs
 - No Blob credentials keeps every URL and reports "images not copied (no Blob credentials)"
 - Credentials: OIDC token with store ID wins; read-write token is the fallback; neither gives none
 
@@ -318,12 +333,17 @@ Sort: actual start (`timingStart`), then title, then Event id. A rescheduled Occ
 
 - Pending, rejected, and deleted Events are hidden
 - Cancelled Override shows with its Schedule note
-- Tentative one-time Event shows with its badge status
+- Tentative one-time Event shows with its Schedule status
 - Calendar filter shows only that Calendar; no filter shows both
 - Rescheduled Occurrence appears once, with its original and new timing
 - Override title and location replace the Event's
 - Retired Tags are not shown
 - Rows from several Events sort by actual start
+
+### Agenda load fallback
+
+- Gives the days when the query works
+- A database error gives the fallback and logs only the error name and code
 
 ### Agenda days (pure)
 
@@ -334,6 +354,9 @@ Sort: actual start (`timingStart`), then title, then Event id. A rescheduled Occ
 - `scheduled` has no badge; every other Schedule status has its badge text
 - Rescheduled Occurrence shows "from" on the new date and "to" on the old date
 - Rescheduled Occurrence whose old date is outside the window shows only on the new date
+- New date before the window, old date in the window shows only "Rescheduled to"
+- Timed Occurrence that ends before the window is not listed
+- An Occurrence moved to a new time on the same day shows once
 
 ## Task order (test-first, one small commit per step)
 

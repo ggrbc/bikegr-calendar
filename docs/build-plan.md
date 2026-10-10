@@ -11,8 +11,10 @@ Occurrence engine. If it is wrong, all of them are wrong.
 ## Engine and import
 
 - Scaffold the Next.js app. Connect Vercel, Neon, and Resend, all on `web@bikegr.org`.
-- DNS in Squarespace: `calendar.bikegr.org` CNAME to Vercel; Resend SPF, DKIM, and bounce MX on the
-  sending subdomain. Do this first — magic-link login waits on Resend's domain check.
+- DNS in Squarespace: `calendar.bikegr.org` CNAME to Vercel; Resend verified on the root
+  `bikegr.org` with `send.bikegr.org` (CNAME) and `resend._domainkey.bikegr.org` (DKIM), which do not
+  touch the Google Workspace root SPF. Do this first — magic-link login waits on Resend's domain
+  check.
 - Drizzle schema: Calendars (config), Events, Overrides, Tags (per Calendar, with slugs), Editors,
   `event_history`.
 - **Occurrence engine, test-first (Vitest):** expand `RRULE` + `EXDATE`s for a window in
