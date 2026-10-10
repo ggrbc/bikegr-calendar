@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { expandOccurrences, type OverrideInput, type Timing } from "@/engine";
 import type { SplitDraft } from "./event-input";
-import { planSplit, type SplitSeries } from "./plan-split";
+import { lastStartDate, planSplit, type SplitSeries } from "./plan-split";
 
 // Weekly on Tuesday at 18:00 from Tue 2026-10-06.
 const tuesday: Timing = { kind: "timed", start: "2026-10-06T18:00", end: "2026-10-06T20:00" };
@@ -206,6 +206,22 @@ describe("Series split plan", () => {
   });
 });
 
+describe("last start of a rule", () => {
+  const since2018: Timing = { kind: "timed", start: "2018-01-02T18:00", end: "2018-01-02T20:00" };
+
+  it("an UNTIL more than 10 years after the Series start gives the real last date", () => {
+    expect(lastStartDate(since2018, "FREQ=WEEKLY;BYDAY=TU;UNTIL=20301231T235959")).toBe("2030-12-31");
+  });
+
+  it("a COUNT rule gives its last date, with no horizon", () => {
+    expect(lastStartDate(since2018, "FREQ=YEARLY;COUNT=15")).toBe("2032-01-02");
+  });
+
+  it("an open-ended rule has no last date", () => {
+    expect(lastStartDate(since2018, "FREQ=WEEKLY;BYDAY=TU")).toBeNull();
+  });
+});
+
 describe("Series split plan: split date and today", () => {
   const PAST = "Pick today or a later date. To change one past date, use One date.";
 
@@ -308,6 +324,32 @@ describe("Series split plan: chains, kinds, and edge keys", () => {
       change("2026-11-03"),
     );
     expect(plan.kind === "split" && plan.next.rrule).toBe("FREQ=WEEKLY;BYDAY=TU;UNTIL=20261124T235959");
+  });
+
+  it("the kept end keeps a last date more than 10 years after the Series start", () => {
+    const plan = planSplit(
+      series({
+        timing: { kind: "timed", start: "2018-01-02T18:00", end: "2018-01-02T20:00" },
+        rrule: "FREQ=WEEKLY;BYDAY=TU;UNTIL=20301231T235959",
+      }),
+      [],
+      change("2026-11-03"),
+    );
+    expect(plan.kind === "split" && plan.next.rrule).toBe("FREQ=WEEKLY;BYDAY=TU;UNTIL=20301231T235959");
+  });
+
+  it("Stop is allowed when only skipped dates are left after the split date", () => {
+    // Oct 6, 13, 20, 27; Oct 27 is skipped. Stop from Oct 21.
+    const plan = planSplit(
+      series({ rrule: "FREQ=WEEKLY;BYDAY=TU;COUNT=4", exdates: ["2026-10-27T18:00"] }),
+      [],
+      { ...change("2026-10-21"), mode: "stop" },
+    );
+    expect(plan).toEqual({
+      kind: "stop",
+      old: { rrule: "FREQ=WEEKLY;BYDAY=TU;UNTIL=20261020T235959", exdates: [] },
+      removedOverrides: [],
+    });
   });
 
   it("the new Series does not start on a skipped date", () => {

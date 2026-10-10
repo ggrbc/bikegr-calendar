@@ -132,12 +132,34 @@ function firstKeptStart(series: SplitSeries & { rrule: string }, from: OriginalS
   return start;
 }
 
-/** The date of the last start of a rule that ends (`UNTIL` or `COUNT`), within 10 years. */
+const SEARCH_STEP_DAYS = 400;
+
+/**
+ * The date of the last start of a rule that ends, with no horizon: an `UNTIL` rule is searched back
+ * from its `UNTIL` date, a `COUNT` rule stops by its count. An open-ended rule has none (null).
+ */
 export function lastStartDate(timing: Timing, rrule: string): LocalDate | null {
   const from = timingStart(timing);
-  const to = addDays(from.slice(0, 10), 3660);
-  const starts = ruleStartsBetween(timing, rrule, from, timing.kind === "timed" ? `${to}T00:00` : to);
-  return starts.length > 0 ? dateOf(starts[starts.length - 1]) : null;
+  const atStart = (date: LocalDate) => (timing.kind === "timed" ? `${date}T00:00` : date);
+  const atEnd = (date: LocalDate) => (timing.kind === "timed" ? `${date}T23:59` : date);
+  const last = (starts: OriginalStart[]) => (starts.length > 0 ? dateOf(starts[starts.length - 1]) : null);
+
+  const until = endPart(rrule, "UNTIL");
+  if (until !== undefined) {
+    // One day after the UNTIL date also covers an UNTIL in UTC (`…Z`).
+    let to = addDays(`${until.slice(0, 4)}-${until.slice(4, 6)}-${until.slice(6, 8)}`, 1);
+    while (atEnd(to) >= from) {
+      const stepFrom = atStart(addDays(to, -SEARCH_STEP_DAYS));
+      const found = last(ruleStartsBetween(timing, rrule, stepFrom > from ? stepFrom : from, atEnd(to)));
+      if (found) return found;
+      to = addDays(to, -SEARCH_STEP_DAYS - 1);
+    }
+    return null;
+  }
+  if (endPart(rrule, "COUNT") !== undefined) {
+    return last(ruleStartsBetween(timing, rrule, from, atEnd("9999-12-31")));
+  }
+  return null;
 }
 
 /** True if the Override changes more than its time slot. */
@@ -172,9 +194,7 @@ export function planSplit(
   const rawBefore = startsBefore(series.timing, rrule, day);
   const before = rawBefore.filter((start) => !exdates.has(start));
   const dayStart = series.timing.kind === "timed" ? `${day}T00:00` : day;
-  // The first date of the new Series is never a skipped date.
-  const following = firstKeptStart(ruled, dayStart);
-  if (following === null) {
+  if (firstStartOnOrAfter(series.timing, rrule, dayStart) === null) {
     return {
       kind: "refused",
       message: `This Series has no dates on or after ${shortDate(day)}. Pick an earlier date.`,
@@ -192,6 +212,16 @@ export function planSplit(
       kind: "stop",
       old: { rrule: ruleEndingBefore(rrule, day), exdates: keptExdates },
       removedOverrides: laterOverrides.map((o) => o.originalStart).sort(),
+    };
+  }
+
+  // The first date of the new Series is never a skipped date. (A stop needs no such date: it may
+  // end a Series whose later dates are all skipped.)
+  const following = firstKeptStart(ruled, dayStart);
+  if (following === null) {
+    return {
+      kind: "refused",
+      message: `Every date on or after ${shortDate(day)} is skipped. Pick an earlier date.`,
     };
   }
 
