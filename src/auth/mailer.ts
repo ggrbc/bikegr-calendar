@@ -77,7 +77,7 @@ export function createMailer(options: MailerOptions = {}): Mailer {
 
   if (apiKey) {
     const resend = (options.resendFactory ?? ((key) => new Resend(key)))(apiKey);
-    const from = env.EMAIL_FROM ?? "Bike GR Calendar <no-reply@calendar.bikegr.org>";
+    const from = env.EMAIL_FROM ?? "Bike GR Calendar <notifications@bikegr.org>";
     return {
       transport: "resend",
       async sendMagicLink(message) {
