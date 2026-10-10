@@ -1,10 +1,10 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { editors, type Editor } from "@/db/schema";
+import { authAccounts, editors, type Editor } from "@/db/schema";
 import { seedAdmins } from "@/db/seed-admins";
 import { createTestDb } from "@/db/test-db";
 import type { Db } from "@/db/types";
-import { findEditorByEmail, inviteEditor } from "./editors";
+import { findEditorByAccount, findEditorByEmail, inviteEditor, linkAccount, markEmailVerified } from "./editors";
 import { canSignIn } from "./rules";
 
 describe("editors", () => {
@@ -64,5 +64,25 @@ describe("editors", () => {
     const result = await inviteEditor(db, editor, { email: "other@example.org", role: "editor", name: null });
     expect(result).toMatchObject({ ok: false, reason: "not-admin" });
     expect(await findEditorByEmail(db, "other@example.org")).toBeNull();
+  });
+
+  it("an account link is found by provider and account id; a second link call changes nothing", async () => {
+    const nate = (await findEditorByEmail(db, "nate@bikegr.org"))!;
+    expect(await findEditorByAccount(db, "google", "sub-nate")).toBeNull();
+    await linkAccount(db, nate.id, "google", "sub-nate");
+    await linkAccount(db, nate.id, "google", "sub-nate");
+    expect((await findEditorByAccount(db, "google", "sub-nate"))?.id).toBe(nate.id);
+    expect(await findEditorByAccount(db, "other", "sub-nate")).toBeNull();
+    expect(await db.select().from(authAccounts).where(eq(authAccounts.userId, nate.id))).toHaveLength(1);
+  });
+
+  it("markEmailVerified sets email_verified once and keeps the first date", async () => {
+    const [row] = await db.insert(editors).values({ email: "verify.me@example.org" }).returning();
+    await markEmailVerified(db, row.id);
+    const first = (await findEditorByEmail(db, row.email))!.emailVerified;
+    expect(first).toBeInstanceOf(Date);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await markEmailVerified(db, row.id);
+    expect((await findEditorByEmail(db, row.email))!.emailVerified).toEqual(first);
   });
 });

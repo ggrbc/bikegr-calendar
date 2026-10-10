@@ -1,6 +1,6 @@
-/** Editor reads and the invite write. Callers pass the database, so tests can use PGlite. */
-import { eq } from "drizzle-orm";
-import { editors, type Editor } from "@/db/schema";
+/** Editor reads, account links, and the invite write. Callers pass the database, so tests can use PGlite. */
+import { and, eq, isNull } from "drizzle-orm";
+import { authAccounts, editors, type Editor } from "@/db/schema";
 import type { Db } from "@/db/types";
 import { canInvite, normalizeEmail, type InviteInput } from "./rules";
 
@@ -16,6 +16,36 @@ export async function findEditorByEmail(db: Db, email: string): Promise<Editor |
 export async function findEditorById(db: Db, id: string): Promise<Editor | null> {
   const [row] = await db.select().from(editors).where(eq(editors.id, id)).limit(1);
   return row ?? null;
+}
+
+/** The Editor that a provider account (for example a Google `sub`) is linked to, or null. */
+export async function findEditorByAccount(db: Db, provider: string, providerAccountId: string): Promise<Editor | null> {
+  const [row] = await db
+    .select({ editor: editors })
+    .from(authAccounts)
+    .innerJoin(editors, eq(editors.id, authAccounts.userId))
+    .where(and(eq(authAccounts.provider, provider), eq(authAccounts.providerAccountId, providerAccountId)))
+    .limit(1);
+  return row?.editor ?? null;
+}
+
+/**
+ * Links an OIDC account to an Editor (docs/plans/google-login.md, `google-account-linking`). No
+ * tokens: the app calls no provider API. A second call for the same account changes nothing.
+ */
+export async function linkAccount(db: Db, editorId: string, provider: string, providerAccountId: string): Promise<void> {
+  await db
+    .insert(authAccounts)
+    .values({ userId: editorId, type: "oidc", provider, providerAccountId })
+    .onConflictDoNothing({ target: [authAccounts.provider, authAccounts.providerAccountId] });
+}
+
+/** Sets `email_verified` on the first sign-in only ("the invite was accepted"). */
+export async function markEmailVerified(db: Db, editorId: string): Promise<void> {
+  await db
+    .update(editors)
+    .set({ emailVerified: new Date() })
+    .where(and(eq(editors.id, editorId), isNull(editors.emailVerified)));
 }
 
 export type InviteResult =
