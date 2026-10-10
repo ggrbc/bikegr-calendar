@@ -3,10 +3,10 @@
  * and the history row. Plan: docs/plans/admin-event-editing.md ("Every write: one transaction").
  */
 import { and, asc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
-import { eventHistory, eventTags, events, overrides, tags, type EditorRole, type EventRow } from "@/db/schema";
+import { type EditorRole, eventHistory, eventTags, events, type EventRow, overrides, tags } from "@/db/schema";
 import type { Db } from "@/db/types";
 import type { CalendarSlug } from "@/engine";
-import type { FieldErrors } from "./event-input";
+import type { ContentDraft, FieldErrors } from "./event-input";
 import {
   conflictMessage,
   DELETED_MESSAGE,
@@ -171,6 +171,30 @@ export async function setEventTags(
   if (tagIds.length > 0) {
     await tx.insert(eventTags).values(tagIds.map((tagId) => ({ eventId, tagId, calendar })));
   }
+}
+
+/**
+ * The Tag ids to link after a content save. Same Calendar: the form's Tags, plus retired Tags
+ * that the Event already has (they are not in the picker). Other Calendar: the form's Tags only
+ * (a Calendar change clears the old Tags).
+ */
+export async function tagsAfterSave(tx: Tx, row: EventRow, content: ContentDraft): Promise<string[]> {
+  const existing = await tagIdsOf(tx, row.id);
+  const sameCalendar = row.calendar === content.calendar;
+  await checkTagIds(tx, content.calendar, content.tagIds, sameCalendar ? existing : []);
+  if (!sameCalendar) {
+    // Before the Calendar update: the composite foreign key refuses a Calendar change with Tags.
+    await tx.delete(eventTags).where(inArray(eventTags.eventId, [row.id]));
+    return content.tagIds;
+  }
+  const retired =
+    existing.length === 0
+      ? []
+      : await tx
+          .select({ id: tags.id })
+          .from(tags)
+          .where(and(inArray(tags.id, existing), isNotNull(tags.retiredAt)));
+  return [...new Set([...content.tagIds, ...retired.map((t) => t.id)])];
 }
 
 /** The last write: one history row with the state after the change (the import's shape). */
