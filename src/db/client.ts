@@ -37,6 +37,11 @@ export interface OpenDb {
 export function openDb(databaseUrl: string, options: { max?: number } = {}): OpenDb {
   if (driverFor(databaseUrl) === "neon") {
     const pool = new Pool({ connectionString: databaseUrl, max: options.max });
+    // Without a listener, an error on an idle connection is an uncaught exception that stops the
+    // function. Log only the code: the message can contain the connection string.
+    pool.on("error", (error: Error & { code?: string }) => {
+      console.error("[db] Neon Pool error:", error.code ?? error.name);
+    });
     return {
       db: drizzleNeon({ client: pool, schema }),
       driver: "neon",
