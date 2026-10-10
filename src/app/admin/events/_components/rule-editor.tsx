@@ -14,6 +14,15 @@ import {
 } from "@/admin/events/rule-form";
 import { shortDate } from "@/agenda/dates";
 import { dayOfWeek, isLocalDate } from "@/engine";
+import {
+  buttonClass,
+  checkClass,
+  chipClass,
+  hintClass,
+  labelClass,
+  legendClass,
+  smallInputClass,
+} from "../../_components/ui";
 import { Field, FieldError, inputClass } from "./fields";
 
 type RepeatKind = "none" | "same" | RuleForm["repeat"] | "advanced";
@@ -107,8 +116,8 @@ export function RuleEditor({
   const setForm = (form: RuleForm) => onChange({ mode: "form", form });
 
   return (
-    <fieldset className="flex flex-col gap-3 rounded border border-gray-300 p-3">
-      <legend className="px-1 font-medium">Repeat</legend>
+    <fieldset className="flex flex-col gap-3">
+      <legend className={`${legendClass} mb-1`}>Repeat</legend>
       {readOnly ? (
         <p>
           {describeRrule(value.text)}. Only an Admin can change this rule.
@@ -129,7 +138,7 @@ export function RuleEditor({
         </select>
       )}
       {value.mode === "same" && storedRrule && (
-        <p className="text-sm text-gray-700">{describeRrule(storedRrule)}</p>
+        <p className={hintClass}>{describeRrule(storedRrule)}</p>
       )}
       {value.mode === "form" && <RuleFormFields form={value.form} onChange={setForm} errors={errors} />}
       {value.mode === "advanced" && isAdmin && (
@@ -178,12 +187,13 @@ function RuleFormFields({
             />
           </Field>
           <fieldset>
-            <legend className="font-medium">Days</legend>
-            <div className="flex flex-wrap gap-x-4">
+            <legend className={labelClass}>Days</legend>
+            <div className="mt-1 flex flex-wrap gap-2">
               {WEEKDAYS.map((day) => (
-                <label key={day} className="flex items-center gap-2">
+                <label key={day} className={chipClass}>
                   <input
                     type="checkbox"
+                    className={checkClass}
                     checked={form.days.includes(day)}
                     onChange={(e) => onChange({ ...form, days: toggle(form.days, day, e.target.checked) })}
                   />
@@ -194,12 +204,13 @@ function RuleFormFields({
             <FieldError id="days-error" message={errors.days} />
           </fieldset>
           <fieldset>
-            <legend className="font-medium">Only in these months (none checked = every month)</legend>
-            <div className="flex flex-wrap gap-x-4">
+            <legend className={labelClass}>Only in these months (none checked = every month)</legend>
+            <div className="mt-1 flex flex-wrap gap-2">
               {MONTH_NAMES.map((name, i) => (
-                <label key={name} className="flex items-center gap-2">
+                <label key={name} className={chipClass}>
                   <input
                     type="checkbox"
+                    className={checkClass}
                     checked={form.months.includes(i + 1)}
                     onChange={(e) => onChange({ ...form, months: toggle(form.months, i + 1, e.target.checked) })}
                   />
@@ -213,12 +224,13 @@ function RuleFormFields({
       {form.repeat === "monthlyWeekday" && (
         <>
           <fieldset>
-            <legend className="font-medium">Weeks of the month</legend>
-            <div className="flex flex-wrap gap-x-4">
+            <legend className={labelClass}>Weeks of the month</legend>
+            <div className="mt-1 flex flex-wrap gap-2">
               {MONTH_POSITIONS.map((p) => (
-                <label key={p} className="flex items-center gap-2">
+                <label key={p} className={chipClass}>
                   <input
                     type="checkbox"
+                    className={checkClass}
                     checked={form.positions.includes(p)}
                     onChange={(e) => onChange({ ...form, positions: toggle(form.positions, p, e.target.checked) })}
                   />
@@ -258,7 +270,7 @@ function RuleFormFields({
         </Field>
       )}
       {form.repeat === "yearly" && (
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <Field id="year-month" label="Month">
             <select
               id="year-month"
@@ -294,15 +306,16 @@ function RuleFormFields({
 function EndFields({ end, onChange, error }: { end: RuleEnd; onChange: (end: RuleEnd) => void; error?: string }) {
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className="font-medium">Ends</legend>
+      <legend className={`${labelClass} mb-1`}>Ends</legend>
       <label className="flex items-center gap-2">
-        <input type="radio" name="rule-end" checked={end.kind === "never"} onChange={() => onChange({ kind: "never" })} />
+        <input type="radio" name="rule-end" className={checkClass} checked={end.kind === "never"} onChange={() => onChange({ kind: "never" })} />
         No end date
       </label>
       <label className="flex flex-wrap items-center gap-2">
         <input
           type="radio"
           name="rule-end"
+          className={checkClass}
           checked={end.kind === "until"}
           onChange={() => onChange({ kind: "until", date: end.kind === "until" ? end.date : "" })}
         />
@@ -311,7 +324,7 @@ function EndFields({ end, onChange, error }: { end: RuleEnd; onChange: (end: Rul
           <input
             type="date"
             aria-label="Last date"
-            className="rounded border border-gray-400 px-2 py-1"
+            className={smallInputClass}
             value={end.date}
             onChange={(e) => onChange({ kind: "until", date: e.target.value })}
           />
@@ -321,6 +334,7 @@ function EndFields({ end, onChange, error }: { end: RuleEnd; onChange: (end: Rul
         <input
           type="radio"
           name="rule-end"
+          className={checkClass}
           checked={end.kind === "count"}
           onChange={() => onChange({ kind: "count", count: end.kind === "count" ? end.count : 10 })}
         />
@@ -330,7 +344,7 @@ function EndFields({ end, onChange, error }: { end: RuleEnd; onChange: (end: Rul
             type="number"
             min={1}
             aria-label="Number of dates"
-            className="w-24 rounded border border-gray-400 px-2 py-1"
+            className={`${smallInputClass} w-24`}
             value={end.count}
             onChange={(e) => onChange({ kind: "count", count: Number(e.target.value) })}
           />
@@ -354,19 +368,19 @@ export function SkippedDates({
   const [draft, setDraft] = useState("");
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className="font-medium">Skipped dates</legend>
-      <p className="text-sm text-gray-700">
+      <legend className={`${legendClass} mb-1`}>Skipped dates</legend>
+      <p className={hintClass}>
         A skipped date is not part of the Series and does not show. To show a date as cancelled, change
         that one date instead.
       </p>
       {dates.length > 0 && (
         <ul className="flex flex-wrap gap-2">
           {dates.map((date) => (
-            <li key={date} className="flex items-center gap-1 rounded border border-gray-300 px-2 py-1">
+            <li key={date} className="flex items-center gap-2 rounded-[300px] border border-[#8a898a] bg-brand-page py-1 pl-3 pr-1">
               {isLocalDate(date) ? shortDate(date) : date}, {date.slice(0, 4)}
               <button
                 type="button"
-                className="underline"
+                className={buttonClass("secondary", "sm")}
                 aria-label={`Do not skip ${date}`}
                 onClick={() => onChange(dates.filter((d) => d !== date))}
               >
@@ -376,17 +390,17 @@ export function SkippedDates({
           ))}
         </ul>
       )}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <input
           type="date"
           aria-label="Date to skip"
-          className="rounded border border-gray-400 px-2 py-1"
+          className={smallInputClass}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
         />
         <button
           type="button"
-          className="rounded border border-gray-400 px-3 py-1"
+          className={buttonClass("secondary", "sm")}
           disabled={!isLocalDate(draft)}
           onClick={() => {
             onChange([...new Set([...dates, draft])].sort());

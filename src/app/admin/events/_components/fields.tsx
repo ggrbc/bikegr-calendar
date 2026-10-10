@@ -6,13 +6,14 @@ import { CALENDAR_LABELS } from "@/admin/events/format";
 import { ImageUploadField } from "@/admin/images/image-upload-field";
 import type { PickerTag } from "@/admin/tags/tags";
 import type { CalendarSlug } from "@/engine";
+import { checkClass, chipClass, hintClass, inputClass, labelClass, legendClass } from "../../_components/ui";
 
-export const inputClass = "w-full rounded border border-gray-400 px-3 py-2";
+export { inputClass };
 
 export function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) return null;
   return (
-    <p id={id} className="mt-1 text-sm text-red-700">
+    <p id={id} className="mt-1 text-sm font-semibold text-red-700">
       {message}
     </p>
   );
@@ -39,10 +40,10 @@ export function Field({
   const errorId = `${inputId}-error`;
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={inputId} className="font-medium">
+      <label htmlFor={inputId} className={labelClass}>
         {label}
       </label>
-      {hint && <p className="text-sm text-gray-700">{hint}</p>}
+      {hint && <p className={hintClass}>{hint}</p>}
       {cloneElement(children, {
         id: inputId,
         "aria-describedby": error ? errorId : undefined,
@@ -65,14 +66,15 @@ export function TagPicker({
   error?: string;
 }) {
   return (
-    <fieldset className="flex flex-col gap-1">
-      <legend className="font-medium">Tags</legend>
-      {tags.length === 0 && <p className="text-sm text-gray-700">This Calendar has no Tags yet.</p>}
-      <div className="flex flex-wrap gap-x-4 gap-y-1">
+    <fieldset className="flex flex-col gap-2">
+      <legend className={`${labelClass} mb-1`}>Tags</legend>
+      {tags.length === 0 && <p className={hintClass}>This Calendar has no Tags yet.</p>}
+      <div className="flex flex-wrap gap-2">
         {tags.map((tag) => (
-          <label key={tag.id} className="flex items-center gap-2">
+          <label key={tag.id} className={chipClass}>
             <input
               type="checkbox"
+              className={checkClass}
               checked={selected.includes(tag.id)}
               onChange={(e) =>
                 onChange(e.target.checked ? [...selected, tag.id] : selected.filter((id) => id !== tag.id))
@@ -161,7 +163,7 @@ export function ContentFields<T extends ContentValues>({
         error={errors.tags}
       />
       <fieldset className="flex flex-col gap-2">
-        <legend className="font-medium">Button (optional)</legend>
+        <legend className={`${legendClass} mb-1`}>Button (optional)</legend>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field id="cta-label" label="Button label">
             <input

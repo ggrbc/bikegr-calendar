@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { describeRrule } from "@/admin/events/describe-rule";
-import { CALENDAR_LABELS, formatInstantDetroit, statusLabel } from "@/admin/events/format";
+import { CALENDAR_LABELS, formatInstantDetroit } from "@/admin/events/format";
 import {
   eventValuesFromRow,
   seriesContentValuesFromRow,
@@ -24,17 +24,30 @@ import { ReviewPanel } from "../_components/review-panel";
 import { SeriesEditor } from "../_components/series-editor";
 import { loadSplitBounds } from "@/admin/events/split-series";
 import { imageRemovedByReview } from "@/submissions/review";
+import {
+  Badge,
+  buttonClass,
+  Card,
+  EmptyState,
+  hintClass,
+  labelClass,
+  linkClass,
+  mutedClass,
+  noticeClass,
+  ReviewBadge,
+  rowClass,
+  ScheduleBadge,
+  smallInputClass,
+  tableClass,
+  tdClass,
+  theadRowClass,
+  thClass,
+} from "../../_components/ui";
 
 type Search = Record<string, string | string[] | undefined>;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATES_SHOWN = 20;
-
-const REVIEW_LABELS: Record<EventForEdit["row"]["reviewStatus"], string> = {
-  pending: "Pending",
-  approved: "Approved",
-  rejected: "Rejected",
-};
 
 const SAVED_NOTICES: Record<string, string> = {
   created: "Created. The Event is approved and public.",
@@ -56,94 +69,85 @@ function DateList({ event, from }: { event: EventForEdit; from: string }) {
   const { row } = event;
   const result = nextOccurrences(eventRowToRuleInput(row), event.overrides, from, DATES_SHOWN);
   const changed = new Set(event.overrides.map((o) => o.originalStart));
-  if (!result.ok) return <p className="text-red-700">{result.message}</p>;
+  if (!result.ok) return <p className={noticeClass("error")}>{result.message}</p>;
   const last = result.occurrences.at(-1);
   return (
-    <section aria-labelledby="dates" className="flex flex-col gap-3">
-      <h2 id="dates" className="text-xl font-semibold">
-        Dates
-      </h2>
-      <form method="get" action={`/admin/events/${row.id}/occurrence`} className="flex flex-wrap items-end gap-2">
+    <Card title="Dates" titleId="dates">
+      <form method="get" action={`/admin/events/${row.id}/occurrence`} className="mb-4 flex flex-wrap items-end gap-2">
         <label className="flex flex-col gap-1">
-          <span className="font-medium">Go to date</span>
-          <input type="date" name="date" required className="rounded border border-gray-400 px-3 py-2" />
+          <span className={labelClass}>Go to date</span>
+          <input type="date" name="date" required className={smallInputClass} />
         </label>
-        <button type="submit" className="rounded border border-gray-400 px-4 py-2">
+        <button type="submit" className={buttonClass("secondary", "sm")}>
           Open
         </button>
       </form>
       {result.occurrences.length === 0 ? (
-        <p>No dates from {shortDate(from)}.</p>
+        <EmptyState>No dates from {shortDate(from)}.</EmptyState>
       ) : (
-        <ul className="divide-y divide-gray-200">
-          {result.occurrences.map((o) => {
-            const badge = statusLabel(o.scheduleStatus);
-            return (
-              <li key={o.originalStart} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                <span>
-                  {shortDate(timingStart(o.timing).slice(0, 10))}, {timingStart(o.timing).slice(0, 4)} · {timeText(o.timing)}
-                  {o.title && <span className="ml-2 italic">“{o.title}”</span>}
-                  {badge && <span className="ml-2 rounded bg-gray-200 px-1 text-sm">{badge}</span>}
-                  {changed.has(o.originalStart) && <span className="ml-2 text-sm text-gray-700">(changed)</span>}
-                </span>
-                <Link
-                  href={`/admin/events/${row.id}/occurrence?start=${encodeURIComponent(o.originalStart)}`}
-                  className="underline"
-                >
-                  Change this date
-                </Link>
-              </li>
-            );
-          })}
+        <ul className="divide-y divide-brand-divider">
+          {result.occurrences.map((o) => (
+            <li key={o.originalStart} className="flex flex-wrap items-center justify-between gap-2 py-2">
+              <span className="flex flex-wrap items-center gap-2">
+                {shortDate(timingStart(o.timing).slice(0, 10))}, {timingStart(o.timing).slice(0, 4)} · {timeText(o.timing)}
+                {o.title && <span className="italic">“{o.title}”</span>}
+                <ScheduleBadge status={o.scheduleStatus} />
+                {changed.has(o.originalStart) && <span className={`text-sm ${mutedClass}`}>(changed)</span>}
+              </span>
+              <Link
+                href={`/admin/events/${row.id}/occurrence?start=${encodeURIComponent(o.originalStart)}`}
+                className={`${linkClass} text-sm`}
+              >
+                Change this date
+              </Link>
+            </li>
+          ))}
         </ul>
       )}
-      <div className="flex gap-4">
-        <Link href={`/admin/events/${row.id}?from=${addDays(from, -90)}#dates`} className="underline">
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link href={`/admin/events/${row.id}?from=${addDays(from, -90)}#dates`} className={buttonClass("secondary", "sm")}>
           Earlier dates
         </Link>
         {last && result.occurrences.length === DATES_SHOWN && (
           <Link
             href={`/admin/events/${row.id}?from=${addDays(last.originalStart.slice(0, 10), 1)}#dates`}
-            className="underline"
+            className={buttonClass("secondary", "sm")}
           >
             Later dates
           </Link>
         )}
       </div>
-    </section>
+    </Card>
   );
 }
 
 async function History({ eventId }: { eventId: string }) {
   const entries = await loadHistory(getDb(), eventId);
   return (
-    <section aria-labelledby="history" className="flex flex-col gap-2">
-      <h2 id="history" className="text-xl font-semibold">
-        History
-      </h2>
+    <Card title="History" titleId="history">
       {entries.length === 0 ? (
-        <p>No history.</p>
+        <EmptyState>No history.</EmptyState>
       ) : (
-        <table className="w-full border-collapse text-left text-sm">
+        <table className={`${tableClass} text-sm`}>
           <thead>
-            <tr className="border-b border-gray-300">
-              <th className="py-1 pr-3">When (Detroit time)</th>
-              <th className="py-1 pr-3">Who</th>
-              <th className="py-1">What</th>
+            <tr className={theadRowClass}>
+              <th className={thClass}>When (Detroit time)</th>
+              <th className={thClass}>Who</th>
+              <th className={thClass}>What</th>
             </tr>
           </thead>
           <tbody>
             {entries.map((h) => (
-              <tr key={h.id} className="border-b border-gray-200">
-                <td className="py-1 pr-3">{formatInstantDetroit(h.changedAt)}</td>
-                <td className="py-1 pr-3">{h.who}</td>
-                <td className="py-1">{h.what}</td>
+              <tr key={h.id} className={rowClass}>
+                <td className={`${tdClass} py-2`}>{formatInstantDetroit(h.changedAt)}</td>
+                <td className={`${tdClass} py-2`}>{h.who}</td>
+                <td className={`${tdClass} break-words py-2`}>{h.what}</td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -173,18 +177,19 @@ async function EventPage({ params, searchParams }: { params: Promise<{ id: strin
   };
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold">{row.title}</h1>
-        <p className="text-gray-800">
+        <h1 className="font-chivo text-[28px] font-normal leading-tight">{row.title}</h1>
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
           {CALENDAR_LABELS[row.calendar]} · {row.rrule ? describeRrule(row.rrule) : "One time"} · Review status:{" "}
-          {REVIEW_LABELS[row.reviewStatus]}
-          {row.sourceId && " · Imported from Tockify"}
+          <ReviewBadge status={row.reviewStatus} />
+          {deleted && <Badge tone="deleted">Deleted</Badge>}
+          {row.sourceId && <span className={mutedClass}>· Imported from Tockify</span>}
         </p>
         {event.predecessor && (
           <p>
             Earlier dates (split from):{" "}
-            <Link href={`/admin/events/${event.predecessor.id}`} className="underline">
+            <Link href={`/admin/events/${event.predecessor.id}`} className={linkClass}>
               {event.predecessor.title}
             </Link>
           </p>
@@ -192,7 +197,7 @@ async function EventPage({ params, searchParams }: { params: Promise<{ id: strin
         {event.successors.map((s) => (
           <p key={s.id}>
             Later dates (continued by):{" "}
-            <Link href={`/admin/events/${s.id}`} className="underline">
+            <Link href={`/admin/events/${s.id}`} className={linkClass}>
               {s.title}
             </Link>
           </p>
@@ -203,22 +208,22 @@ async function EventPage({ params, searchParams }: { params: Promise<{ id: strin
             {row.submitterEmail && (
               <>
                 {" · "}
-                <a href={`mailto:${row.submitterEmail}`} className="underline">
+                <a href={`mailto:${row.submitterEmail}`} className={linkClass}>
                   {row.submitterEmail}
                 </a>
               </>
             )}
             {" · "}
-            <span className="text-sm text-gray-700">Only Editors see the Submitter&apos;s name and email.</span>
+            <span className={hintClass}>Only Editors see the Submitter&apos;s name and email.</span>
           </p>
         )}
         {saved && (
-          <p role="status" className="rounded border border-green-700 bg-green-50 p-3 text-green-900">
+          <p role="status" className={noticeClass("success")}>
             {saved}
           </p>
         )}
         {deleted && (
-          <p role="status" className="rounded border border-red-700 bg-red-50 p-3 text-red-900">
+          <p role="status" className={noticeClass("error")}>
             This Event was deleted at {formatInstantDetroit(row.deletedAt!)}. It is hidden everywhere.
             {isAdmin ? " You can restore it." : " An Admin can restore it."}
           </p>
@@ -290,15 +295,15 @@ export default function AdminEventPage({ params, searchParams }: PageProps<"/adm
   return (
     <>
       <p className="mb-2 text-sm">
-        <Link href="/admin/events" className="underline">
+        <Link href="/admin/events" className={linkClass}>
           Events
         </Link>
         {" · "}
-        <Link href="/admin/review" className="underline">
+        <Link href="/admin/review" className={linkClass}>
           Review queue
         </Link>
       </p>
-      <Suspense fallback={<p>Loading…</p>}>
+      <Suspense fallback={<p className={mutedClass}>Loading…</p>}>
         <EventPage params={params} searchParams={searchParams} />
       </Suspense>
     </>

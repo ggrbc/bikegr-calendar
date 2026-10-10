@@ -16,6 +16,7 @@ import {
   ruleStartsBetween,
   type Timing,
 } from "@/engine";
+import { EmptyState, linkClass, mutedClass, PageHeader } from "../../../_components/ui";
 import { OverrideForm } from "../../_components/override-form";
 
 type Search = Record<string, string | string[] | undefined>;
@@ -40,7 +41,7 @@ async function OccurrencePage({ params, searchParams }: { params: Promise<{ id: 
   const rule = eventRowToRuleInput(row);
   const back = (
     <p className="mb-2 text-sm">
-      <Link href={`/admin/events/${row.id}#dates`} className="underline">
+      <Link href={`/admin/events/${row.id}#dates`} className={linkClass}>
         {row.title}
       </Link>
     </p>
@@ -58,7 +59,9 @@ async function OccurrencePage({ params, searchParams }: { params: Promise<{ id: 
     return (
       <>
         {back}
-        <p>The Series has no date on {shortDate(date)}, {date.slice(0, 4)}.</p>
+        <EmptyState>
+          The Series has no date on {shortDate(date)}, {date.slice(0, 4)}.
+        </EmptyState>
       </>
     );
   }
@@ -75,7 +78,7 @@ async function OccurrencePage({ params, searchParams }: { params: Promise<{ id: 
     return (
       <>
         {back}
-        <p>This is not a date of the Series.</p>
+        <EmptyState>This is not a date of the Series.</EmptyState>
       </>
     );
   }
@@ -92,12 +95,9 @@ async function OccurrencePage({ params, searchParams }: { params: Promise<{ id: 
   return (
     <>
       {back}
-      <h1 className="mb-1 text-2xl font-semibold">
-        One date: {shortDate(day)}, {start.slice(0, 4)}
-      </h1>
-      <p className="mb-4 text-gray-800">
-        Series time: {timeText(occurrence.originalTiming)}. This change is for this date only.
-      </p>
+      <PageHeader title={`One date: ${shortDate(day)}, ${start.slice(0, 4)}`}>
+        <p>Series time: {timeText(occurrence.originalTiming)}. This change is for this date only.</p>
+      </PageHeader>
       <OverrideForm
         id={row.id}
         version={row.version}
@@ -111,7 +111,7 @@ async function OccurrencePage({ params, searchParams }: { params: Promise<{ id: 
 
 export default function AdminOccurrencePage({ params, searchParams }: PageProps<"/admin/events/[id]/occurrence">) {
   return (
-    <Suspense fallback={<p>Loading…</p>}>
+    <Suspense fallback={<p className={mutedClass}>Loading…</p>}>
       <OccurrencePage params={params} searchParams={searchParams} />
     </Suspense>
   );

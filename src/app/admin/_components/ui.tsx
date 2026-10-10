@@ -50,6 +50,16 @@ export const smallInputClass =
   "rounded-md border border-[#8a898a] bg-white px-2.5 py-1.5 text-brand-gray disabled:bg-brand-page";
 
 export const labelClass = "font-semibold text-brand-gray";
+/** A fieldset legend in a form: a small Chivo title. */
+export const legendClass = "font-chivo text-lg font-normal text-brand-gray";
+/** A checkbox or radio with its text, as a pill; checked pills get the green tint (6.45:1). */
+export const chipClass =
+  "flex min-h-10 cursor-pointer items-center gap-2 rounded-[300px] border border-[#8a898a] bg-white px-3 py-1.5 " +
+  "has-checked:border-brand-green-text has-checked:bg-[#e9eed3] has-checked:text-[#4d5822]";
+/** The native checkbox and radio in the brand green. */
+export const checkClass = "size-4 shrink-0 accent-brand-green-text";
+/** A white box without a heading (the same look as Card). */
+export const panelClass = "rounded-lg border border-brand-divider bg-white p-4 sm:p-6";
 export const hintClass = "text-sm text-[#5f5e5f]";
 export const mutedClass = "text-[#5f5e5f]";
 export const h2Class = "font-chivo text-xl font-normal text-brand-gray";
@@ -75,7 +85,7 @@ export function Card({
   return (
     <section
       aria-labelledby={title && titleId ? titleId : undefined}
-      className={`rounded-lg border border-brand-divider bg-white p-4 sm:p-6 ${className}`}
+      className={`${panelClass} ${className}`}
     >
       {(title || actions) && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

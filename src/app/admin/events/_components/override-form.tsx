@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import type { FieldErrors, OverrideFormValues } from "@/admin/events/event-input";
 import { clearOverrideAction, saveOverrideAction, type SaveState } from "../actions";
 import { ScheduleFields, TimingFields } from "./event-form";
+import { buttonClass, hintClass, panelClass } from "../../_components/ui";
 import { Field, inputClass } from "./fields";
 import { errorsOf, IDLE, SaveStatus } from "./save-status";
 
@@ -52,7 +53,7 @@ function OverrideBody({
   const [values, setValues] = useState(initial);
   const set = (patch: Partial<OverrideFormValues>) => setValues((v) => ({ ...v, ...patch }));
   return (
-    <form action={() => submit(values)} className="flex flex-col gap-6">
+    <form action={() => submit(values)} className={`${panelClass} flex flex-col gap-6`}>
       <TimingFields
         values={{ allDay, start: values.start, end: values.end }}
         // The kind of time slot stays the Series' kind.
@@ -76,7 +77,7 @@ function OverrideBody({
         />
       </Field>
       <ScheduleFields status={values.scheduleStatus} note={values.scheduleNote} onChange={set} errors={errors} />
-      <p className="text-sm text-gray-700">
+      <p className={hintClass}>
         A new time shows as “Rescheduled” on the old and the new date. Fields that you do not change stay
         the same as the Series.
       </p>
@@ -84,7 +85,7 @@ function OverrideBody({
         <button
           type="submit"
           disabled={pending}
-          className="rounded bg-blue-700 px-4 py-2 font-medium text-white disabled:opacity-60"
+          className={buttonClass("primary")}
         >
           {pending ? "Saving…" : "Save this date"}
         </button>
@@ -92,7 +93,7 @@ function OverrideBody({
           <button
             type="button"
             disabled={pending}
-            className="rounded border border-gray-400 px-4 py-2"
+            className={buttonClass("secondary")}
             onClick={() => {
               if (window.confirm("Remove every change to this date?")) clear();
             }}

@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { deleteEventAction, restoreEventAction, type SaveState } from "../actions";
+import { buttonClass, hintClass, panelClass } from "../../_components/ui";
 import { IDLE, SaveStatus } from "./save-status";
 
 /** Delete (Editors) a whole Event; on a deleted Event, Restore (Admins). */
@@ -22,7 +23,7 @@ export function DeleteRestore({
   );
   if (deleted && !isAdmin) return <SaveStatus state={state} />;
   return (
-    <div className="flex flex-col gap-2">
+    <div className={`${panelClass} flex flex-col gap-3`}>
       <SaveStatus state={state} />
       <form
         action={() => {
@@ -34,17 +35,13 @@ export function DeleteRestore({
         <button
           type="submit"
           disabled={pending}
-          className={
-            deleted
-              ? "rounded bg-blue-700 px-4 py-2 font-medium text-white disabled:opacity-60"
-              : "rounded border border-red-700 px-4 py-2 font-medium text-red-800 disabled:opacity-60"
-          }
+          className={deleted ? buttonClass("primary") : buttonClass("danger")}
         >
           {deleted ? "Restore this Event" : "Delete this Event"}
         </button>
       </form>
       {!deleted && (
-        <p className="text-sm text-gray-700">
+        <p className={hintClass}>
           Delete only an Event that should not exist (a duplicate, a test, spam). To show that a date will
           not happen, cancel that date instead.
         </p>
