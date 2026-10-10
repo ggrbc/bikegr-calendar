@@ -2,42 +2,35 @@ import Link from "next/link";
 import { requireEditor } from "@/auth/dal";
 import { getDb } from "@/db";
 import { countPending } from "@/submissions/queue";
+import { Badge, buttonClass, linkClass } from "./_components/ui";
 import { signOutAction } from "./actions";
+import { AdminNavLinks } from "./admin-nav-links";
 
 /** Admin navigation. Reads the session, so the layout renders it inside a Suspense boundary. */
 export async function AdminNav() {
   const editor = await requireEditor();
-  const isAdmin = editor.role === "admin";
   const waiting = await countPending(getDb());
+  return <AdminNavLinks isAdmin={editor.role === "admin"} waiting={waiting} />;
+}
 
+/** The Editor's name and role, a link to the public calendar, and Sign out. */
+export async function AdminUser() {
+  const editor = await requireEditor();
+  const isAdmin = editor.role === "admin";
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4">
-      <nav aria-label="Admin" className="flex flex-wrap gap-4">
-        <Link href="/admin/events" className="underline">
-          Events
-        </Link>
-        <Link href="/admin/review" className="underline">
-          Review queue{waiting > 0 ? ` (${waiting})` : ""}
-        </Link>
-        <Link href="/admin/tags" className="underline">
-          Tags
-        </Link>
-        {isAdmin && (
-          <Link href="/admin/editors" className="underline">
-            Editors
-          </Link>
-        )}
-      </nav>
-      <div className="flex items-center gap-3 text-sm">
-        <span>
-          {editor.name ?? editor.email} {isAdmin ? "(Admin)" : "(Editor)"}
-        </span>
-        <form action={signOutAction}>
-          <button type="submit" className="rounded border border-gray-400 px-3 py-1">
-            Sign out
-          </button>
-        </form>
-      </div>
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+      <Link href="/" className={linkClass}>
+        Public calendar
+      </Link>
+      <span className="flex items-center gap-2">
+        {editor.name ?? editor.email}
+        <Badge tone="neutral">{isAdmin ? "Admin" : "Editor"}</Badge>
+      </span>
+      <form action={signOutAction}>
+        <button type="submit" className={buttonClass("secondary", "sm")}>
+          Sign out
+        </button>
+      </form>
     </div>
   );
 }

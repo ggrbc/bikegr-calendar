@@ -49,3 +49,12 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * The admin moves focus to <main tabindex="-1"> after a client-side navigation (admin-nav-links.tsx).
+ * It is a focus target, not a control, so it gets no ring. Unlayered, like the rule above.
+ */
+main[tabindex="-1"]:focus,
+main[tabindex="-1"]:focus-visible {
+  outline: none;
+}
