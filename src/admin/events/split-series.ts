@@ -2,14 +2,15 @@
  * "This date and later" for a Series: a Series split (ADR 0001), a change in place when no date is
  * left before the split date, or a stop. One transaction. The plan comes from `planSplit`.
  */
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { eventRowToRuleInput, overrideRowToInput, ruleInputToColumns } from "@/db/mappers";
 import { events, type EventRow, overrides, type OverrideRow } from "@/db/schema";
 import type { Db } from "@/db/types";
 import { contentColumns } from "./create-event";
 import type { SplitDraft } from "./event-input";
-import { type LocalDate, timingStart } from "@/engine";
-import { lastStartDate, type MovedOverride, type NextSeries, planSplit, type SplitBounds } from "./plan-split";
+import type { LocalDate } from "@/engine";
+import { boundsFromChain, loadChainMembers, spanOf } from "./chain";
+import { type MovedOverride, type NextSeries, planSplit, type SplitBounds } from "./plan-split";
 import {
   type Actor,
   claimVersion,
@@ -69,33 +70,11 @@ async function deleteOverrides(tx: Tx, eventId: string, starts: string[]): Promi
 }
 
 /**
- * The neighbors of an Event in a chain of splits: the last date of its predecessor and the first
- * date of its successor (deleted Events do not count).
+ * The neighbors of an Event in its chain of splits, from every live part of the chain (not only the
+ * direct links; a deleted part frees its dates).
  */
-export async function loadSplitBounds(
-  db: Pick<Db, "select">,
-  row: Pick<EventRow, "id" | "predecessorId">,
-): Promise<SplitBounds> {
-  const bounds: SplitBounds = {};
-  if (row.predecessorId) {
-    const [before] = await db
-      .select()
-      .from(events)
-      .where(and(eq(events.id, row.predecessorId), isNull(events.deletedAt)));
-    if (before) {
-      const rule = eventRowToRuleInput(before);
-      bounds.predecessorLastDate = rule.rrule
-        ? lastStartDate(rule.timing, rule.rrule)
-        : timingStart(rule.timing).slice(0, 10);
-    }
-  }
-  const after = await db
-    .select()
-    .from(events)
-    .where(and(eq(events.predecessorId, row.id), isNull(events.deletedAt)));
-  const firsts = after.map((e) => timingStart(eventRowToRuleInput(e).timing).slice(0, 10)).sort();
-  if (firsts.length > 0) bounds.successorFirstDate = firsts[0];
-  return bounds;
+export async function loadSplitBounds(db: Pick<Db, "select">, row: EventRow): Promise<SplitBounds> {
+  return boundsFromChain(spanOf(eventRowToRuleInput(row)), await loadChainMembers(db, row.id));
 }
 
 export async function splitSeries(
@@ -169,6 +148,11 @@ export async function splitSeries(
         updatedAt: now,
       })
       .returning({ id: events.id });
+    // The chain stays a line: a part that continued the old Event now continues the new one.
+    await tx
+      .update(events)
+      .set({ predecessorId: created.id })
+      .where(and(eq(events.predecessorId, row.id), ne(events.id, created.id)));
     await insertMoved(tx, created.id, overrideRows, plan.moved, actor);
     await setEventTags(tx, created.id, row.calendar, tagIds);
     await writeHistory(tx, row.id, "split", actor, { splitDate: draft.splitDate, successorId: created.id });

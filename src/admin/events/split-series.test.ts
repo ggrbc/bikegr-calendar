@@ -5,6 +5,7 @@ import { createTestDb } from "@/db/test-db";
 import type { Db } from "@/db/types";
 import { createEvent } from "./create-event";
 import type { SplitDraft } from "./event-input";
+import { deleteEvent, restoreEvent } from "./delete-event";
 import { splitSeries as splitSeriesOn } from "./split-series";
 import {
   addEditor,
@@ -276,5 +277,65 @@ describe("Series split", () => {
     const id = await newSeries();
     const result = await splitSeriesOn(db, sam, { id, version: 1 }, splitDraft("2026-11-03"), { today: "2026-11-03" });
     expect(result).toMatchObject({ ok: true, kind: "split" });
+  });
+
+  it("Second split of A re-links B to the new Event", async () => {
+    const a = await newSeries();
+    const toB = await splitSeries(db, sam, { id: a, version: 1 }, splitDraft("2026-11-03"));
+    if (!toB.ok) throw new Error(toB.message);
+    const toA2 = await splitSeries(db, sam, { id: a, version: 2 }, splitDraft("2026-10-20"));
+    if (!toA2.ok) throw new Error(toA2.message);
+    // The chain stays a line: A -> A' -> B.
+    expect((await eventRow(db, toA2.id)).predecessorId).toBe(a);
+    expect((await eventRow(db, toB.id)).predecessorId).toBe(toA2.id);
+  });
+
+  it("Edit of A' cannot overlap B", async () => {
+    const a = await newSeries();
+    const toB = await splitSeries(db, sam, { id: a, version: 1 }, splitDraft("2026-11-03"));
+    if (!toB.ok) throw new Error(toB.message);
+    const toA2 = await splitSeries(db, sam, { id: a, version: 2 }, splitDraft("2026-10-20"));
+    if (!toA2.ok) throw new Error(toA2.message);
+    const result = await splitSeries(db, sam, { id: toA2.id, version: 1 }, splitDraft("2026-10-20", {
+      rule: { kind: "rrule", rrule: "FREQ=WEEKLY;BYDAY=TU" },
+      time: { kind: "timed", startTime: "17:00", endTime: "19:00" },
+    }));
+    expect(result).toMatchObject({
+      ok: false,
+      errors: { rule: "This would overlap the later part of this Series (from Tue, Nov 3). End it before Tue, Nov 3." },
+    });
+    expect(await datesTwice()).toEqual([]);
+  });
+
+  it("a restore that would repeat dates of a live part of the Series is refused", async () => {
+    const ada = await addEditor(db, "Ada Admin", "admin");
+    const a = await newSeries();
+    const toB = await splitSeries(db, sam, { id: a, version: 1 }, splitDraft("2026-11-03"));
+    if (!toB.ok) throw new Error(toB.message);
+    expect((await deleteEvent(db, sam, { id: toB.id, version: 1 })).ok).toBe(true);
+    // A deleted part frees its dates: A may now run on.
+    const again = await splitSeries(db, sam, { id: a, version: 2 }, splitDraft("2026-10-20", {
+      rule: { kind: "rrule", rrule: "FREQ=WEEKLY;BYDAY=TU" },
+    }));
+    expect(again.ok).toBe(true);
+    const restore = await restoreEvent(db, ada, { id: toB.id, version: 2 });
+    expect(restore).toMatchObject({
+      ok: false,
+      reason: "invalid",
+      message:
+        "Restoring this Event would repeat dates of Tuesday Ride (November 3, 2026). Change or stop that Event first.",
+    });
+    expect((await eventRow(db, toB.id)).deletedAt).not.toBeNull();
+    expect(await datesTwice()).toEqual([]);
+  });
+
+  it("a restore with no repeated dates is accepted", async () => {
+    const ada = await addEditor(db, "Ada Admin", "admin");
+    const a = await newSeries();
+    const toB = await splitSeries(db, sam, { id: a, version: 1 }, splitDraft("2026-11-03"));
+    if (!toB.ok) throw new Error(toB.message);
+    await deleteEvent(db, sam, { id: toB.id, version: 1 });
+    expect((await restoreEvent(db, ada, { id: toB.id, version: 2 })).ok).toBe(true);
+    expect(await datesTwice()).toEqual([]);
   });
 });
