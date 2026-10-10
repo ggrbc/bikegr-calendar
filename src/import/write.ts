@@ -26,6 +26,11 @@ export interface WriteReport {
   editorOverwrites: EventRef[];
   /** Events in the database with a Source ID that the feed no longer has. Not deleted. */
   notInFeed: EventRef[];
+  /**
+   * Events that an Editor split in the admin (another Event has them as predecessor). The import
+   * does not write them: the feed's rule would run over the new Event's dates again.
+   */
+  splitInAdmin: EventRef[];
 }
 
 export interface WriteOptions {
@@ -38,7 +43,7 @@ export interface WriteOptions {
 }
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
-type Outcome = "inserted" | "updated" | "unchanged";
+type Outcome = "inserted" | "updated" | "unchanged" | "splitInAdmin";
 
 export async function writeImport(
   db: Db,
@@ -52,6 +57,7 @@ export async function writeImport(
     failed: [],
     editorOverwrites: [],
     notInFeed: [],
+    splitInAdmin: [],
   };
   const tagNames = new Map(result.tags.map((t) => [`${t.calendar}/${t.slug}`, t.name]));
   const overridesBySource = new Map<string, OverrideInput[]>();
@@ -92,8 +98,16 @@ async function writeEvent(
   eventOverrides: OverrideInput[],
   { imageCopied, tagNames }: { imageCopied: boolean; tagNames: Map<string, string> },
 ): Promise<{ outcome: Outcome; editorChanged: boolean }> {
-  const tagIds = await upsertTags(tx, event, tagNames);
   const [existing] = await tx.select().from(events).where(eq(events.sourceId, event.sourceId));
+  if (existing) {
+    const [successor] = await tx
+      .select({ id: events.id })
+      .from(events)
+      .where(eq(events.predecessorId, existing.id))
+      .limit(1);
+    if (successor) return { outcome: "splitInAdmin", editorChanged: false };
+  }
+  const tagIds = await upsertTags(tx, event, tagNames);
 
   const owned = {
     calendar: event.calendar,

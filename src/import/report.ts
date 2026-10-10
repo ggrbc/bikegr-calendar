@@ -58,6 +58,7 @@ export function formatImportReport({
   for (const e of write.editorOverwrites) lines.push(`  Warning: overwrote Editor changes: ${ref(e)}`);
   for (const e of write.failed) lines.push(`  Failed: ${ref(e)} — ${e.message}`);
   for (const e of write.notInFeed) lines.push(`  Not in the feed: ${ref(e)}`);
+  for (const e of write.splitInAdmin) lines.push(`  Split in the admin, not updated: ${ref(e)}`);
 
   return lines.map(redactSecrets);
 }

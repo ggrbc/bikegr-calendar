@@ -268,6 +268,77 @@ describe("import writer", () => {
     expect((await eventBySource(db, "501")).deletedAt).not.toBeNull();
   });
 
+  it("Re-import does not change an Event that was split in the admin", async () => {
+    const series = oneTime("600", {
+      rule: {
+        eventId: "600",
+        timing: { kind: "timed", start: "2026-10-06T18:00", end: "2026-10-06T20:00" },
+        rrule: "FREQ=WEEKLY;BYDAY=TU",
+        exdates: [],
+        scheduleStatus: "scheduled",
+        scheduleNote: null,
+      },
+      tagSlugs: ["non-drop"],
+    });
+    const result = small([series], [{ calendar: "rides", name: "Non-Drop", slug: "non-drop" }]);
+    result.overrides = [{ eventId: "600", originalStart: "2026-10-13T18:00", scheduleStatus: "cancelled" }];
+    await writeImport(db, result);
+    const old = await eventBySource(db, "600");
+    // The admin split: the old Event ends; a new Event links to it.
+    await db
+      .update(events)
+      .set({ rrule: "FREQ=WEEKLY;BYDAY=TU;UNTIL=20261019T235959", version: 2 })
+      .where(eq(events.id, old.id));
+    await db.insert(events).values({
+      calendar: "rides",
+      title: "Event 600",
+      allDay: false,
+      startLocal: "2026-10-20T18:30",
+      endLocal: "2026-10-20T20:30",
+      rrule: "FREQ=WEEKLY;BYDAY=TU",
+      reviewStatus: "approved",
+      predecessorId: old.id,
+    });
+    const before = await counts(db);
+
+    const changed = structuredClone(result);
+    changed.events[0].title = "Changed in Tockify";
+    changed.events[0].tagSlugs = [];
+    changed.overrides = [];
+    const report = await writeImport(db, changed);
+
+    expect(report.splitInAdmin).toEqual([{ sourceId: "600", title: "Changed in Tockify" }]);
+    expect(report.updated).toEqual([]);
+    expect(report.unchanged).toEqual([]);
+    const row = await eventBySource(db, "600");
+    expect(row.title).toBe("Event 600");
+    expect(row.rrule).toBe("FREQ=WEEKLY;BYDAY=TU;UNTIL=20261019T235959");
+    expect(row.version).toBe(2);
+    expect(await counts(db)).toEqual(before);
+  });
+
+  it("Re-import still updates an Event with no successor", async () => {
+    const result = small([oneTime("601"), oneTime("602")]);
+    await writeImport(db, result);
+    const first = await eventBySource(db, "601");
+    // 602 is a predecessor of nothing; 601 is the successor of nothing either.
+    await db.insert(events).values({
+      calendar: "rides",
+      title: "Unrelated",
+      allDay: false,
+      startLocal: "2026-11-01T10:00",
+      endLocal: "2026-11-01T11:00",
+      predecessorId: null,
+    });
+    const changed = structuredClone(result);
+    changed.events[0].title = "Changed 601";
+    const report = await writeImport(db, changed);
+    expect(report.splitInAdmin).toEqual([]);
+    expect(report.updated.map((e) => e.sourceId)).toEqual(["601"]);
+    expect((await eventBySource(db, "601")).title).toBe("Changed 601");
+    expect((await eventBySource(db, "601")).version).toBe(first.version + 1);
+  });
+
   it("an Event that the feed no longer has is reported and not deleted", async () => {
     await writeImport(db, small([oneTime("600"), oneTime("601")]));
     const report = await writeImport(db, small([oneTime("600")]));
