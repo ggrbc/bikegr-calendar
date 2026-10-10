@@ -231,12 +231,15 @@ export async function moveCalendar(tx: Tx, eventId: string, calendar: CalendarSl
   await tx.update(events).set({ calendar }).where(eq(events.id, eventId));
 }
 
-/** The last write: one history row with the state after the change (the import's shape). */
+/**
+ * The last write: one history row with the state after the change (the import's shape). `actor` is
+ * null only for a public Submission (no Editor made it).
+ */
 export async function writeHistory(
   tx: Tx,
   eventId: string,
   action: HistoryAction,
-  actor: Actor,
+  actor: Actor | null,
   detail?: HistoryDetail,
 ): Promise<void> {
   const [event] = await tx.select().from(events).where(eq(events.id, eventId));
@@ -260,6 +263,6 @@ export async function writeHistory(
       tagSlugs: slugs.map((s) => s.slug).sort(),
       ...(detail ? { detail } : {}),
     },
-    changedBy: actor.id,
+    changedBy: actor?.id ?? null,
   });
 }

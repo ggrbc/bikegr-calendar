@@ -61,6 +61,8 @@ export interface HistoryDetail {
   successorId?: string;
   predecessorId?: string;
   removedOverrides?: string[];
+  /** Reject: the Editor's reason, as sent to the Submitter. */
+  reason?: string;
 }
 
 /** History actions written by the admin and the import. */
@@ -75,7 +77,10 @@ export type HistoryAction =
   | "clear-override"
   | "delete"
   | "restore"
-  | "import";
+  | "import"
+  | "submit"
+  | "approve"
+  | "reject";
 
 export function historyActionLabel(action: string, detail: HistoryDetail): string {
   const day = (value?: string) => (value ? shortDate(value.slice(0, 10)) : "");
@@ -102,6 +107,12 @@ export function historyActionLabel(action: string, detail: HistoryDetail): strin
       return "Restored";
     case "import":
       return "Import";
+    case "submit":
+      return "Submitted";
+    case "approve":
+      return "Approved";
+    case "reject":
+      return detail.reason ? `Rejected: ${detail.reason}` : "Rejected";
     default:
       return action;
   }

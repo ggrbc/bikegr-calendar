@@ -31,6 +31,10 @@ describe("admin text formats", () => {
     expect(historyActionLabel("split", { splitDate: "2026-11-03" })).toBe(
       "Series split: dates from Tue, Nov 3 moved to a new Event",
     );
+    expect(historyActionLabel("submit", {})).toBe("Submitted");
+    expect(historyActionLabel("approve", {})).toBe("Approved");
+    expect(historyActionLabel("reject", {})).toBe("Rejected");
+    expect(historyActionLabel("reject", { reason: "Not a bike event." })).toBe("Rejected: Not a bike event.");
     expect(historyActionLabel("something-new", {})).toBe("something-new");
   });
 });

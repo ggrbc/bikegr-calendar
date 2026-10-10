@@ -119,7 +119,7 @@ export async function loadEventForEdit(db: Db, id: string): Promise<EventForEdit
 export interface HistoryEntry {
   id: number;
   changedAt: Date;
-  /** Editor name, else email; "Import" when no Editor made the change. */
+  /** Editor name, else email; "Submitter" for a Submission; "Import" for other changes with no Editor. */
   who: string;
   what: string;
 }
@@ -143,7 +143,7 @@ export async function loadHistory(db: Db, eventId: string): Promise<HistoryEntry
     return {
       id: r.id,
       changedAt: r.changedAt,
-      who: r.name ?? r.email ?? "Import",
+      who: r.name ?? r.email ?? (r.action === "submit" ? "Submitter" : "Import"),
       what: historyActionLabel(r.action, detail),
     };
   });
