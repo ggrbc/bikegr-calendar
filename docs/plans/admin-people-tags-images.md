@@ -406,3 +406,22 @@ role-change audit trail, and Tag aliases (a redirect from a merged Tag's slug).
 - `ImageUploadField` has one more optional prop, `disabled`. The rest of the interface is as above.
 - `sharp` is not in a build trace yet: no page uses the upload action until the Event form imports
   `ImageUploadField`. Next.js then traces `sharp` as an external package.
+- `experimental.serverActions.bodySizeLimit: "4.5mb"` is **global**: it applies to every server
+  action, also the public magic-link action on `/login`. Vercel caps a Function request body at
+  4.5 MB anyway, so the setting adds no new exposure in production.
+
+### Review fixes
+
+- Add and unretire also refuse a name that another active Tag of the Calendar has (one shared
+  check, `activeNameTaken`, in the transaction; unretire locks the row `for update` first).
+- `isEventImageUrl(url, env = process.env)` accepts only **our** store host, derived as
+  `@vercel/blob` derives it: `BLOB_STORE_ID` (`store_<id>`), else `BLOB_READ_WRITE_TOKEN`
+  (`vercel_blob_rw_<id>_…`), giving `<id lowercased>.public.blob.vercel-storage.com`. Checked on
+  Neon dev: the derived host equals the host of all 25 Blob image URLs that the import stored, and
+  all 25 pass. It refuses user info, a port, a query, a hash, and any path other than
+  `/events/<64 lowercase hex>.<webp|jpg|png|gif|avif>`. The pure form is
+  `isEventImageUrlForHost(url, host)`; `blobPublicHost(env)` gives the host. No Blob settings → no
+  URL is accepted.
+- A very tall image is scaled to fit the WebP height limit (16383 px), not refused as damaged.
+- The merge result counts only Events that are not deleted, so it matches the confirm step. Links of
+  deleted Events still move.
