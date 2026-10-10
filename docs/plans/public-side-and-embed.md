@@ -447,6 +447,55 @@ interface AgendaFilters {
   list on `/embed/*` (the last matching rule wins). `EMBED_EXTRA_FRAME_ANCESTORS` is read at build
   time; only plain `http(s)://host[:port]` values are kept.
 
+## Design pass (added 2026-10-10)
+
+Goal: the public calendar and the Embed look like Bike GR's Tockify calendar and fit bikegr.org.
+One responsive card component (`src/app/_components/occurrence-card.tsx`) replaces Tockify's two
+embeds: full layout from 640 px (round 136 px image left; title Chivo 26 px orange; date line;
+2-line description; Tags in green joined with " • "; CTA button), mini layout below 640 px (white
+list with a 4 px orange top border; title 17 px; bold date line; 2-line description; bold venue = the
+text before the first comma; square 72 px thumbnail right; no Tags, no CTA).
+
+- **Fonts:** Chivo (headings, titles, date lines, buttons) and Open Sans (body; 300 for
+  descriptions) through `next/font/google` (self-hosted at build). `src/app/layout.tsx` and
+  `src/app/globals.css` (approved scope exception); admin pages inherit Open Sans only.
+- **Theme tokens** (`globals.css`): `brand-orange` #D04C27, `brand-green` #98AC43, `brand-gray`
+  #424143, `brand-page` #F2F2F3, `brand-divider` #E5E5E5.
+- **Contrast (WCAG AA):** #D04C27 is 4.43:1 on white and 3.96:1 on the page gray; #98AC43 is
+  2.52:1 on white. So they are kept for large text (the 26–34 px titles), borders, and decoration.
+  Small text and button backgrounds use darker variants: `brand-orange-text` #BF4624 (5.07:1 on
+  white, 4.56:1 on gray, white text on it 5.07:1) and `brand-green-text` #67752E (5.05:1 on white,
+  4.51:1 on gray, white text on it 5.05:1).
+- **Buttons:** 4 px radius inside the calendar (CTA orange, toolbar green, Add to calendar as
+  green outline buttons); pill (300 px radius) only for site-level actions (Calendar switcher,
+  "Visit bikegr.org").
+- **Toolbar:** a light band with search, Apply, Clear, and a "Filter" control (`<details>`) that
+  holds the date range, days, and Tags. No Monthly view toggle.
+- **Lists:** a flat list of Occurrences under "Events from Oct 10th" (the window start), no day
+  headings. Headings: site h1 (Calendar) → h2 ("Events from …") → h3 (titles); Embed h1 ("Events
+  from …") → h2 (titles). Visible focus ring (2 px, `brand-orange-text`); `prefers-reduced-motion`
+  stops animations and smooth scrolling.
+- **No image:** a green circle (square in mini) with a white bicycle glyph.
+- **Detail page:** white card with the orange top border; title Chivo 34 px orange; bold date line;
+  badge and note; full location with ", " after each comma and a Map link; Tags in green; CTA; a
+  larger image (not round); description; Add to calendar as small outline buttons.
+
+### Remaining visual differences from Tockify
+
+- Toolbar: Tockify has a date jump (◀ date ▶) and an "×" in the search box; ours has Apply, Clear,
+  and the date range inside "Filter". No Agenda / Monthly toggle (out of scope).
+- Header: Tockify shows "Bike GR Community Calendar" and a 4 px "visit our website" button; ours
+  shows the Calendar name, the Calendar switcher, and a pill "Visit bikegr.org".
+- Colors: small text, Tags, and buttons use the darker AA variants (#BF4624, #67752E), so they are
+  a little darker than Tockify's #D04C27 and #98AC43.
+- Events with no image: Tockify shows a Bike GR logo image; ours shows the green bicycle
+  placeholder (the imported Events have no image there).
+- Tags: weekday Tags are gone (Day filter); Tag names show as stored (for example "Group-Ride").
+- Mini: our search row and "Filter" button show above the list (Tockify mini has no toolbar).
+- Tockify loads more Events when the rider scrolls; ours shows the date range (8 weeks by default)
+  in one list, with a Feed link at the end.
+- Schedule status: an amber badge next to the date line, not a `**Cancelled**` title prefix.
+
 ## Test cases
 
 ### Filters (pure)
