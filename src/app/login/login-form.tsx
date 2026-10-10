@@ -10,7 +10,7 @@ export function LoginForm() {
 
   if (state.result === "sent") {
     return (
-      <p role="status" className="rounded border border-green-700 bg-green-50 p-4">
+      <p role="status" className="rounded border border-green-700 bg-green-50 p-4 text-green-900">
         If <strong>{state.email}</strong> belongs to an Editor, we sent a sign-in link. No email?
         Ask an Admin.
       </p>
