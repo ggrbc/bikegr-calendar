@@ -4,6 +4,7 @@ import { eventTags, events, tags } from "@/db/schema";
 import type { Db } from "@/db/types";
 import type { CalendarSlug, EventRuleInput, Timing } from "@/engine";
 import type { AgendaRow } from "./occurrence-rows";
+import type { SnapshotEvent } from "./snapshot";
 
 export const timed = (day: string, from = "18:00", to = "20:00"): Timing => ({
   kind: "timed",
@@ -59,6 +60,41 @@ export async function addTag(
 
 export async function tagEvent(db: Db, eventId: string, tagId: string, calendar: CalendarSlug) {
   await db.insert(eventTags).values({ eventId, tagId, calendar });
+}
+
+/** A snapshot Event with defaults, for pure tests. `timing` and `rrule` make its rule. */
+export function snapshotEvent(
+  patch: Partial<Omit<SnapshotEvent, "rule">> & {
+    timing?: Timing;
+    rrule?: string;
+    scheduleStatus?: EventRuleInput["scheduleStatus"];
+    scheduleNote?: string | null;
+  } = {},
+): SnapshotEvent {
+  const { timing = timed("2026-10-14"), rrule, scheduleStatus, scheduleNote, ...rest } = patch;
+  const id = rest.id ?? "7c9e6679-7425-40de-944b-e07fc1f90ae7";
+  return {
+    id,
+    calendar: "rides",
+    title: "Wednesday Evening Rides",
+    description: "",
+    location: null,
+    imageUrl: null,
+    cta: null,
+    overrides: [],
+    tags: [],
+    updatedAt: "2026-10-01T12:00:00.000Z",
+    overrideUpdatedAt: {},
+    ...rest,
+    rule: {
+      eventId: id,
+      timing,
+      rrule: rrule ?? null,
+      exdates: [],
+      scheduleStatus: scheduleStatus ?? "scheduled",
+      scheduleNote: scheduleNote ?? null,
+    },
+  };
 }
 
 /** A view row with defaults, for pure tests. */
