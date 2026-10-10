@@ -18,15 +18,15 @@ export async function loadAgenda(
   filters: AgendaFilters,
   log: (line: string) => void = console.error,
 ): Promise<AgendaResult> {
-  let snapshot: CalendarSnapshot;
+  // A load error and an engine error (for example a bad stored rule) both give the fallback.
   try {
-    snapshot = await load();
+    const snapshot: CalendarSnapshot = await load();
+    const window = filterWindow(filters);
+    // Tags and text search here; the Day filter per entry in groupAgendaDays.
+    const rows = expandSnapshot(snapshot, window).filter((row) => matchesContent(row, filters));
+    return { ok: true, days: groupAgendaDays(rows, window, filters.days), tags: snapshot.tags };
   } catch (error) {
     log(`Agenda could not load: ${describeError(error)}`);
     return { ok: false };
   }
-  const window = filterWindow(filters);
-  // Tags and text search here; the Day filter per entry in groupAgendaDays.
-  const rows = expandSnapshot(snapshot, window).filter((row) => matchesContent(row, filters));
-  return { ok: true, days: groupAgendaDays(rows, window, filters.days), tags: snapshot.tags };
 }

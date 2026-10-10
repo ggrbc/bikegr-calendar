@@ -41,6 +41,15 @@ describe("loadAgenda", () => {
     expect(await dates("tag=retired")).toEqual([]);
   });
 
+  it("an error while the engine expands gives the fallback, not an error page", async () => {
+    const logged: string[] = [];
+    const broken: CalendarSnapshot = { events: [snapshotEvent({ rrule: "FREQ=NOPE" })], tags: [] };
+    const agenda = await loadAgenda(async () => broken, filters(""), (line) => logged.push(line));
+    expect(agenda).toEqual({ ok: false });
+    expect(logged).toHaveLength(1);
+    expect(logged[0]).toMatch(/^Agenda could not load: /);
+  });
+
   it("a database error gives the fallback and logs only the error name and code", async () => {
     const logged: string[] = [];
     const cause = Object.assign(

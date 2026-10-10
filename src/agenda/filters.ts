@@ -40,6 +40,10 @@ export const DEFAULT_RANGE_DAYS = 8 * 7;
 /** The longest date range, in days (inclusive). */
 export const MAX_RANGE_DAYS = 366;
 export const MAX_QUERY_LENGTH = 100;
+/** `from` is at most one year before today. */
+export const DAYS_BACK_LIMIT = 365;
+/** `from` and `to` are at most two years after today. */
+export const DAYS_FORWARD_LIMIT = 730;
 const MAX_TAGS = 20;
 
 /** `URLSearchParams`, or the plain object that Next.js gives a page as `searchParams`. */
@@ -83,11 +87,17 @@ export function parseFilters(params: FilterParams, today: LocalDate): AgendaFilt
 
   const q = (values(params, "q")[0] ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_QUERY_LENGTH).trim();
 
-  const from = localDate(values(params, "from")[0]) ?? today;
+  // Dates stay in a fixed range around today, so a URL such as ?from=9999-06-01 cannot make the
+  // engine expand thousands of years (or step past year 9999).
+  const earliest = addDays(today, -DAYS_BACK_LIMIT);
+  const latest = addDays(today, DAYS_FORWARD_LIMIT);
+  const clamp = (date: LocalDate) => (date < earliest ? earliest : date > latest ? latest : date);
+  const from = clamp(localDate(values(params, "from")[0]) ?? today);
   let to = localDate(values(params, "to")[0]);
   if (to === null || to < from) to = defaultTo(from);
   const last = addDays(from, MAX_RANGE_DAYS - 1);
   if (to > last) to = last;
+  if (to > latest) to = latest;
 
   return { tags, days: days.length === WEEKDAYS.length ? [] : days, q, from, to };
 }

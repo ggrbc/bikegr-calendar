@@ -58,6 +58,19 @@ describe("parseFilters", () => {
     expect(parse("from=2026-11-01&to=2026-10-20")).toMatchObject({ from: "2026-11-01", to: "2026-12-26" });
   });
 
+  it("a far-future from is clamped to two years after today", () => {
+    expect(parse("from=9999-06-01")).toMatchObject({ from: "2028-10-11", to: "2028-10-11" });
+    expect(parse("from=5000-01-01&to=5000-02-01")).toMatchObject({ from: "2028-10-11", to: "2028-10-11" });
+  });
+
+  it("a far-past from is clamped to one year before today", () => {
+    expect(parse("from=1900-01-01")).toMatchObject({ from: "2025-10-12", to: "2025-12-06" });
+  });
+
+  it("to is never later than two years after today", () => {
+    expect(parse("from=2028-06-01&to=2029-01-01").to).toBe("2028-10-11");
+  });
+
   it("date range longer than 366 days is cut back", () => {
     expect(parse("from=2026-10-12&to=2028-01-01").to).toBe("2027-10-12");
   });
