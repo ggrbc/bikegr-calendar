@@ -334,3 +334,25 @@ export const authVerificationTokens = pgTable(
   },
   (t) => [primaryKey({ columns: [t.identifier, t.token] })],
 );
+
+// ---------------------------------------------------------------------------------------------
+// Rate limits (src/rate-limit). One row per bucket and key: a fixed window and its hit count. The
+// key is an HMAC, never a raw IP or email. See docs/plans/magic-link-rate-limit.md.
+
+export const rateLimits = pgTable(
+  "rate_limits",
+  {
+    /** Which limit, in plain text (`magic-link:ip`). Holds no personal data. */
+    bucket: text("bucket").notNull(),
+    keyHash: text("key_hash").notNull(),
+    windowStart: instant("window_start").notNull(),
+    hits: integer("hits").notNull(),
+    /** The window end. Rows past it are pruned. */
+    expiresAt: instant("expires_at").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.bucket, t.keyHash] }),
+    index("rate_limits_expires_idx").on(t.expiresAt),
+    check("rate_limits_hits_positive", sql`${t.hits} >= 1`),
+  ],
+);

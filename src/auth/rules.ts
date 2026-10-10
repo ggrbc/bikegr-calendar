@@ -30,9 +30,15 @@ export interface InviteInput {
 
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
-// No spaces, `@`, `"`, `,`, `<`, or `>` inside the parts: those can turn one address into several
-// (or into a display name) in a mail parser.
-const EMAIL = /^[^\s@",<>]+@[^\s@",<>]+\.[^\s@",<>]+$/;
+// Characters that are refused inside the parts:
+// - spaces, `@`, `"`, `,`, `<`, `>`: they can turn one address into several (or into a display
+//   name) in a mail parser;
+// - the other RFC 5322 specials `( ) [ ] : ; \`: they are allowed only inside quotes, and quotes
+//   are refused;
+// - control characters (`\p{Cc}`, for example NUL, which Postgres refuses in text) and invisible
+//   format characters (`\p{Cf}`, for example a zero-width space or an RTL override).
+const PART = String.raw`[^\s@",<>()[\]:;\\\p{Cc}\p{Cf}]+`;
+const EMAIL = new RegExp(`^${PART}@${PART}\\.${PART}$`, "u");
 
 /** A simple shape check. The magic link proves that the address works. */
 export function isValidEmail(email: string): boolean {

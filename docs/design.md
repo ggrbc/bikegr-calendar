@@ -38,7 +38,7 @@ Tockify is embedded today on two Squarespace pages:
 | Auth | Auth.js — magic-link email (Google login after cutover) |
 | Email | Resend, verified on the root `bikegr.org`, sending from `notifications@bikegr.org` |
 | Images | Blob storage (Vercel Blob or R2), resized on upload |
-| Spam control | Cloudflare Turnstile, honeypot, per-IP rate limit stored in Postgres |
+| Spam control | Cloudflare Turnstile, honeypot, per-IP rate limit stored in Postgres (one shared module, `src/rate-limit`, also used for magic links) |
 | Hosting | Vercel Hobby |
 | Recurrence | `rrule` (npm) |
 | Tests | Vitest (Occurrence engine, import), Playwright smoke tests (agenda, Embed) |
@@ -139,6 +139,14 @@ The admin offers three scopes when an Editor changes a Series. See
 - **First Admins:** jeremy@bikegr.org, bultentom@bikegr.org, nate@bikegr.org. They invite the
   Editors.
 - **Deactivate, never hard-delete** Editors, so audit trails keep their names.
+- **Magic-link rate limit:** 20 link requests per hour per IP (an IPv6 address counts by its /64),
+  and 5 per hour per active Editor's email. A limited request gets the same answer as a sent link,
+  with no email, so the login page still does not show who is an Editor. Admin invites count too.
+  **The limit fails open:** if it cannot run (for example, the `rate_limits` migration has not run
+  yet, or the database connection fails), the link is sent and one log line gives the error class
+  and code (no email, no IP). So the limiter can never lock out all Editors. The rate-limit module
+  itself is strict (it throws); each caller decides, and Submissions fails closed. Details:
+  [plans/magic-link-rate-limit.md](plans/magic-link-rate-limit.md).
 - Later: "claimed by" marker on the Review queue; per-Calendar Editor access (one join table, default
   all Calendars).
 
