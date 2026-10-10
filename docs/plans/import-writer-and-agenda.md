@@ -73,9 +73,11 @@ calendar, title, description, location, imageUrl, cta, tag slugs (sorted), timin
 `eventId`, absent fields absent). For an Event in `uncopiedImages`, `imageUrl` is left out of the
 state and out of the update (see "image_url is never downgraded" below).
 
-- From the import: `stateFromImport(importedEvent, itsOverrides)`.
-- From the database: load the Event row, its Overrides, and its Tag slugs; map the rows through the
-  existing read mappers (`eventRowToRuleInput`, `overrideRowToInput`); then `stateFromRows(…)`.
+- From the import: `stateFromImport(importedEvent, itsOverrides)` — through the write mappers
+  (`ruleInputToColumns`, `ctaToColumns`, `overrideInputToRow`), so both sides use the row shape.
+  (Built: this replaced "through the read mappers". The row shape is simpler, and a value that the
+  database cannot store, such as an Override `scheduleNote: null`, compares as its stored form.)
+- From the database: the Event row, its Overrides, and its Tag slugs; then `stateFromRows(…)`.
 - `sameState` compares a stable JSON form (sorted keys). Equal state means **no write at all**: no
   update, no `updated_at` change, no history row.
 
@@ -216,6 +218,10 @@ Sort: actual start (`timingStart`), then title, then Event id. A rescheduled Occ
   `params`; a slug that is not in `CALENDARS` calls `notFound()` (404). Cache Components does not
   allow `dynamicParams`, so `notFound()` is the slug check (Next.js 16 docs, "dynamicParams is not
   supported"). Static routes (`/admin`, `/login`) still win over the dynamic segment.
+- Built: the page reads `params` outside `<Suspense>`, because `notFound()` must run before
+  streaming starts to give status 404. `partialPrefetching` then shows the dev-only insight "URL data
+  outside of Suspense", so the route exports `instant = false`. The other choice is two static
+  folders (`/rides`, `/advocacy`) with no `params` at all.
 - `src/app/page.tsx` → All Calendars.
 - Headings: "Rides & Events", "Advocacy", "All events".
 

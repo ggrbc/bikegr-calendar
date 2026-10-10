@@ -7,6 +7,13 @@ import { CALENDAR_NAMES } from "../_components/agenda-list";
 
 // Cache Components does not allow `dynamicParams`; an unknown slug renders on request and gets a
 // 404 from `notFound()` below.
+//
+// The page reads `params` outside <Suspense> on purpose: `notFound()` must run before streaming
+// starts, or the status stays 200 (not-found.md, "Before streaming starts"). That makes the shared
+// App Shell depend on the URL, so the route opts out of instant-navigation validation. Only
+// /rides and /advocacy exist, and both are prerendered by generateStaticParams.
+export const instant = false;
+
 export function generateStaticParams() {
   return CALENDARS.map((calendar) => ({ calendar }));
 }
