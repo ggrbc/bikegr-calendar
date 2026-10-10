@@ -49,8 +49,8 @@ async function CalendarTags({ calendar }: { calendar: CalendarSlug }) {
                 <td role="cell" className={`${stackTdClass} font-semibold max-sm:before:content-none`}>
                   {tag.name}
                 </td>
-                <td role="cell" data-label="Slug" className={`${stackTdClass} font-mono text-sm`}>
-                  {tag.slug}
+                <td role="cell" data-label="Slug" className={stackTdClass}>
+                  <span className="font-mono text-sm">{tag.slug}</span>
                 </td>
                 <td role="cell" data-label="Events" className={stackTdClass}>
                   {tag.eventCount}
