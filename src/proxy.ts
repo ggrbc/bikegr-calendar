@@ -24,6 +24,9 @@ function admin(request: NextRequest) {
 /**
  * Event detail pages and their `.ics` files: a real 404 for an unknown Occurrence and 410 Gone for
  * a deleted Event (src/agenda/detail-gate.ts). A page cannot set these status codes itself.
+ *
+ * The body is a small static HTML page. Tried and refused: `NextResponse.rewrite(…, { status })` to
+ * a styled page (Next.js 16.4 sends the prerendered page with 200, and an RSC request gets 307).
  */
 async function eventDetail(request: NextRequest) {
   const decision = await detailGate(request.nextUrl.pathname, (eventId, segment) =>

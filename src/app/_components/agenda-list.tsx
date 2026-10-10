@@ -9,6 +9,7 @@ import { occurrencePath } from "@/agenda/occurrence-url";
 import { CALENDAR_NAMES, calendarPath } from "@/agenda/site";
 import type { CalendarSlug } from "@/engine";
 import { feedPath, webcalUrl } from "@/feeds/feed";
+import { ResizeReporter } from "../embed/_components/resize-reporter";
 import { Badge } from "./badge";
 import { CalendarSwitcher } from "./calendar-switcher";
 import { CanonicalQuery } from "./canonical-query";
@@ -56,6 +57,7 @@ export async function AgendaList({
   return (
     <>
       <CanonicalQuery query={serializeFilters(filters, today)} />
+      {embed && <ResizeReporter search={serializeFilters(filters, today)} />}
       {!embed && <CalendarSwitcher current={calendar} filters={filters} allTags={tags} today={today} />}
       <FilterForm action={path} calendar={calendar} filters={filters} tags={calendarTags} collapsible={embed} />
       <p className="mb-6 text-sm text-gray-700">
