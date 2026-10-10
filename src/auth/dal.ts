@@ -4,6 +4,7 @@
  */
 import "server-only";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { cache } from "react";
 import { getDb } from "@/db";
 import type { EditorRole } from "@/db/schema";
@@ -21,8 +22,13 @@ export interface CurrentEditor {
 /**
  * The logged-in, active Editor, or null. Reads the session and the Editor row on every request, so
  * a deactivation takes effect at once.
+ *
+ * `connection()` first: with `partialPrefetching`, Next.js prerenders the admin shells with the real
+ * cookies, and `auth()` makes a CSRF token with `crypto.getRandomValues()` on every call. That is an
+ * unstable value in a prerender, so the session read must wait for the request.
  */
 export const getCurrentEditor = cache(async (): Promise<CurrentEditor | null> => {
+  await connection();
   const session = await auth();
   const id = session?.user?.id;
   if (!id) return null;
