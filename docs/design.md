@@ -79,17 +79,23 @@ before committing.
   | `scheduled` | none | `CONFIRMED` | `EventScheduled` |
   | `tentative` | Date to be confirmed | `TENTATIVE` | `EventScheduled` |
   | `cancelled` | Cancelled | `CANCELLED` | `EventCancelled` |
-  | `postponed` | Postponed | open item | `EventPostponed` |
+  | `postponed` | Postponed | `CANCELLED` (decided 2026-10-10) | `EventPostponed` |
   | `rescheduled` | Rescheduled to / from | `CONFIRMED` | `EventRescheduled` |
 
   `rescheduled` is derived: an Override moved the start. It shows on the old date ("Rescheduled to
   Thu 6 pm") and on the new date ("Rescheduled from Tue 6 pm").
+
+  `postponed` maps to ICS `CANCELLED`: it does not happen at the listed time, so a subscriber's
+  calendar must not show it as a normal Event. When the Editor sets the new date, the Override makes
+  it `rescheduled`, and the same UID comes back as `CONFIRMED`. The Feed `SUMMARY` gets the prefix
+  `[Postponed] ` (also `[Cancelled] ` and `[Date to be confirmed] ` for those statuses).
 - **Schedule note:** optional short public text on an Occurrence, shown with any Schedule status.
 - **Audit fields:** `created_by`, `updated_by`, `reviewed_by`, each with a timestamp. Public
   Submissions have no `created_by`; they carry Submitter name and email instead.
 - **Soft delete:** `deleted_at`, `deleted_by`. A deleted Event is hidden from the public side, the
   Feeds, and default admin lists; its history stays; an Admin can restore it. Its detail URL returns
-  **410 Gone**. Only whole Events are deleted; one Occurrence is cancelled instead.
+  **410 Gone**. Only whole Events are deleted; one Occurrence is cancelled instead. (The proxy gives
+  the 410 and the 404 of detail URLs: a page cannot set its status code under Cache Components.)
 - **History:** an `event_history` table stores a JSON snapshot for each change.
 - **Optimistic concurrency:** a `version` column (`update … where id = ? and version = ?`, then check
   the row count). If two Editors save the same Event, the second save fails with a clear message
@@ -144,6 +150,9 @@ The admin offers three scopes when an Editor changes a Series. See
   - Within Tags: AND (both Tags must match).
   - Within days: OR (`?day=tue,thu` = Tuesday or Thursday).
   - The Day filter uses the Occurrence's wall-clock date; a rescheduled Occurrence uses its new date.
+    The agenda also shows the short "Rescheduled to …" entry on the old date when the old date
+    matches the Day filter, so a rider who looks for that weekday sees that it moved (decided
+    2026-10-10). Feeds have no short entries.
 - **Schedule status badges** and Schedule notes show in the agenda and on the detail page.
 - **Event detail page** with schema.org `Event` JSON-LD (including `eventStatus`), so search engines
   index Events on the calendar's own domain.
@@ -280,5 +289,3 @@ Public ICS feed: `https://tockify.com/api/feeds/ics/bikegr` (no auth). Facts che
 
 - Final Tag lists for each Calendar, after the first import.
 - Vital Streets #28 / #29: duplicate or not.
-- ICS `STATUS` for a `postponed` Occurrence: `TENTATIVE` or `CANCELLED` (ICS has no "postponed").
-  Put the badge text in the `SUMMARY` either way.

@@ -3,8 +3,10 @@
 Stream: `public-side-and-embed`. Milestone: "Public side and Embed" in
 [build-plan.md](../build-plan.md). Terms follow [CONTEXT.md](../../CONTEXT.md).
 
-Status: **plan, waiting for approval.** The "Decisions" section has the open choices, each with a
-recommendation.
+Status: **approved 2026-10-10** (all seven recommendations), with two changes from Jeremy: this stream
+adds the `invalidatePublicEvents()` calls to the admin Server Actions itself (after rebase), and the
+proxy decides both 404 and 410 (the blocking-route spike failed; see "410 Gone"). Built on branch
+`public-side-and-embed`.
 
 ## Context
 
@@ -30,7 +32,7 @@ Two other streams build the admin at the same time (`admin-event-editing`,
 - `calendar-switcher` — Rides & Events | Advocacy | All on the standalone site, with compatible
   filters kept.
 
-## Decisions (for Jeremy)
+## Decisions (approved 2026-10-10: every recommendation below)
 
 ### Public caching — recommendation: cached Calendar snapshot, tag invalidation, CDN on Feeds
 
@@ -50,10 +52,10 @@ choice is where the database read is cached.
     Runtime Cache limits on Hobby first. If they do not fit, use plain `"use cache"` (Fluid compute
     keeps instances warm, so hits still happen).
   - `cacheTag("public-events")` and `cacheLife({ stale: 300, revalidate: 3600, expire: 86400 })`.
-  - **Admin writes:** this stream exports `invalidatePublicEvents()` from `src/agenda/cache.ts`
-    (it calls `updateTag("public-events")`, so the Editor sees the change at once). The two admin
-    streams call it at the end of each Server Action that changes an Event, an Override, or a Tag.
-    That is one line in their code; I tell them through the main session.
+  - **Admin writes:** `invalidatePublicEvents()` in `src/agenda/cache.ts` calls
+    `updateTag("public-events")`, so the Editor sees the change at once. This stream adds the call
+    to the admin Server Actions that change an Event, an Override, or a Tag (after rebase on the
+    admin PRs). Done for the Tag actions (`revalidateTagPages()` in `src/app/admin/tags/actions.ts`).
   - **Import CLI** (runs outside the app, so it cannot call `updateTag` or `revalidateTag`): after
     an import, the public side is stale for at most 1 hour. The import runs by hand, twice in total
     (now and at cutover). To clear it at once, redeploy: the cache key includes the deployment ID,
@@ -64,21 +66,30 @@ choice is where the database read is cached.
   hours, so a 15-minute delay does not matter.
 - The detail page uses the same snapshot (option B) or a direct read (option A).
 
-### 410 Gone for a deleted Event — recommendation: a check in `src/proxy.ts`
+### 404 and 410 for detail URLs — decided: the proxy decides both
 
 Next.js has no `gone()`. `notFound()` gives 404 (only 401, 403, 404 exist), and a page cannot set its
-status code. So a 410 must come from outside the page.
+status code. **Spike result (2026-10-10):** a detail page with `export const instant = false`, no
+`<Suspense>`, and `notFound()` after `await params` still builds as a partial prerender: the static
+shell of the root layout goes out first, so an unknown URL gets **200** with `noindex` (a soft 404).
+With `generateStaticParams`, the first request gets 200 and the second a cached 404 per path. So
+neither status can come from the page.
 
-- **A. `src/proxy.ts` (recommended).** Add the matcher `/events/:path*`. For a detail path, read
-  `deleted_at` for the Event id (one indexed primary-key read; the proxy runs on Node.js in Next.js
-  16). Deleted → a small HTML response with status 410 ("This event was removed", link to the
-  Calendar, `noindex`). Else `NextResponse.next()`. The `/admin` branch stays as it is.
-  `src/proxy.ts` is not in my scope, so I need your approval. The lookup function lives in
-  `src/agenda/` and is tested on PGlite; the proxy only calls it.
-- **B. 404 for a deleted Event.** No proxy change. The page says "This event was removed". Google
-  treats 404 and 410 almost the same. Then I change design.md to match.
-
-The single-Occurrence `.ics` route is a Route Handler, so it returns 410 itself in both options.
+- **Built:** `src/proxy.ts`, matcher `/events/:path*`. It calls `detailGate` → `findOccurrence(db,
+  eventId, segment)` (src/agenda/, tested on PGlite): `gone` → 410, `missing` → 404, `found` →
+  `NextResponse.next()`. The `/admin` branch is unchanged. Also for the `…/event.ics` path, and for
+  RSC requests (`RSC: 1` gets the same 404 or 410).
+- The body is a small static HTML page (`noindex`, links to the Calendars). Tried and refused:
+  `NextResponse.rewrite(…, { status })` to a styled page — Next.js 16.4 sends the prerendered page
+  with 200, and an RSC request gets 307.
+- A database error in the proxy does not fail the request: it logs only the error name and code
+  and lets the request through; the page then handles it.
+- The proxy uses its own handle (`src/agenda/proxy-db.ts`), not `getDb()`: `@/db` imports
+  `server-only`, which refuses to load outside the React server bundle.
+- The page keeps `notFound()` as a backup (an Event deleted between the proxy check and the render).
+- One extra database read per detail request. The detail page therefore reads the database
+  directly too (not the cached snapshot): the cache would save little, and the page always agrees
+  with the proxy.
 
 ### Event detail URL — recommendation: `/events/<eventId>/<start>`, no title slug
 
@@ -264,10 +275,10 @@ interface AgendaFilters {
 
 ## Event detail page (`event-detail-page`)
 
-- Route `src/app/events/[eventId]/[start]/page.tsx`. **Blocking:** `export const instant = false`,
-  no `<Suspense>`; it reads `params` and the database before it renders, so `notFound()` gives a
-  real 404 (Next.js streaming docs: status codes are sent with the first chunk). First step of the
-  build: a spike that checks this with `next build` and `curl -I`.
+- Route `src/app/events/[eventId]/[start]/page.tsx`, `export const instant = false`, no
+  `<Suspense>`. The proxy gives the real 404 and 410 first (see "404 and 410 for detail URLs"); the
+  page's `notFound()` is only a backup. `generateMetadata` and the page share one
+  `findOccurrence` read per request (React `cache`).
 - `findOccurrence(db, eventId, originalStart)`:
   - not a UUID, a bad start segment, no row, or Review status not `approved` → `missing` (404;
     pending and rejected Events never leak);
@@ -416,6 +427,26 @@ interface AgendaFilters {
   fallback ("Events could not load") stays.
 - Rows get `description` and `imageUrl` (for search, the detail page, and the Feeds).
 
+## Built notes (differences from the first plan text)
+
+- **Snapshot Tags:** the snapshot carries the active Tags of both Calendars (not only its own), so
+  the Calendar switcher can keep the Tags that the target has. The filter form shows only the
+  Calendar's own Tags.
+- **Canonical query:** a plain GET form sends every field (`q=&from=…&to=…`). A small Client
+  Component (`CanonicalQuery`) replaces the URL with the canonical query after the load (no
+  navigation). The Embed reports the same canonical query to the host.
+- **Host URL sync** happens only when the page has one Embed (two Embeds cannot share the host
+  URL), and not on the first load (the start state does not change the host URL).
+- **Off-screen Embed:** Chrome does not hydrate an off-screen cross-origin iframe until it scrolls
+  into view. A second Embed below a long first one keeps its start height (600 px) until the rider
+  scrolls to it; then it resizes. The Playwright tests scroll each iframe into view, as a rider does.
+- **Smoke tests** run on a local Docker Postgres (port 55432, project `bikegr-e2e-public`) with a
+  known fixture (`e2e/global-setup.ts`; it refuses a non-local URL). Neon dev is for the manual
+  check only, so the tests never write to a shared database.
+- **`frame-ancestors`:** `next.config.ts` sends `frame-ancestors 'none'` on every path and the Embed
+  list on `/embed/*` (the last matching rule wins). `EMBED_EXTRA_FRAME_ANCESTORS` is read at build
+  time; only plain `http(s)://host[:port]` values are kept.
+
 ## Test cases
 
 ### Filters (pure)
@@ -523,7 +554,7 @@ interface AgendaFilters {
 - A message with a wrong type, a missing height, a negative or huge height, or text is refused
 - A location message with a long search string is refused
 
-### Playwright smoke (`pnpm test:e2e`, local, against Neon dev or Docker)
+### Playwright smoke (`pnpm test:e2e`, local Docker Postgres)
 
 - Agenda for Rides shows days, and a Day filter changes the list and the URL
 - Calendar switcher keeps the Day filter
