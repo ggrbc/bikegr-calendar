@@ -1,0 +1,115 @@
+"use client";
+
+import { useActionState, useId, useState } from "react";
+import {
+  approveSubmissionAction,
+  deleteSubmissionAsSpamAction,
+  rejectSubmissionAction,
+  type SaveState,
+} from "../actions";
+import { IDLE, SaveStatus } from "./save-status";
+
+const REASON_MAX = 500;
+
+export interface ReviewPanelProps {
+  id: string;
+  version: number;
+  reviewStatus: "pending" | "rejected";
+  /** True while the Event form has changes that are not saved: Approve waits for a Save. */
+  dirty: boolean;
+  /** True when the Event has no date today or later. */
+  allPast: boolean;
+}
+
+/**
+ * Approve, Reject, or Delete as spam, for a Submission that waits for review. A rejected Event
+ * shows Approve only (undo a Reject).
+ */
+export function ReviewPanel({ id, version, reviewStatus, dirty, allPast }: ReviewPanelProps) {
+  const [approveState, approve, approving] = useActionState<SaveState, unknown>(approveSubmissionAction, IDLE);
+  const [rejectState, reject, rejecting] = useActionState<SaveState, unknown>(rejectSubmissionAction, IDLE);
+  const [spamState, spam, deleting] = useActionState<SaveState, unknown>(deleteSubmissionAsSpamAction, IDLE);
+  const [reason, setReason] = useState("");
+  const reasonId = useId();
+  const busy = approving || rejecting || deleting;
+  const pending = reviewStatus === "pending";
+  const reasonError = rejectState.status === "invalid" ? rejectState.errors.reason : undefined;
+
+  return (
+    <section aria-labelledby={`${reasonId}-title`} className="flex flex-col gap-4 rounded border border-amber-600 bg-amber-50 p-4">
+      <h2 id={`${reasonId}-title`} className="text-xl font-semibold">
+        {pending ? "Review this Submission" : "This Submission was rejected"}
+      </h2>
+      <p>
+        {pending
+          ? "It is not public. Check it, change it if needed and save, then approve it. Reject it if it does not fit the Calendar. Delete it as spam if it is spam."
+          : "It is not public. Approve it if the Reject was a mistake. The Submitter then gets the approve email."}
+      </p>
+      {allPast && <p className="font-medium text-amber-900">All dates of this Event are in the past.</p>}
+      <SaveStatus state={approveState} />
+      <SaveStatus state={rejectState} />
+      <SaveStatus state={spamState} />
+
+      <form action={() => approve({ id, version })} className="flex flex-col gap-1">
+        <div>
+          <button
+            type="submit"
+            disabled={busy || dirty}
+            className="rounded bg-green-800 px-4 py-2 font-medium text-white disabled:opacity-60"
+          >
+            {approving ? "Approving…" : "Approve"}
+          </button>
+        </div>
+        {dirty && <p className="text-sm text-gray-800">Save your changes first. Then you can approve.</p>}
+      </form>
+
+      {pending && (
+        <form
+          action={() => {
+            if (window.confirm("Reject this Submission? The Submitter gets an email.")) reject({ id, version, reason });
+          }}
+          className="flex flex-col gap-2"
+        >
+          <label htmlFor={reasonId} className="font-medium">
+            Reason (optional; the Submitter sees it in the email)
+          </label>
+          <textarea
+            id={reasonId}
+            value={reason}
+            maxLength={REASON_MAX}
+            rows={3}
+            onChange={(e) => setReason(e.target.value)}
+            aria-invalid={reasonError ? true : undefined}
+            className="w-full rounded border border-gray-400 bg-white px-3 py-2"
+          />
+          {reasonError && <p className="text-sm text-red-700">{reasonError}</p>}
+          <div>
+            <button
+              type="submit"
+              disabled={busy}
+              className="rounded border border-red-700 bg-white px-4 py-2 font-medium text-red-800 disabled:opacity-60"
+            >
+              {rejecting ? "Rejecting…" : "Reject"}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {pending && (
+        <form
+          action={() => {
+            if (window.confirm("Delete this Submission as spam? No email is sent.")) spam({ id, version });
+          }}
+        >
+          <button
+            type="submit"
+            disabled={busy}
+            className="rounded border border-gray-500 bg-white px-4 py-2 font-medium text-gray-900 disabled:opacity-60"
+          >
+            {deleting ? "Deleting…" : "Delete as spam"}
+          </button>
+        </form>
+      )}
+    </section>
+  );
+}
