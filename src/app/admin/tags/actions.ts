@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { mergeTags, renameTag, retireTag, unretireTag, addTag, type TagResult } from "@/admin/tags/tags";
 import { parseCalendar } from "@/admin/tags/rules";
+import { invalidatePublicEvents } from "@/agenda/cache";
 import { requireEditor } from "@/auth/dal";
 import { getDb } from "@/db";
 
@@ -19,6 +20,7 @@ const text = (formData: FormData, key: string) => {
 /** Tags show in the admin, in the Event pickers, and on the public agenda. */
 function revalidateTagPages() {
   for (const path of ["/admin/tags", "/admin/events", "/", "/rides", "/advocacy"]) revalidatePath(path);
+  invalidatePublicEvents();
 }
 
 function toState<T>(result: TagResult<T>, message: (value: T) => string): TagFormState {
