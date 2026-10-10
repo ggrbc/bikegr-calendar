@@ -26,7 +26,11 @@ describe("findOccurrence", () => {
       startLocal: "2026-10-22T18:30",
       endLocal: "2026-10-22T20:30",
     });
-    ids.allDay = (await addEvent(db, { title: "Hair of the Dog Ride", timing: allDay("2027-01-01") })).id;
+    ids.daily = (await addEvent(db, { title: "Daily ride", rrule: "FREQ=DAILY" })).id;
+    ids.until = (
+      await addEvent(db, { title: "Until ride", rrule: "FREQ=WEEKLY;BYDAY=WE;UNTIL=20261021T235959" })
+    ).id;
+    ids.allDay =(await addEvent(db, { title: "Hair of the Dog Ride", timing: allDay("2027-01-01") })).id;
     ids.deleted = (await addEvent(db, { title: "Deleted ride", calendar: "advocacy", deletedAt: new Date() })).id;
     ids.pending = (await addEvent(db, { title: "Pending ride", reviewStatus: "pending" })).id;
     ids.rejected = (await addEvent(db, { title: "Rejected ride", reviewStatus: "rejected" })).id;
@@ -70,6 +74,20 @@ describe("findOccurrence", () => {
     expect((await findOccurrence(db, ids.weekly, "2026-10-15T1800")).kind).toBe("missing");
     expect((await findOccurrence(db, ids.weekly, "2026-10-14T1900")).kind).toBe("missing");
     expect((await findOccurrence(db, ids.weekly, "2026-10-28T1800")).kind).toBe("missing");
+  });
+
+  it("a start outside 2000-01-01 to five years after today gives missing, also in year 9999", async () => {
+    const today = "2026-10-12";
+    for (const segment of ["9999-12-31T1800", "9999-12-30T1800", "2031-10-15T1800", "1999-12-29T1800"]) {
+      expect((await findOccurrence(db, ids.daily, segment, today)).kind, segment).toBe("missing");
+    }
+    expect((await findOccurrence(db, ids.daily, "2031-10-11T1800", today)).kind).toBe("found");
+  });
+
+  it("a start before the first date or after UNTIL gives missing", async () => {
+    expect((await findOccurrence(db, ids.weekly, "2026-10-07T1800")).kind).toBe("missing");
+    expect((await findOccurrence(db, ids.until, "2026-10-14T1800")).kind).toBe("found");
+    expect((await findOccurrence(db, ids.until, "2026-10-28T1800")).kind).toBe("missing");
   });
 
   it("all-day Occurrence is found by its date", async () => {

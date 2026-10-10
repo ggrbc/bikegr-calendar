@@ -31,6 +31,15 @@ test("Calendar switcher keeps the Day filter and drops a Tag that the target doe
   await expect(page).toHaveURL(/\/advocacy\?day=thu$/);
 });
 
+test("a far-future from is clamped: the page renders, with no error", async ({ page }) => {
+  for (const path of ["/rides?from=9999-06-01", "/embed/rides?from=9999-06-01"]) {
+    const response = await page.goto(path);
+    expect(response?.status()).toBe(200);
+    await expect(page.getByRole("heading", { name: /^Events from / })).toBeVisible();
+    await expect(page.getByText("could not load")).toHaveCount(0);
+  }
+});
+
 test("a retired or unknown Tag gives no results and no error", async ({ page }) => {
   await page.goto("/rides?tag=no-such-tag");
   await expect(page.getByText("No events match.")).toBeVisible();
@@ -71,6 +80,7 @@ test("detail status codes: unknown 404, deleted 410, known 200, also for RSC req
     expect(await status(unknown)).toBe(404);
     expect(await status(notADate)).toBe(404);
     expect(await status(pending)).toBe(404);
+    expect(await status(`/events/${IDS.tuesday}/9999-12-31T1800`)).toBe(404);
     expect(await status(`${deleted}/event.ics`)).toBe(410);
   }
   const ics = await request.get(`${known}/event.ics`);
