@@ -4,9 +4,11 @@
  * Measured on www.bikegr.org (2026-10-10): header 118 px high (82 px on a phone), nav Open Sans 300
  * at 15.84 px in #424142, DONATE Chivo 400 at 12.8 px, uppercase, padding 15.36 px 25.6 px, pill.
  *
- * The logo is drawn here (a green circle with a white bicycle and the name in Chivo), not loaded
- * from the Squarespace CDN, so the header does not depend on a file that Bike GR can replace.
+ * The logo is Bike GR's own file (public/brand/, from the brand identity kit): the primary logo on
+ * desktop, the circle icon with "GGRBC" on a phone, as on bikegr.org. `next/image` with a fixed
+ * width and height, so the layout does not shift.
  */
+import Image from "next/image";
 
 const SITE = "https://www.bikegr.org";
 
@@ -21,30 +23,29 @@ export const SITE_NAV = [
 
 const DONATE = `${SITE}/donate`;
 
-export function BikeMark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 48 48" className={className} aria-hidden="true">
-      <circle cx="24" cy="24" r="24" fill="#98ac43" />
-      <g fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="15" cy="28" r="6" />
-        <circle cx="33" cy="28" r="6" />
-        <path d="M15 28 L21 17 H30 M19.5 17 H23.5 M21 17 L26 28 L31 19 M29 15.5 H33.5 M26 28 H15 M31 19 L33 28" />
-      </g>
-    </svg>
-  );
-}
-
 export function SiteHeader() {
   return (
     <header className="bg-white text-brand-gray">
       <div className="mx-auto flex h-[82px] max-w-[1280px] items-center justify-between gap-6 px-6 sm:h-[118px] sm:px-[38px]">
-        <a href={`${SITE}/`} className="flex items-center gap-3" aria-label="Greater Grand Rapids Bicycle Coalition (bikegr.org)">
-          <BikeMark className="size-[30px] sm:size-[74px]" />
-          <span className="font-chivo text-[17px] tracking-wide sm:hidden">GGRBC</span>
-          <span className="hidden font-chivo text-[21px] uppercase leading-[1.15] tracking-[0.06em] sm:block">
-            Greater Grand Rapids
-            <br />
-            Bicycle Coalition
+        <a href={`${SITE}/`} className="flex items-center gap-3">
+          <Image
+            src="/brand/ggrbc-logo-primary.png"
+            alt="Greater Grand Rapids Bicycle Coalition"
+            width={345}
+            height={75}
+            priority
+            className="hidden h-[75px] w-[345px] sm:block"
+          />
+          <Image
+            src="/brand/ggrbc-logo-icon.png"
+            alt="Greater Grand Rapids Bicycle Coalition"
+            width={30}
+            height={30}
+            priority
+            className="size-[30px] sm:hidden"
+          />
+          <span aria-hidden="true" className="font-chivo text-[17px] tracking-wide sm:hidden">
+            GGRBC
           </span>
         </a>
 
