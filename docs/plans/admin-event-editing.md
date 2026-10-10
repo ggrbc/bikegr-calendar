@@ -73,8 +73,10 @@ src/admin/events/                      (no "server-only"; DB modules take `db: D
   split-series.ts       splitSeries(db, editor, …)   (uses planSplit; also the in-place and stop cases)
   overrides.ts          saveOverride(db, editor, …); clearOverride(db, editor, …)
   delete-event.ts       deleteEvent(db, editor, …); restoreEvent(db, admin, …)
-  queries.ts            listEvents(db, filter); loadEventForEdit(db, id); loadActiveTags(db, calendar);
+  queries.ts            listEvents(db, filter); loadEventForEdit(db, id);
                         loadHistory(db, eventId); loadOccurrenceForEdit(db, id, originalStart)
+  seams.ts              stand-ins for the other stream's modules (see "Contract with the parallel
+                        stream"): listPickerTags(db, calendar), isEventImageUrl(url)
   *.test.ts             next to each module (pure tests, and PGlite tests through createTestDb)
 
 src/app/admin/events/
@@ -88,7 +90,7 @@ src/app/admin/events/
   _components/occurrence-preview.tsx client: next 10 Occurrences from the engine
   _components/split-panel.tsx        client: "This and following": date, new time, repeat, summary
   _components/override-form.tsx      client
-  _components/image-url-field.tsx    client: the seam for the upload widget (see below)
+  _components/image-upload-field.tsx client: stand-in for the upload widget (see below)
   _components/delete-restore.tsx     client
 ```
 
@@ -96,9 +98,25 @@ src/app/admin/events/
 `src/engine/index.ts` may export more of what the engine already has. Nothing else outside my
 scope changes.
 
-**Image seam:** `ImageUrlField({ value, onChange })` renders one `imageUrl` URL input. The upload
-stream adds its widget inside this component and calls `onChange(url)`. The server accepts an
-`https://` URL or empty.
+## Contract with the parallel stream (`admin-people-tags-images`)
+
+Agreed interface. Those modules are not on my branch yet, and their folders are not in my scope.
+So I build against the same interface with stand-ins in my own folders. The PR that merges second
+rebases and changes the imports to the real modules (and deletes the stand-ins).
+
+- **Tag picker:** `listPickerTags(db, calendar)` from `@/admin/tags/tags` → the active Tags of one
+  Calendar, sorted by name, `{ id, name, slug }[]`. Stand-in: the same function in
+  `src/admin/events/seams.ts` (a `tags` query: that Calendar, `retired_at is null`, by name).
+- **Image upload:** `<ImageUploadField name="imageUrl" defaultValue={event.imageUrl} label="Image"
+  onUploadingChange={setBusy} onChange={(url) => …} />` from `@/admin/images/image-upload-field`
+  (client; renders a hidden `<input name="imageUrl">` with the URL, empty string for no image).
+  Save is disabled while it uploads. Stand-in: `_components/image-upload-field.tsx` with the same
+  props; it renders a plain URL text input and calls `onChange`. `onUploadingChange` is never
+  called.
+- **Image URL check on save:** accept the URL only if `isEventImageUrl(url)` (from
+  `@/admin/images/image-url`) is true, or it is equal to the URL already stored on the Event
+  (imported images); empty means no image. Stand-in `isEventImageUrl` in `seams.ts`: an `https://`
+  URL. The rule "equal to the stored URL" is in my code, so it does not change at the swap.
 
 ## Every write: one transaction
 
@@ -135,8 +153,11 @@ state after the change, in the same shape as the import's rows. `detail` carries
 | `deleteEvent` | claim version with `deleted_at = now()`, `deleted_by`; history | `delete` |
 | `restoreEvent` (Admin) | claim version with `deleted_at = null`, `deleted_by = null`; history | `restore` |
 
-**Tags in a write:** the selected Tag ids must be in the Event's Calendar and not retired. A retired
-Tag that the Event already has stays (it is not in the picker, and the form does not remove it).
+**Tags in a write:** the picker shows `listPickerTags` (active Tags of the Event's Calendar). On
+save, a selected Tag that the Event does not have yet must be in the Event's Calendar and not
+retired: a form opened before a retire or a merge can still show it, and the save must not add a
+new link to it (field error "This Tag was retired. Pick another one."). Links that the Event
+already had stay, also to a retired Tag (it is not in the picker, and the form does not remove it).
 The composite FK also refuses a Tag of the other Calendar, so a bad id rolls back the transaction.
 
 ## Series split (`series-edit-scopes`)
@@ -359,7 +380,9 @@ authentication with Cache Components):
 
 - Title and a valid Calendar are required
 - A timed end before its start and an all-day end date before its start date are refused
-- The CTA needs both a label and an http(s) URL; the image URL must be http(s) or empty
+- The CTA needs both a label and an http(s) URL
+- The image URL is accepted when `isEventImageUrl` accepts it, when it equals the stored URL, or
+  when it is empty; any other URL is refused
 - Advanced rule text from an Editor is refused
 - A rule with no Occurrence is refused; the stored start is the first Occurrence
 
@@ -382,6 +405,7 @@ authentication with Cache Components):
 
 - Create makes an approved Event with `created_by`, its Tags, version 1, and one `create` history row
 - Create refuses a Tag of the other Calendar and a retired Tag
+- An edit does not add a new link to a Tag retired after the form opened
 - "All dates" edit changes content and Tags, not timing or rule; version + 1; one `edit` history row
 - A content edit of a Series that sends a time change is refused
 - A Calendar change clears the Event's Tags
@@ -420,7 +444,8 @@ The import tests (`src/import/*.test.ts`) and agenda tests must pass with no cha
 8. `soft-delete-restore` — tests, then `delete-event.ts`.
 9. `event-list-admin` and `event-history-view` (reads) — tests, then `queries.ts`.
 10. `event-list-admin` — the list page.
-11. `event-create-edit` — new and edit pages, form, rule editor, preview, image URL field, actions.
+11. `event-create-edit` — new and edit pages, form, rule editor, preview, the stand-ins
+    (`seams.ts`, `image-upload-field.tsx`), actions.
 12. `series-edit-scopes` — scope choice and split panel.
 13. `occurrence-override-edit` — the Occurrence page.
 14. `soft-delete-restore` and `event-history-view` — delete or restore, history section.
@@ -442,4 +467,6 @@ The import tests (`src/import/*.test.ts`) and agenda tests must pass with no cha
 
 - `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm build` pass; the build needs no database.
 - No change to `src/engine/types.ts`, the schema, the migrations, or files outside my scope.
+- If `admin-people-tags-images` merged first: rebase, import the real `listPickerTags`,
+  `ImageUploadField`, and `isEventImageUrl`, delete the stand-ins, and run the checks again.
 - No push, no merge.
