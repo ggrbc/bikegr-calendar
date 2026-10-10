@@ -38,7 +38,18 @@ const REVIEW_LABELS: Record<EventForEdit["row"]["reviewStatus"], string> = {
 const SAVED_NOTICES: Record<string, string> = {
   created: "Created. The Event is approved and public.",
   split: "Saved. The new time or repeat starts on this new Event. The earlier dates stay on the old Event.",
+  approved: "Approved. The Event is public.",
+  rejected: "Rejected. The Event is not public.",
+  spam: "Deleted as spam. No email was sent. An Admin can restore it.",
 };
+
+/** The review notices also say if the Submitter gets an email. */
+function savedNotice(key: unknown, submitterEmail: string | null): string | undefined {
+  if (typeof key !== "string") return undefined;
+  const notice = SAVED_NOTICES[key];
+  const emailed = submitterEmail !== null && (key === "approved" || key === "rejected");
+  return notice && emailed ? `${notice} The Submitter gets an email.` : notice;
+}
 
 function DateList({ event, from }: { event: EventForEdit; from: string }) {
   const { row } = event;
@@ -151,7 +162,7 @@ async function EventPage({ params, searchParams }: { params: Promise<{ id: strin
   const fromParam = typeof search.from === "string" ? search.from : "";
   // The list starts 30 days back, so recent past dates can be changed too.
   const from = isLocalDate(fromParam) ? fromParam : addDays(today, -30);
-  const saved = typeof search.saved === "string" ? SAVED_NOTICES[search.saved] : undefined;
+  const saved = savedNotice(search.saved, row.submitterEmail);
   const pending = row.reviewStatus === "pending";
   const upcoming = nextOccurrences(eventRowToRuleInput(row), event.overrides, today, 1);
   const allPast = upcoming.ok && upcoming.occurrences.length === 0;

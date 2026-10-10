@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   invalidatePublicEvents: vi.fn(),
   ok: { ok: true, id: "7c9e6679-7425-40de-944b-e07fc1f90ae7", kind: "change" } as Record<string, unknown>,
   after: vi.fn(),
+  redirect: vi.fn(),
   notifyApproved: vi.fn(async () => {}),
   notifyRejected: vi.fn(async () => {}),
 }));
@@ -32,7 +33,7 @@ vi.mock("@/submissions/review", () => ({
 
 vi.mock("@/agenda/cache", () => ({ invalidatePublicEvents: mocks.invalidatePublicEvents }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/db", () => ({ getDb: () => ({}) }));
 vi.mock("@/auth/dal", () => {
   const editor = { id: "e1", role: "admin", email: "a@bikegr.org", name: "A" };
@@ -128,8 +129,8 @@ describe("Review actions", () => {
   });
 
   it("approve sends the Submitter email after the response", async () => {
-    const state = await approveSubmissionAction(idle, target);
-    expect(state).toMatchObject({ status: "saved", message: expect.stringMatching(/Approved/) });
+    await approveSubmissionAction(idle, target);
+    expect(mocks.redirect).toHaveBeenCalledWith(`/admin/events/${target.id}?saved=approved`);
     expect(mocks.after).toHaveBeenCalledOnce();
     expect(mocks.notifyApproved).not.toHaveBeenCalled();
     await mocks.after.mock.calls[0][0]();

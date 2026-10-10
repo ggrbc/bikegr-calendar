@@ -196,7 +196,8 @@ export async function restoreEventAction(_prev: SaveState, input: unknown): Prom
 
 // ---------------------------------------------------------------------------------------------
 // Review. The emails and the blob removal run after the response (`after`), so a slow or failed
-// send never changes the result of the review.
+// send never changes the result of the review. Each review changes what the Event page shows (the
+// Review panel goes away), so the result is a notice on the page (`?saved=`), not a form state.
 
 export async function approveSubmissionAction(_prev: SaveState, input: unknown): Promise<SaveState> {
   const editor = await requireEditor();
@@ -207,12 +208,7 @@ export async function approveSubmissionAction(_prev: SaveState, input: unknown):
   revalidateEvents();
   const { review } = result;
   after(() => notifyApproved(createEmailTransport(), review, appOrigin(), todayInDetroit(new Date())));
-  return {
-    status: "saved",
-    message: review.submitterEmail
-      ? "Approved. The Event is public. The Submitter gets an email."
-      : "Approved. The Event is public.",
-  };
+  redirect(`/admin/events/${target.id}?saved=approved`);
 }
 
 export async function rejectSubmissionAction(_prev: SaveState, input: unknown): Promise<SaveState> {
@@ -229,7 +225,7 @@ export async function rejectSubmissionAction(_prev: SaveState, input: unknown): 
     await notifyRejected(createEmailTransport(), review, reason.value);
     await removeOrphanImage(orphanImageUrl, { del: (url) => del(url) });
   });
-  return { status: "saved", message: review.submitterEmail ? "Rejected. The Submitter gets an email." : "Rejected." };
+  redirect(`/admin/events/${target.id}?saved=rejected`);
 }
 
 /** Spam: a soft delete with no email (CONTEXT.md: Delete is for spam). */
@@ -242,5 +238,5 @@ export async function deleteSubmissionAsSpamAction(_prev: SaveState, input: unkn
   revalidateEvents();
   const { orphanImageUrl } = result;
   after(() => removeOrphanImage(orphanImageUrl, { del: (url) => del(url) }));
-  return { status: "saved", message: "Deleted as spam. No email was sent. An Admin can restore it." };
+  redirect(`/admin/events/${target.id}?saved=spam`);
 }
