@@ -16,6 +16,12 @@ async function AdminHome() {
           — create and edit Events in both Calendars.
         </li>
         <li>
+          <Link href="/admin/review" className="underline">
+            Review queue
+          </Link>{" "}
+          — approve, change, or reject Submissions from the public form.
+        </li>
+        <li>
           <Link href="/admin/tags" className="underline">
             Tags
           </Link>{" "}

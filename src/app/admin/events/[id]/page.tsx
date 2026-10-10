@@ -19,8 +19,11 @@ import { eventRowToRuleInput } from "@/db/mappers";
 import { addDays, isLocalDate, timingStart } from "@/engine";
 import { DeleteRestore } from "../_components/delete-restore";
 import { EventForm } from "../_components/event-form";
+import { PendingReview } from "../_components/pending-review";
+import { ReviewPanel } from "../_components/review-panel";
 import { SeriesEditor } from "../_components/series-editor";
 import { loadSplitBounds } from "@/admin/events/split-series";
+import { imageRemovedByReview } from "@/submissions/review";
 
 type Search = Record<string, string | string[] | undefined>;
 
@@ -36,7 +39,18 @@ const REVIEW_LABELS: Record<EventForEdit["row"]["reviewStatus"], string> = {
 const SAVED_NOTICES: Record<string, string> = {
   created: "Created. The Event is approved and public.",
   split: "Saved. The new time or repeat starts on this new Event. The earlier dates stay on the old Event.",
+  approved: "Approved. The Event is public.",
+  rejected: "Rejected. The Event is not public.",
+  spam: "Deleted as spam. No email was sent. An Admin can restore it.",
 };
+
+/** The review notices also say if the Submitter gets an email. */
+function savedNotice(key: unknown, submitterEmail: string | null): string | undefined {
+  if (typeof key !== "string") return undefined;
+  const notice = SAVED_NOTICES[key];
+  const emailed = submitterEmail !== null && (key === "approved" || key === "rejected");
+  return notice && emailed ? `${notice} The Submitter gets an email.` : notice;
+}
 
 function DateList({ event, from }: { event: EventForEdit; from: string }) {
   const { row } = event;
@@ -149,7 +163,10 @@ async function EventPage({ params, searchParams }: { params: Promise<{ id: strin
   const fromParam = typeof search.from === "string" ? search.from : "";
   // The list starts 30 days back, so recent past dates can be changed too.
   const from = isLocalDate(fromParam) ? fromParam : addDays(today, -30);
-  const saved = typeof search.saved === "string" ? SAVED_NOTICES[search.saved] : undefined;
+  const saved = savedNotice(search.saved, row.submitterEmail);
+  const pending = row.reviewStatus === "pending";
+  const upcoming = nextOccurrences(eventRowToRuleInput(row), event.overrides, today, 1);
+  const allPast = upcoming.ok && upcoming.occurrences.length === 0;
   const tagsByCalendar = {
     rides: await listPickerTags(db, "rides"),
     advocacy: await listPickerTags(db, "advocacy"),
@@ -180,6 +197,21 @@ async function EventPage({ params, searchParams }: { params: Promise<{ id: strin
             </Link>
           </p>
         ))}
+        {row.submitterName && (
+          <p>
+            Submitted by {row.submitterName}
+            {row.submitterEmail && (
+              <>
+                {" · "}
+                <a href={`mailto:${row.submitterEmail}`} className="underline">
+                  {row.submitterEmail}
+                </a>
+              </>
+            )}
+            {" · "}
+            <span className="text-sm text-gray-700">Only Editors see the Submitter&apos;s name and email.</span>
+          </p>
+        )}
         {saved && (
           <p role="status" className="rounded border border-green-700 bg-green-50 p-3 text-green-900">
             {saved}
@@ -193,7 +225,29 @@ async function EventPage({ params, searchParams }: { params: Promise<{ id: strin
         )}
       </header>
 
-      {!deleted && row.rrule === null && (
+      {!deleted && pending && (
+        <PendingReview
+          id={row.id}
+          version={row.version}
+          initial={eventValuesFromRow(row, event.tagIds)}
+          tagsByCalendar={tagsByCalendar}
+          isAdmin={isAdmin}
+          today={today}
+          overrides={event.overrides}
+          allPast={allPast}
+        />
+      )}
+      {!deleted && row.reviewStatus === "rejected" && (
+        <ReviewPanel
+          id={row.id}
+          version={row.version}
+          reviewStatus="rejected"
+          dirty={false}
+          allPast={allPast}
+          imageRemoved={await imageRemovedByReview(db, row.id)}
+        />
+      )}
+      {!deleted && !pending && row.rrule === null && (
         <EventForm
           mode="edit"
           id={row.id}
@@ -205,7 +259,7 @@ async function EventPage({ params, searchParams }: { params: Promise<{ id: strin
           overrides={event.overrides}
         />
       )}
-      {!deleted && row.rrule !== null && (
+      {!deleted && !pending && row.rrule !== null && (
         <SeriesEditor
           id={row.id}
           version={row.version}
@@ -220,9 +274,12 @@ async function EventPage({ params, searchParams }: { params: Promise<{ id: strin
         />
       )}
 
-      {!deleted && row.rrule !== null && <DateList event={event} from={from} />}
+      {!deleted && !pending && row.rrule !== null && <DateList event={event} from={from} />}
 
-      <DeleteRestore key={String(deleted)} id={row.id} version={row.version} deleted={deleted} isAdmin={isAdmin} />
+      {/* A pending Event has "Delete as spam" in its Review panel. */}
+      {(!pending || deleted) && (
+        <DeleteRestore key={String(deleted)} id={row.id} version={row.version} deleted={deleted} isAdmin={isAdmin} />
+      )}
 
       <History eventId={row.id} />
     </div>
@@ -235,6 +292,10 @@ export default function AdminEventPage({ params, searchParams }: PageProps<"/adm
       <p className="mb-2 text-sm">
         <Link href="/admin/events" className="underline">
           Events
+        </Link>
+        {" · "}
+        <Link href="/admin/review" className="underline">
+          Review queue
         </Link>
       </p>
       <Suspense fallback={<p>Loading…</p>}>

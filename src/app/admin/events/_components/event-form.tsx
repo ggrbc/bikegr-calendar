@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import type { EventFormValues, FieldErrors } from "@/admin/events/event-input";
 import { previewRuleInput } from "@/admin/events/form-values";
 import { nextOccurrences } from "@/admin/events/preview";
@@ -23,9 +23,13 @@ export interface EventFormProps {
   /** Today in Detroit, from the server. */
   today: string;
   overrides?: OverrideInput[];
+  /** Edit only: "pending" for a Submission (every field, also the rule of a Series). */
+  scope?: "one-time" | "pending";
+  /** Edit only: true while the form has changes that are not saved. */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
-/** Create, or edit a one-time Event (which may become a Series). */
+/** Create, or edit a one-time Event (which may become a Series), or a pending Submission. */
 export function EventForm(props: EventFormProps) {
   const [state, dispatch, pending] = useActionState<SaveState, unknown>(
     props.mode === "create" ? createEventAction : saveEventAction,
@@ -40,7 +44,7 @@ export function EventForm(props: EventFormProps) {
         {...props}
         errors={errorsOf(state)}
         pending={pending}
-        submit={(values) => dispatch({ id: props.id, version: props.version, scope: "one-time", values })}
+        submit={(values) => dispatch({ id: props.id, version: props.version, scope: props.scope ?? "one-time", values })}
       />
     </div>
   );
@@ -154,6 +158,7 @@ function EventFormBody({
   isAdmin,
   today,
   overrides = [],
+  onDirtyChange,
   errors,
   pending,
   submit,
@@ -166,6 +171,8 @@ function EventFormBody({
   const [uploading, setUploading] = useState(false);
   const set = (patch: Partial<EventFormValues>) => setValues((v) => ({ ...v, ...patch }));
   const repeats = values.rule.mode !== "none";
+  const dirty = useMemo(() => JSON.stringify(values) !== JSON.stringify(initial), [values, initial]);
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 
   const preview = useMemo(() => {
     const input = previewRuleInput(values);

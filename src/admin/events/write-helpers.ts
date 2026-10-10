@@ -32,6 +32,16 @@ export type WriteFailure =
 
 export const FAILED_MESSAGE = "The save failed. Nothing was changed. Try again.";
 export const NOT_DELETED_MESSAGE = "This Event is not deleted.";
+export const PENDING_MESSAGE =
+  "This Event is a Submission that waits for review. Change it with the full form, then approve it.";
+
+/**
+ * A pending Event (a Submission) has no public Occurrence, so it is edited in place with the full
+ * form (`editPendingEvent`). A Series split and an Override are refused until it is approved.
+ */
+export function refusePending(row: EventRow): void {
+  if (row.reviewStatus === "pending") throw invalid({}, PENDING_MESSAGE);
+}
 
 export type WriteResult<T extends object = object> = ({ ok: true } & T) | WriteFailure;
 
@@ -231,12 +241,15 @@ export async function moveCalendar(tx: Tx, eventId: string, calendar: CalendarSl
   await tx.update(events).set({ calendar }).where(eq(events.id, eventId));
 }
 
-/** The last write: one history row with the state after the change (the import's shape). */
+/**
+ * The last write: one history row with the state after the change (the import's shape). `actor` is
+ * null only for a public Submission (no Editor made it).
+ */
 export async function writeHistory(
   tx: Tx,
   eventId: string,
   action: HistoryAction,
-  actor: Actor,
+  actor: Actor | null,
   detail?: HistoryDetail,
 ): Promise<void> {
   const [event] = await tx.select().from(events).where(eq(events.id, eventId));
@@ -260,6 +273,6 @@ export async function writeHistory(
       tagSlugs: slugs.map((s) => s.slug).sort(),
       ...(detail ? { detail } : {}),
     },
-    changedBy: actor.id,
+    changedBy: actor?.id ?? null,
   });
 }

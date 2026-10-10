@@ -1,17 +1,23 @@
 import Link from "next/link";
 import { requireEditor } from "@/auth/dal";
+import { getDb } from "@/db";
+import { countPending } from "@/submissions/queue";
 import { signOutAction } from "./actions";
 
 /** Admin navigation. Reads the session, so the layout renders it inside a Suspense boundary. */
 export async function AdminNav() {
   const editor = await requireEditor();
   const isAdmin = editor.role === "admin";
+  const waiting = await countPending(getDb());
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-4">
       <nav aria-label="Admin" className="flex flex-wrap gap-4">
         <Link href="/admin/events" className="underline">
           Events
+        </Link>
+        <Link href="/admin/review" className="underline">
+          Review queue{waiting > 0 ? ` (${waiting})` : ""}
         </Link>
         <Link href="/admin/tags" className="underline">
           Tags

@@ -14,6 +14,7 @@ import {
   claimVersion,
   invalid,
   readForWrite,
+  refusePending,
   runWrite,
   type Tx,
   writeHistory,
@@ -59,6 +60,7 @@ export async function saveOverride(
 ): Promise<WriteResult> {
   return runWrite(db, async (tx) => {
     const row = await readForWrite(tx, target.id, target.version);
+    refusePending(row);
     const original = checkOccurrence(row, draft.originalStart);
     if (draft.timing.kind !== original.kind) throw invalid({ start: "Keep the same kind of time slot." });
 

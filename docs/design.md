@@ -247,6 +247,38 @@ Rejected for v1: a web component with Shadow DOM (Squarespace CSS and JS can lea
 - **Review queue:** one queue for both Calendars, with a Calendar column and filter.
 - **Email:** notify all active Editors of a new Submission (Calendar in the subject); notify the
   Submitter on approve or reject.
+- **Decided 2026-10-10 (Q50 = A, Jeremy; plan:
+  [plans/submissions-and-review-queue.md](plans/submissions-and-review-queue.md)):**
+  - **Order of the checks (Q51 = A):** field check → honeypot (filled: the thank-you page, nothing
+    written) → per-IP limits → Turnstile on the server → the limit of all Submissions → image
+    (sharp) → write → emails. A field error spends no Turnstile token and no rate limit. The per-IP
+    limits come before Turnstile because they protect the siteverify calls. The limit of all
+    Submissions counts only Turnstile passes: bots with no pass must not use up the day and close
+    the form for real Submitters (a review found that 21 sends with no token from 7 IPs did).
+  - **Rate limits:** per IP 3 an hour and 10 a day; all Submissions together 20 a day (it protects
+    the Resend quota, which the new-Submission emails and the magic links share). A failed
+    rate-limit check refuses the Submission (fail closed) with "try again later".
+  - **Turnstile:** `TURNSTILE_SITE_KEY` (a server prop, no `NEXT_PUBLIC_`) and
+    `TURNSTILE_SECRET_KEY`. No keys: the form is closed. Cloudflare's always-pass test keys only
+    with the opt-in `TURNSTILE_TEST_KEYS=1`, never on Vercel (local `pnpm dev`, e2e). A pass counts
+    only for the action `submit` and the hostname of `AUTH_URL` (else the request host).
+  - **Image:** one image, sent with the form; sharp runs only after every check passed. Reject and
+    Delete as spam remove the blob when no other Event uses it.
+  - **No "we got it" email** to the Submitter; the thank-you page says it arrived.
+  - **Reject** always sends the email, with an optional reason (at most 500 characters; also in the
+    history detail). **Spam goes to Delete as spam**, which sends nothing. An Editor can approve a
+    rejected Event (undo).
+  - **Edit before approval** is in place, with the full form, also the time and the rule of a
+    Series: a pending Event has no public Occurrence and no Override, so ADR 0001 does not apply.
+    Series split and Overrides are refused while it is pending. History: `submit` (the Submitter's
+    original, no Editor), `edit` per Save, then `approve` or `reject`. Approve waits until the form
+    has no unsaved change.
+  - **"Submit an Event"** pill on `/rides`, `/advocacy`, and `/` only. Not in the Embed; `/submit`
+    keeps `frame-ancestors 'none'` and opens on calendar.bikegr.org.
+  - **Submitter data:** the name in the queue; the name and a `mailto:` email on the Event page,
+    for Editors only. Kept for the life of the Event; the form says who sees it. **Later stream:**
+    a purge of the Submitter name and email (also in the `event_history` snapshots, which copy the
+    whole row), for example 12 months after the last date or after a Reject.
 
 ## Feeds
 
