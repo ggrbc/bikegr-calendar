@@ -159,6 +159,26 @@ The admin offers three scopes when an Editor changes a Series. See
 - **Add to calendar:** `.ics` download and Google / Outlook links for the one Occurrence the rider
   clicked. "Add the whole Series" is a later option.
 
+## Brand and colors
+
+The public calendar and the Embed use Bike GR's brand (measured on bikegr.org and the Tockify
+calendar): Chivo for headings, titles, date lines, and buttons; Open Sans for body text. Colors are
+Tailwind theme tokens in `src/app/globals.css`.
+
+**Decided 2026-10-10 (Jeremy):** the brand orange and green are too light for small text on white or
+on the page gray (WCAG AA needs 4.5:1 for normal text, 3:1 for large text of 24 px and more). So each
+has a darker AA variant:
+
+| Token | Color | On white | On page gray `#F2F2F3` | White text on it | Use |
+|---|---|---|---|---|---|
+| `brand-orange` | `#D04C27` | 4.43:1 | 3.96:1 | 4.43:1 | Large titles (24 px and more), borders, decoration |
+| `brand-orange-text` | `#BF4624` | 5.07:1 | 4.56:1 | 5.07:1 | Small titles, links, CTA button background |
+| `brand-green` | `#98AC43` | 2.52:1 | 2.26:1 | 2.52:1 | Borders, decoration, the no-image placeholder |
+| `brand-green-text` | `#67752E` | 5.05:1 | 4.51:1 | 5.05:1 | Tags, small text, toolbar and switcher buttons |
+
+Rule: text under 24 px and every button background use a `-text` variant; the brand colors are only
+for large titles, borders, and decoration. Text gray is `#424143`, the divider `#E5E5E5`.
+
 ## Embed
 
 A script tag in a Squarespace code block injects an iframe. The script takes the Calendar as an
