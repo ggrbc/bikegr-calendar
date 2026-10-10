@@ -78,6 +78,8 @@
     filterParams(new URLSearchParams(search)).forEach(function (value, key) {
       url.searchParams.append(HOST_PREFIX + key, value);
     });
+    // Commas need no encoding in a query string: bgr-day=wed,thu reads better than wed%2Cthu.
+    url.search = url.searchParams.toString().replace(/%2C/gi, ",");
     if (url.href !== window.location.href) {
       window.history.replaceState(window.history.state, "", url.href);
     }

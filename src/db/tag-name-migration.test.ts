@@ -70,9 +70,11 @@ describe("migration: Tag names without dashes", () => {
   it("uses the same name rule as the import", async () => {
     const { tagName } = await import("@/import/calendar-and-tags");
     for (const name of ["Group-Ride", "Women - Only ", "a--b", " x -  y "]) {
-      const [row] = await db.execute<{ n: string }>(
-        sql`select btrim(regexp_replace(replace(${name}, '-', ' '), '\\s+', ' ', 'g')) as n`,
-      ).then((r) => ("rows" in r ? (r.rows as { n: string }[]) : (r as unknown as { n: string }[])));
+      // The same expression as the migration's "new_name".
+      const result = await db.execute(
+        sql`select btrim(regexp_replace(replace(${name}::text, '-', ' '), '\\s+', ' ', 'g')) as n`,
+      );
+      const [row] = (result as unknown as { rows: { n: string }[] }).rows;
       expect(row.n, name).toBe(tagName(name));
     }
   });

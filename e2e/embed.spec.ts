@@ -58,6 +58,17 @@ test("a host URL with ?bgr-day=tue opens the Embed filtered; the host's own q is
   await expect(page).toHaveURL(`${HOST}/?bgr-day=tue&q=thursday&other=kept`);
 });
 
+test("two days in the host URL are written with a plain comma", async ({ page }) => {
+  await page.goto(HOST);
+  await waitForContent(page);
+  const frame = page.frameLocator("iframe[data-bikegr-embed]");
+  await frame.getByText("Filter", { exact: true }).click();
+  await frame.getByRole("checkbox", { name: "Wed", exact: true }).check();
+  await expect(page).toHaveURL(`${HOST}/?bgr-day=wed`);
+  await frame.getByRole("checkbox", { name: "Thu", exact: true }).check();
+  await expect(page).toHaveURL(`${HOST}/?bgr-day=wed,thu`);
+});
+
 test("short filter keys on the host URL are not Embed keys", async ({ page }) => {
   await page.goto(`${HOST}/?day=tue&q=x`);
   await expect(page.locator("iframe[data-bikegr-embed]")).toHaveAttribute("src", "http://localhost:3100/embed/rides");

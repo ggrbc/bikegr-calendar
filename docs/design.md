@@ -215,7 +215,9 @@ attribute (`data-calendar="advocacy"`).
 - **Filters in the host page URL** (Q44 = A, 2026-10-10): the host URL uses only the keys `bgr-tag`,
   `bgr-day`, `bgr-q`, `bgr-from`, `bgr-to`, so they never clash with the host page's own keys
   (Squarespace uses `?q=`). `embed.js` maps them to the short keys for the iframe. The calendar site
-  and the Feeds keep the short keys. Other host keys are never read or changed.
+  and the Feeds keep the short keys. Other host keys are never read or changed. The `bgr-` keys go to
+  every Embed on the page (by design: a page with two Embeds shows both filtered); only a page with
+  one Embed writes filter changes back to its URL, with plain commas (`bgr-day=wed,thu`).
 - Must work in the narrow mobile layout (Tockify uses a separate mini embed there today).
 - Test on a hidden Squarespace page before cutover.
 - Trade-off: no SEO for the host page; the Event detail pages carry the SEO instead.
