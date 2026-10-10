@@ -4,7 +4,7 @@
  */
 import { Auth } from "@auth/core";
 import { AdapterError } from "@auth/core/errors";
-import { eq, sql } from "drizzle-orm";
+import { DrizzleQueryError, eq, sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { authSessions, authVerificationTokens, editors, rateLimits } from "@/db/schema";
 import { seedAdmins } from "@/db/seed-admins";
@@ -155,22 +155,34 @@ describe("Auth.js wiring", () => {
       expect(select).not.toHaveBeenCalled();
       expect(insert).not.toHaveBeenCalled();
       expect(mailer.sendMagicLink).not.toHaveBeenCalled();
-      expect(lines.join("\n")).not.toContain("jeremy");
+      expect(lines).toEqual(["[auth] Refused link request: not a valid email address."]);
+    });
+
+    it("an invalid email logs one warn line with no stack", async () => {
+      const errors = vi.mocked(console.error);
+      lines.length = 0;
+      await requestLink("a(b)@example.org");
+      expect(lines).toEqual(["[auth] Refused link request: not a valid email address."]);
+      expect(errors).not.toHaveBeenCalled();
     });
 
     it("an AdapterError logs its classes and code only: no SQL, no params, no message text", () => {
       const driverError = Object.assign(new Error('invalid byte sequence for encoding "UTF8": 0x00'), {
         code: "22021",
       });
-      const queryError = new Error('Failed query: select "id" from "editors" where "email" = $1\nparams: jeremy@bikegr.org', {
-        cause: driverError,
-      });
+      const queryError = new DrizzleQueryError(
+        'select "id" from "editors" where "email" = $1',
+        ["jeremy@bikegr.org"],
+        driverError,
+      );
       const config = buildAuthConfig({ db, mailer, getClientIp: async () => null });
       // As Auth.js does it (`lib/init.js`: `new AdapterError(e)`). The public type allows only a string.
       config.logger!.error!(new AdapterError(queryError as unknown as string));
 
       expect(lines).toHaveLength(1);
-      expect(lines[0]).toMatch(/^\[auth\] Auth\.js error: AdapterError cause Error cause Error code=22021/);
+      expect(lines[0]).toMatch(
+        /^\[auth\] Auth\.js error: AdapterError cause DrizzleQueryError cause DatabaseError code=22021\n/,
+      );
       for (const secret of ["jeremy", "select", "params", "invalid byte", "Failed query"]) {
         expect(lines[0]).not.toContain(secret);
       }

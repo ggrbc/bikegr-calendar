@@ -19,7 +19,15 @@ export const LOGIN_PATH = "/login";
 /** Where Auth.js sends the browser after it sends a magic link. */
 const VERIFY_REQUEST_PATH = "/api/auth/verify-request?provider=resend&type=email";
 
-const EXPECTED_ERRORS =new Set<string>(["AccessDenied", "Verification"]);
+const EXPECTED_ERRORS = new Set<string>(["AccessDenied", "Verification"]);
+
+/** `normalizeIdentifier` throws it for a bad email. Expected: one warn line, no stack. */
+class InvalidEmailError extends Error {
+  constructor() {
+    super("Not a valid email address.");
+    this.name = "InvalidEmailError";
+  }
+}
 
 export interface AuthDeps {
   db: Db;
@@ -43,6 +51,10 @@ export function buildAuthConfig({ db, mailer, getClientIp }: AuthDeps): AuthConf
     logger: {
       // A refused email and a used or expired link are normal events, not errors: one line, no stack.
       error(error) {
+        if (error instanceof InvalidEmailError) {
+          console.warn("[auth] Refused link request: not a valid email address.");
+          return;
+        }
         if (error instanceof AuthError && EXPECTED_ERRORS.has(error.type)) {
           console.warn(`[auth] ${error.type}`);
           return;
@@ -59,7 +71,7 @@ export function buildAuthConfig({ db, mailer, getClientIp }: AuthDeps): AuthConf
         from: process.env.EMAIL_FROM,
         normalizeIdentifier(raw) {
           const email = normalizeEmail(raw);
-          if (!isValidEmail(email)) throw new Error("Not a valid email address.");
+          if (!isValidEmail(email)) throw new InvalidEmailError();
           return email;
         },
         async sendVerificationRequest({ identifier, url }) {
