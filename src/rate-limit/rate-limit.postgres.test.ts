@@ -39,8 +39,9 @@ describe.runIf(url && isLocal(url))("hitRateLimit on a real Postgres server", ()
 
   beforeAll(async () => {
     client = postgres(url!, { max: 10, onnotice: () => {} });
-    db = drizzle({ client, schema });
-    await migrate(db, { migrationsFolder: fileURLToPath(new URL("../../drizzle", import.meta.url)) });
+    const postgresDb = drizzle({ client, schema });
+    await migrate(postgresDb, { migrationsFolder: fileURLToPath(new URL("../../drizzle", import.meta.url)) });
+    db = postgresDb;
   });
   afterAll(async () => {
     await db.delete(schema.rateLimits).where(like(schema.rateLimits.bucket, "pgtest:%"));
