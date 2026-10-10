@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Embed test host — two Embeds, narrow column</title>
+    <style>
+      body { font-family: Georgia, serif; margin: 0; }
+      .column { max-width: 360px; margin: 0 auto; padding: 0 8px; }
+    </style>
+  </head>
+  <body>
+    <div class="column">
+      <h2>Rides</h2>
+      <script src="http://localhost:3100/embed.js" data-calendar="rides" async></script>
+      <h2>Advocacy</h2>
+      <script src="http://localhost:3100/embed.js" data-calendar="advocacy" data-filters="tag=meeting" async></script>
+    </div>
+  </body>
+</html>

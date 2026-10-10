@@ -20,7 +20,10 @@ function row(patch: Partial<AgendaRow> & { timing: Timing }): AgendaRow {
       patch.timing.kind === "timed" ? patch.timing.start : patch.timing.startDate,
     originalTiming: patch.timing,
     title: "Ride",
+    description: "",
     location: null,
+    imageUrl: null,
+    lastModified: "2026-10-01T12:00:00.000Z",
     tags: [],
     cta: null,
     scheduleStatus: "scheduled",
@@ -138,6 +141,25 @@ describe("groupAgendaDays", () => {
       [row({ timing: { kind: "timed", start: "2026-10-11T22:00", end: "2026-10-12T00:00" } })],
       WINDOW,
     );
+    expect(days).toEqual([]);
+  });
+
+  it('under a Day filter, the "Rescheduled to" entry shows on the old date when the old date matches', () => {
+    const moved = row({
+      originalTiming: timed("2026-10-14"), // Wednesday
+      originalStart: "2026-10-14T18:00",
+      timing: timed("2026-10-16", "18:30", "20:30"), // Friday
+      scheduleStatus: "rescheduled",
+    });
+    const kinds = (days: ("wed" | "fri" | "mon")[]) =>
+      groupAgendaDays([moved], WINDOW, days).map((d) => [d.date, d.entries.map((e) => e.kind)]);
+    expect(kinds(["wed"])).toEqual([["2026-10-14", ["movedAway"]]]);
+    expect(kinds(["fri"])).toEqual([["2026-10-16", ["occurrence"]]]);
+    expect(kinds(["mon"])).toEqual([]);
+  });
+
+  it("under a Day filter, an Occurrence that starts on another day is not listed", () => {
+    const days = groupAgendaDays([row({ timing: timed("2026-10-14") })], WINDOW, ["tue"]);
     expect(days).toEqual([]);
   });
 

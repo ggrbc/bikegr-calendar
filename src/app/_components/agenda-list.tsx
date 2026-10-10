@@ -1,106 +1,102 @@
 import { io } from "next/cache";
-import type { AgendaEntry } from "@/agenda/agenda-days";
-import { agendaWindow, AGENDA_WEEKS, todayInDetroit } from "@/agenda/dates";
+import { cachedSnapshot } from "@/agenda/cache";
+import { eventsFromHeading } from "@/agenda/card-text";
+import { todayInDetroit } from "@/agenda/dates";
+import { type FilterParams, hasContentFilters, parseFilters, serializeFilters } from "@/agenda/filters";
 import { loadAgenda } from "@/agenda/load-agenda";
-import { loadOccurrences } from "@/agenda/load-occurrences";
-import { getDb } from "@/db";
+import { calendarPath } from "@/agenda/site";
 import type { CalendarSlug } from "@/engine";
+import { feedPath, webcalUrl } from "@/feeds/feed";
+import { ResizeReporter } from "../embed/_components/resize-reporter";
+import { CalendarSwitcher } from "./calendar-switcher";
+import { CanonicalQuery } from "./canonical-query";
+import { FilterForm } from "./filter-form";
+import { OccurrenceCard } from "./occurrence-card";
 
-export const CALENDAR_NAMES: Record<CalendarSlug, string> = {
-  rides: "Rides & Events",
-  advocacy: "Advocacy",
-};
+export { CALENDAR_NAMES } from "@/agenda/site";
+
+export type AgendaVariant = "site" | "embed";
 
 /**
- * The agenda for one Calendar, or all (`calendar` null). Reads the clock and the database, so it
- * must render inside <Suspense>: `io()` stops the prerender here, and `next build` needs no database.
+ * The switcher, toolbar, "Events from …" heading, Occurrence list, and Feed link for one Calendar,
+ * or all (`calendar` null). Reads the search params, the clock, and the (cached) database, so it
+ * must render inside <Suspense>: `io()` stops the prerender here, and `next build` needs no
+ * database.
+ *
+ * Headings: on the site, the page has the h1 (Calendar name), so "Events from …" is an h2 and each
+ * title an h3. In the Embed there is no other heading, so "Events from …" is the h1.
  */
-export async function AgendaList({ calendar }: { calendar: CalendarSlug | null }) {
+export async function AgendaList({
+  calendar,
+  searchParams,
+  variant,
+}: {
+  calendar: CalendarSlug | null;
+  searchParams: Promise<FilterParams>;
+  variant: AgendaVariant;
+}) {
+  const params = await searchParams;
   await io();
-  const window = agendaWindow(todayInDetroit(new Date()));
-  // getDb() is inside the callback: a missing DATABASE_URL is a load error too.
-  const agenda = await loadAgenda(() => loadOccurrences(getDb(), window, calendar), window);
+  const today = todayInDetroit(new Date());
+  const filters = parseFilters(params, today);
+  const embed = variant === "embed";
+  const path = embed ? `/embed/${calendar ?? "all"}` : calendarPath(calendar);
+  // cachedSnapshot() is inside the callback: a missing DATABASE_URL is a load error too.
+  const agenda = await loadAgenda(() => cachedSnapshot(calendar), filters);
 
   if (!agenda.ok) {
     return (
-      <p role="alert" className="text-gray-900">
+      <p role="alert" className="text-brand-gray">
         Events could not load. Try again later.
       </p>
     );
   }
-  const { days } = agenda;
-  if (days.length === 0) {
-    return <p className="text-gray-700">No events in the next {AGENDA_WEEKS} weeks.</p>;
-  }
+  const { days, tags } = agenda;
+  const calendarTags = calendar ? tags.filter((tag) => tag.calendar === calendar) : tags;
+  const feed = feedPath(calendar, filters, today);
+  const query = serializeFilters(filters, today);
+  const entries = days.flatMap((day) => day.entries);
+  const Heading = embed ? "h1" : "h2";
+  const external = embed ? { target: "_blank", rel: "noopener" } : {};
 
   return (
-    <div className="space-y-8">
-      {days.map((day) => (
-        <section key={day.date} aria-labelledby={`day-${day.date}`}>
-          <h2
-            id={`day-${day.date}`}
-            className="mb-3 border-b border-gray-300 pb-1 text-lg font-semibold"
-          >
-            {day.heading}
-          </h2>
-          <ul className="space-y-4">
-            {day.entries.map((entry) => (
-              <Entry key={entry.key} entry={entry} showCalendar={calendar === null} />
-            ))}
-          </ul>
-        </section>
-      ))}
-    </div>
-  );
-}
+    <>
+      <CanonicalQuery query={query} />
+      {embed && <ResizeReporter search={query} />}
+      {!embed && <CalendarSwitcher current={calendar} filters={filters} allTags={tags} today={today} />}
+      <FilterForm action={path} calendar={calendar} filters={filters} tags={calendarTags} today={today} />
 
-function Entry({ entry, showCalendar }: { entry: AgendaEntry; showCalendar: boolean }) {
-  const { row } = entry;
-  const struck = row.scheduleStatus === "cancelled" || entry.kind === "movedAway";
+      <Heading className="mb-2 font-chivo text-2xl text-brand-gray sm:text-[34px] sm:leading-tight">
+        {eventsFromHeading(filters.from)}
+      </Heading>
 
-  return (
-    <li className="flex flex-col gap-1 sm:flex-row sm:gap-4">
-      <p className="w-44 shrink-0 text-sm text-gray-700">{entry.timeText}</p>
-      <div className="min-w-0">
-        <p className="font-medium">
-          <span className={struck ? "line-through decoration-gray-500" : undefined}>{row.title}</span>
-          {entry.badge && (
-            <span className="ml-2 inline-block rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
-              {entry.badge}
-            </span>
-          )}
+      {entries.length === 0 ? (
+        <p className="border-t border-brand-divider py-6 text-brand-gray">
+          No events match. Change the filters or the dates.
         </p>
-        {entry.kind === "occurrence" && (
-          <>
-            {row.scheduleNote && <p className="text-sm text-gray-900">{row.scheduleNote}</p>}
-            {row.location && <p className="text-sm text-gray-700">{row.location}</p>}
-            {(showCalendar || row.tags.length > 0) && (
-              <p className="mt-1 flex flex-wrap gap-1 text-xs">
-                {showCalendar && (
-                  <span className="rounded bg-blue-100 px-2 py-0.5 text-blue-900">
-                    {CALENDAR_NAMES[row.calendar]}
-                  </span>
-                )}
-                {row.tags.map((tag) => (
-                  <span key={tag.slug} className="rounded bg-gray-100 px-2 py-0.5 text-gray-800">
-                    {tag.name}
-                  </span>
-                ))}
-              </p>
-            )}
-            {row.cta && (
-              <a
-                href={row.cta.url}
-                className="mt-1 inline-block text-sm font-medium text-blue-800 underline"
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                {row.cta.label}
-              </a>
-            )}
-          </>
-        )}
-      </div>
-    </li>
+      ) : (
+        <ol className="divide-y divide-brand-divider border-t-4 border-brand-orange bg-white sm:border-t sm:border-brand-divider sm:bg-transparent">
+          {entries.map((entry) => (
+            <OccurrenceCard
+              key={entry.key}
+              entry={entry}
+              showCalendar={calendar === null}
+              embed={embed}
+              headingLevel={embed ? 2 : 3}
+            />
+          ))}
+        </ol>
+      )}
+
+      <p className="mt-6 border-t border-brand-divider pt-4 text-sm text-brand-gray">
+        <a href={webcalUrl(feed)} className="font-bold text-brand-green-text underline" {...external}>
+          Subscribe in your calendar app
+        </a>
+        {hasContentFilters(filters) ? " (with these filters)" : ""} · Feed URL:{" "}
+        <a href={feed} className="break-all text-brand-green-text underline" {...external}>
+          {`calendar.bikegr.org${feed}`}
+        </a>
+      </p>
+    </>
   );
 }
