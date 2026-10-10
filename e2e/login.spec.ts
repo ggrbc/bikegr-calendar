@@ -28,6 +28,7 @@ for (const [error, message] of [
 ] as const) {
   test(`/login?error=${error} shows its message`, async ({ page }) => {
     await page.goto(`/login?error=${error}`);
-    await expect(page.getByRole("alert")).toHaveText(message);
+    // In `main`: Next.js's route announcer is also an alert.
+    await expect(page.getByRole("main").getByRole("alert")).toHaveText(message);
   });
 }
