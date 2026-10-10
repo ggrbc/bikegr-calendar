@@ -3,8 +3,8 @@
  * import", step 2). Kept small on purpose: an Editor reviews each Series after the import.
  *
  * 1. Make a short list of candidate rules from the dates: weekly (with `INTERVAL`), weekly in the
- *    seen months (`BYMONTH`), monthly on the nth weekday (at most two positions), monthly on a day
- *    of the month, and yearly on a date.
+ *    seen months (`BYMONTH`), monthly on the last weekday (`-1TU`), monthly on the nth weekday (at
+ *    most two positions), monthly on a day of the month, and yearly on a date.
  * 2. Expand each candidate up to the feed horizon. Drop it if it misses an original date.
  * 3. **Feed horizon.** The next rule date is the first date that the rule makes after the last
  *    original. If it is after the feed horizon, the Series is open-ended (no `UNTIL`): the feed
@@ -141,6 +141,12 @@ function candidateRules(dates: LocalDate[]): string[] {
   candidates.push(weekly);
   if (months.length < 12) candidates.push(`${weekly};BYMONTH=${months.join(",")}`);
 
+  // Monthly on the last weekday (-1TU), when every date is the last such weekday of its month.
+  // It comes before the nth-weekday forms, because 4TU,5TU would also cover these dates.
+  if (weekdays.length === 1 && dates.every(isLastWeekdayOfMonth)) {
+    candidates.push(`FREQ=MONTHLY;BYDAY=-1${weekdays[0]}`);
+  }
+
   // Monthly on the nth weekday: 2TU, or 2TU,4TU. A 5th weekday is also tried as "last" (-1).
   if (weekdays.length === 1) {
     const positions = unique(dates.map((date) => Math.ceil(Number(date.slice(8, 10)) / 7)));
@@ -177,6 +183,11 @@ function weeklyInterval(dates: LocalDate[]): number {
 
 function gcd(a: number, b: number): number {
   return b === 0 ? a : gcd(b, a % b);
+}
+
+/** True if the same weekday one week later is in the next month. */
+function isLastWeekdayOfMonth(date: LocalDate): boolean {
+  return addDays(date, 7).slice(5, 7) !== date.slice(5, 7);
 }
 
 function weekdayOf(date: LocalDate): string {

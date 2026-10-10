@@ -98,6 +98,25 @@ describe("rule inference", () => {
     expect(result).toMatchObject({ ok: true, rrule: "FREQ=MONTHLY;BYDAY=4TU;UNTIL=20270126T235959" });
   });
 
+  it("last Tuesday of each month over 12 months gives BYDAY=-1TU with no EXDATEs", () => {
+    // Positions 4 and 5 mixed: 2026-09-29 is the 5th Tuesday, 2026-10-27 is the 4th.
+    const dates = [
+      "2026-09-29", "2026-10-27", "2026-11-24", "2026-12-29", "2027-01-26", "2027-02-23",
+      "2027-03-30", "2027-04-27", "2027-05-25", "2027-06-29", "2027-07-27", "2027-08-31",
+    ];
+    const result = inferRule({
+      timing: slot("2026-09-29"),
+      originalStarts: at6pm(dates),
+      feedHorizon: FAR_HORIZON,
+    });
+    expect(result).toEqual({
+      ok: true,
+      rrule: "FREQ=MONTHLY;BYDAY=-1TU;UNTIL=20270831T235959",
+      exdates: [],
+      until: "2027-08-31",
+    });
+  });
+
   it("same date each year gives a yearly rule", () => {
     const dates = ["2027-01-01", "2028-01-01", "2029-01-01"];
     const result = inferRule({
