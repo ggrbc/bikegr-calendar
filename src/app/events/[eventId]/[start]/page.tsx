@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { io } from "next/cache";
 import { cache } from "react";
 import { badgeText } from "@/agenda/agenda-days";
 import { dateLine, normalizeLocation } from "@/agenda/card-text";
@@ -26,7 +27,12 @@ import { Badge } from "../../../_components/badge";
  */
 export const instant = false;
 
-const load = cache(async (eventId: string, start: string) => findOccurrence(getDb(), eventId, start));
+// `io()` before the clock and the database: Next.js may prerender this route for known params, and
+// that prerender must stop here, not fail on `new Date()` (the start range uses today).
+const load = cache(async (eventId: string, start: string) => {
+  await io();
+  return findOccurrence(getDb(), eventId, start);
+});
 
 export async function generateMetadata({ params }: PageProps<"/events/[eventId]/[start]">): Promise<Metadata> {
   const { eventId, start } = await params;

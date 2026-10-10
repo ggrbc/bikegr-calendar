@@ -48,6 +48,6 @@ export const config = {
     "/admin/:path*",
     // Router prefetches skip the detail check (no database read for each link on an agenda page).
     // The real navigation still goes through it.
-    { source: "/events/:path+", missing: [{ type: "header" as const, key: "next-router-prefetch" }] },
+    { source: "/events/:path+", missing: [{ type: "header", key: "next-router-prefetch" }] },
   ],
 };
