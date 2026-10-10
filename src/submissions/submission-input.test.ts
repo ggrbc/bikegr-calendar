@@ -80,11 +80,22 @@ describe("parseSubmissionInput", () => {
     expect(result.value.event.rule.rrule).toBe("FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20270430T235959");
   });
 
-  it("a repeat that does not include the start's weekday starts on the first repeat date", () => {
-    const result = parse({ repeats: true, repeatDays: ["TH"], repeatUntil: "2026-12-31" });
+  it("a start that is not on one of the picked days is refused on the days field", () => {
+    // 2026-10-13 is a Tuesday: only Monday picked would store BYDAY=MO, and the typed date would
+    // not be a date of the Event.
+    expect(errorsOf({ repeats: true, repeatDays: ["MO"], repeatUntil: "2026-12-31" }).repeatDays).toBe(
+      "The first date must be on one of the days you picked.",
+    );
+    expect(errorsOf({ repeats: true, repeatDays: ["TH"], repeatUntil: "2026-12-31" }).repeatDays).toBeDefined();
+    const allDay = { allDay: true, start: "2026-10-13", end: "2026-10-13" };
+    expect(errorsOf({ ...allDay, repeats: true, repeatDays: ["SA"], repeatUntil: "2026-12-31" }).repeatDays).toBeDefined();
+  });
+
+  it("a start on one of several picked days keeps the typed date", () => {
+    const result = parse({ repeats: true, repeatDays: ["MO", "TU"], repeatUntil: "2026-12-31" });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.event.rule.timing).toEqual({ kind: "timed", start: "2026-10-15T18:00", end: "2026-10-15T20:00" });
+    expect(result.value.event.rule.timing).toEqual({ kind: "timed", start: "2026-10-13T18:00", end: "2026-10-13T20:00" });
   });
 
   it("an all-day Submission is accepted", () => {

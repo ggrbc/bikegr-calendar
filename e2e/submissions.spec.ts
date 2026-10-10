@@ -135,6 +135,15 @@ test("a field error keeps the input; a refused spam check saves nothing", async 
   await page.goto("/submit?calendar=advocacy");
   await expect(page.getByRole("radio", { name: "Advocacy" })).toBeChecked();
   await fillRide(page, "E2E Refused Ride");
+  // A Tuesday start with only Monday picked is refused, and the input stays.
+  await page.getByRole("checkbox", { name: "Tue", exact: true }).uncheck();
+  await page.getByRole("checkbox", { name: "Mon", exact: true }).check();
+  await send(page);
+  await expect(page.getByText("The first date must be on one of the days you picked.")).toBeVisible();
+  await expect(page.getByLabel("Title (required)")).toHaveValue("E2E Refused Ride");
+  await expect(page.getByRole("checkbox", { name: "Mon", exact: true })).toBeChecked();
+  await page.getByRole("checkbox", { name: "Tue", exact: true }).check();
+
   await page.getByLabel("Your name (required)").fill("");
   await send(page);
   await expect(page.getByText("Give your name.")).toBeVisible();

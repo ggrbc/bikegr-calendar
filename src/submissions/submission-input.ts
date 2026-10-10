@@ -7,7 +7,7 @@
 import { type EventDraft, type FieldErrors, type Parsed, parseEventInput } from "@/admin/events/event-input";
 import { WEEKDAYS } from "@/admin/events/rule-form";
 import { isValidEmail, normalizeEmail } from "@/auth/rules";
-import { type CalendarSlug, isLocalDate, type LocalDate } from "@/engine";
+import { type CalendarSlug, dayOfWeek, isLocalDate, type LocalDate } from "@/engine";
 
 export interface SubmissionValues {
   calendar: string;
@@ -107,6 +107,12 @@ export function parseSubmissionInput(input: unknown, { today }: { today: LocalDa
   let rule: unknown = { mode: "none" };
   if (repeats) {
     if (!repeatDays.every((d) => WEEKDAY_SET.has(d))) errors.repeatDays = "Pick days from the list.";
+    // The typed first date must be a date of the Event: a Tuesday start with only Monday picked
+    // would quietly move the Event to the next Monday.
+    else if (repeatDays.length > 0 && isLocalDate(startDate)) {
+      const startDay = WEEKDAYS[(dayOfWeek(startDate) + 6) % 7];
+      if (!repeatDays.includes(startDay)) errors.repeatDays = "The first date must be on one of the days you picked.";
+    }
     if (!isLocalDate(repeatUntil)) errors.repeatUntil = "Give the date of the last ride or meeting.";
     else if (isLocalDate(startDate) && repeatUntil > addMonths(startDate, LIMITS.repeatMonths)) {
       errors.repeatUntil = `The repeat can end at most ${LIMITS.repeatMonths} months after the start.`;
