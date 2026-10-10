@@ -5,7 +5,7 @@ import { createTestDb } from "@/db/test-db";
 import type { Db } from "@/db/types";
 import { createEvent } from "./create-event";
 import type { SplitDraft } from "./event-input";
-import { splitSeries } from "./split-series";
+import { splitSeries as splitSeriesOn } from "./split-series";
 import {
   addEditor,
   addTag,
@@ -18,6 +18,13 @@ import {
   tagIdsOfEvent,
 } from "./test-helpers";
 import type { Actor } from "./write-helpers";
+
+/** "Today" for these tests: before every split date they use. */
+const TODAY = "2026-10-01";
+
+function splitSeries(db: Db, actor: Actor, target: { id: string; version: number }, draft: SplitDraft) {
+  return splitSeriesOn(db, actor, target, draft, { today: TODAY });
+}
 
 function splitDraft(splitDate: string, patch: Partial<SplitDraft> = {}): SplitDraft {
   return {
@@ -251,5 +258,23 @@ describe("Series split", () => {
       ["2026-11-10", "scheduled"],
       ["2026-11-17", "scheduled"],
     ]);
+  });
+
+  it("Split date before today is refused", async () => {
+    const id = await newSeries();
+    const before = await rowCounts(db);
+    const result = await splitSeriesOn(db, sam, { id, version: 1 }, splitDraft("2026-11-02"), { today: "2026-11-03" });
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "invalid",
+      errors: { splitDate: "Pick today or a later date. To change one past date, use One date." },
+    });
+    expect(await rowCounts(db)).toEqual(before);
+  });
+
+  it("Split date today is accepted", async () => {
+    const id = await newSeries();
+    const result = await splitSeriesOn(db, sam, { id, version: 1 }, splitDraft("2026-11-03"), { today: "2026-11-03" });
+    expect(result).toMatchObject({ ok: true, kind: "split" });
   });
 });

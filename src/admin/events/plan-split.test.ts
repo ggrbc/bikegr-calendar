@@ -206,6 +206,24 @@ describe("Series split plan", () => {
   });
 });
 
+describe("Series split plan: split date and today", () => {
+  const PAST = "Pick today or a later date. To change one past date, use One date.";
+
+  it("a split date before today is refused in every mode", () => {
+    for (const mode of ["change", "stop"] as const) {
+      expect(planSplit(series(), [], { ...change("2026-11-02"), mode }, { today: "2026-11-03" })).toEqual({
+        kind: "refused",
+        message: PAST,
+        field: "splitDate",
+      });
+    }
+  });
+
+  it("a split date today is accepted", () => {
+    expect(planSplit(series(), [], change("2026-11-03"), { today: "2026-11-03" }).kind).toBe("split");
+  });
+});
+
 describe("Series split plan: chains, kinds, and edge keys", () => {
   // B continues A from Tue 2026-11-03; A's last date is Tue 2026-10-27.
   const b = series({ timing: { kind: "timed", start: "2026-11-03T18:00", end: "2026-11-03T20:00" } });

@@ -8,7 +8,7 @@ import { events, type EventRow, overrides, type OverrideRow } from "@/db/schema"
 import type { Db } from "@/db/types";
 import { contentColumns } from "./create-event";
 import type { SplitDraft } from "./event-input";
-import { timingStart } from "@/engine";
+import { type LocalDate, timingStart } from "@/engine";
 import { lastStartDate, type MovedOverride, type NextSeries, planSplit, type SplitBounds } from "./plan-split";
 import {
   type Actor,
@@ -103,6 +103,7 @@ export async function splitSeries(
   actor: Actor,
   target: { id: string; version: number },
   draft: SplitDraft,
+  { today }: { today: LocalDate },
 ): Promise<WriteResult<SplitOutcome>> {
   return runWrite(db, async (tx) => {
     const row = await readForWrite(tx, target.id, target.version);
@@ -112,7 +113,7 @@ export async function splitSeries(
       { timing, rrule: row.rrule, exdates: row.exdates },
       overrideRows.map(overrideRowToInput),
       draft,
-      await loadSplitBounds(tx, row),
+      { ...(await loadSplitBounds(tx, row)), today },
     );
     if (plan.kind === "refused") {
       throw invalid({ [plan.field ?? "splitDate"]: plan.message }, plan.message);

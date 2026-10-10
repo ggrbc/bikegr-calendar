@@ -68,7 +68,7 @@ describe("admin reads", () => {
       mode: "change",
       time: { kind: "timed", startTime: "18:30", endTime: "20:30" },
       rule: { kind: "same" },
-    });
+    }, { today: "2026-10-10" });
     if (!split.ok) throw new Error(split.message);
     const old = await loadEventForEdit(db, a);
     expect(old?.successors).toEqual([{ id: split.id, title: "Tuesday Ride" }]);

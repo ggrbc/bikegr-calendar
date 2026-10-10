@@ -49,7 +49,11 @@ export interface SplitBounds {
   predecessorLastDate?: LocalDate | null;
   /** The first date of the Event that continues this one (its successor). */
   successorFirstDate?: LocalDate | null;
+  /** Today in Detroit. A split date before it is refused (past dates change through One date). */
+  today?: LocalDate;
 }
+
+export const PAST_SPLIT_DATE = "Pick today or a later date. To change one past date, use One date.";
 
 export type SplitPlan =
   | {
@@ -69,7 +73,7 @@ export type SplitPlan =
       removedOverrides: OriginalStart[];
     }
   | { kind: "stop"; old: RuleState; removedOverrides: OriginalStart[] }
-  | { kind: "refused"; message: string; field?: "rule" };
+  | { kind: "refused"; message: string; field?: "rule" | "splitDate" };
 
 type SplitInput = Pick<SplitDraft, "splitDate" | "mode" | "time" | "rule">;
 
@@ -160,6 +164,9 @@ export function planSplit(
   if (rrule === null) return { kind: "refused", message: "This Event does not repeat." };
   const ruled = { ...series, rrule };
   const day = input.splitDate;
+  if (bounds.today && day < bounds.today) {
+    return { kind: "refused", message: PAST_SPLIT_DATE, field: "splitDate" };
+  }
   const exdates = new Set(series.exdates);
 
   const rawBefore = startsBefore(series.timing, rrule, day);

@@ -24,6 +24,7 @@ import { loadEventForEdit } from "@/admin/events/queries";
 import { splitSeries } from "@/admin/events/split-series";
 import type { WriteFailure } from "@/admin/events/write-helpers";
 import { isEventImageUrl } from "@/admin/images/image-url";
+import { todayInDetroit } from "@/agenda/dates";
 import { getDb } from "@/db";
 
 export type SaveState =
@@ -128,7 +129,9 @@ export async function splitSeriesAction(_prev: SaveState, input: unknown): Promi
   if (!event) return BAD_REQUEST;
   const parsed = parseSplitInput(record(input).values, context(editor, event.row.imageUrl));
   if (!parsed.ok) return invalidState(parsed.errors);
-  const result = await splitSeries(db, actor(editor), target, parsed.value);
+  const result = await splitSeries(db, actor(editor), target, parsed.value, {
+    today: todayInDetroit(new Date()),
+  });
   if (!result.ok) return fromFailure(result);
   revalidateEvents();
   if (result.kind === "split") redirect(`/admin/events/${result.id}?saved=split`);
