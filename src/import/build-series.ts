@@ -199,7 +199,13 @@ function baseValues(occurrences: TockifyOccurrence[]): BaseValues {
     description: pick("description", occurrences.map((o) => o.description)),
     imageUrl: pick("image", occurrences.map((o) => o.imageUrl)),
     cta: pick("CTA", occurrences.map((o) => o.cta)),
-    tags: pick("Tags", occurrences.map((o) => cleanTags(o.categories))),
+    // Tag order does not matter, so the comparison key uses the sorted slugs.
+    tags: pick("Tags", occurrences.map((o) => cleanTags(o.categories)), (tags) =>
+      tags
+        .map((tag) => tag.slug)
+        .sort()
+        .join(","),
+    ),
     slot: mostCommon(occurrences.map((o) => o.timing), slotKey),
     differing,
   };

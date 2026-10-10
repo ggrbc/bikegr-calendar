@@ -149,6 +149,13 @@ describe("Series build", () => {
     expect(built.events[0].description).toBe("Road ride.");
   });
 
+  it("the same Tags in a different order do not flag contentDiffers", () => {
+    const occurrences = tuesdays(4).map((date, i) =>
+      occurrence(date, i === 2 ? { categories: ["Tuesday", "Non-Drop", "Group-Ride"] } : {}),
+    );
+    expect(buildEvent(occurrences, HORIZON).flags).toEqual([]);
+  });
+
   it("a Series with no rule is flagged and imported as one-time Events", () => {
     const dates = ["2026-09-01", "2026-09-03", "2026-09-12", "2026-10-02", "2026-11-20"];
     const built = buildEvent(
