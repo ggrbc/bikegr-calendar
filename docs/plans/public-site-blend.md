@@ -34,7 +34,7 @@ the whole span) and Q44 = A (prefixed host URL keys).
 - `site-design-blend` — header, flat toolbar, cards, detail page, 404/410 page, and Embed in the
   bikegr.org look.
 
-## Decision made while building: agenda pages are blocking
+## Decision made while building: agenda pages are blocking (approved, Q46 = A)
 
 The e2e test "without JavaScript, the Apply button submits the filters" showed that the agenda never
 appeared without JavaScript: a streamed `<Suspense>` boundary needs JavaScript to replace its
@@ -55,8 +55,12 @@ waits for the (cached) snapshot. It also helps bots that do not run JavaScript.
 | Body text | Open Sans 300, 15.84 px, line height 30.4 px (about 1.92) |
 | Phone header | icon + "GGRBC" and a two-line menu button |
 
-- The logo is an image on the Squarespace CDN. The calendar draws its own mark (green circle, white
-  bicycle) and the name in Chivo, so it does not depend on a file that Bike GR can replace.
+- The logo on bikegr.org is an image on the Squarespace CDN. The calendar uses Bike GR's own brand
+  files (Q48 = A), copied into `public/brand/`: `ggrbc-logo-primary.png` (1270 × 276) in the desktop
+  header at 345 × 75 px, and `ggrbc-logo-icon.png` (535 × 535) with "GGRBC" in the phone header, as
+  `src/app/icon.png` and `src/app/apple-icon.png` (the scaffold's `favicon.ico` is removed), and as
+  the decorative card placeholder for an Event with no image. Shown with `next/image` and fixed
+  sizes, so the layout does not shift.
 - Header links: Get Involved → /volunteering, Resources → /maps (the first item of each folder),
   News, Events → /events, About Us, Contact, DONATE → /donate, all on www.bikegr.org. On a phone the
   links are in a `<details>` menu.
@@ -73,7 +77,6 @@ In the worktree, `.playwright-mcp/`: `blend-rides-1280.png`, `blend-rides-375.pn
 
 ## Remaining differences from bikegr.org
 
-- The logo is drawn (mark + name in Chivo), not the site's image file; letter shapes differ a little.
 - No dropdown menus in the header (each folder links to its first page).
 - Buttons and the DONATE pill use the darker AA orange `#BF4624`, not the site's `#D14C27`.
 - Tag names on Neon dev still have dashes until the migration runs there.

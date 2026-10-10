@@ -124,6 +124,9 @@ The admin offers three scopes when an Editor changes a Series. See
 - A filter URL with a retired Tag shows no results, with no error.
 - When an Editor moves an Event to the other Calendar, its Tags are cleared.
 - The final Tag lists are chosen after the first import, from the real data.
+- Tag names have no dashes (Q47 = A, 2026-10-10): the import and migration 0001 make each dash a
+  space ("Non-Drop" becomes "Non Drop"); the slug keeps its dashes. An Editor can rename a Tag in the
+  admin, and the import never overwrites an existing Tag's name.
 
 ## Editors
 
@@ -146,9 +149,10 @@ The admin offers three scopes when an Editor changes a Series. See
   Calendar switcher on the pages (removed 2026-10-10, Jeremy): each page shows one Calendar, and
   bikegr.org links to each one.
 - **Filters apply at once** (Tockify behavior): a day or Tag checkbox, or a date, changes the list at
-  once; the search applies on Enter. Without JavaScript, the Apply button submits the form. The
-  agenda pages are not streamed, so the first HTML has the events (also for bots and no-JavaScript
-  readers).
+  once; the search applies on Enter. Without JavaScript, the Apply button submits the form.
+- **Agenda pages and the Embed are blocking** (Q46 = A, 2026-10-10): `instant = false` and no
+  `<Suspense>`, so the first HTML has the Events, for visitors without JavaScript, search engines,
+  and link previews. The cost is small: the data is one cached snapshot read.
 - **Filters:** Tags, Day filter, text search, date range. All filter state is in the URL, so filtered
   views can be shared and embedded.
   - Between filters: AND (`?day=tue&tag=non-drop` = non-drop rides on Tuesday).
@@ -195,8 +199,9 @@ divider `#E5E5E5`.
 Chivo 400 (not bold); body text Open Sans 300 at 15.84 px with a line height of about 1.9; buttons
 are pills (`border-radius: 300px`) in Chivo with white text. Flat sections, no boxed panels, no hard
 borders. The site's own orange is `#D14C27` (white text on it about 4.4:1); the calendar keeps the AA
-variant `#BF4624` behind white text. The standalone pages have a bikegr.org-like header (every link
-goes to www.bikegr.org); the Embed has no header and uses the page gray, the color of the
+variant `#BF4624` behind white text. The standalone pages have a bikegr.org-like header with Bike
+GR's own logo files (`public/brand/`; the icon is also the app icon and the card placeholder for an
+Event with no image; every link goes to www.bikegr.org); the Embed has no header and uses the page gray, the color of the
 Squarespace section around it.
 
 ## Embed
