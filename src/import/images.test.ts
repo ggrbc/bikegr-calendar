@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { blobCredentials, type BlobStore, copyImages, imageExtension } from "./images";
+import { blobCredentials, type BlobStore, copyImages, imageExtension, isBlobUrl } from "./images";
 import type { ImportResult, ImportedEvent } from "./types";
 
 const BLOB = "https://store.public.blob.vercel-storage.com";
@@ -151,11 +151,50 @@ describe("image copy", () => {
     expect(out.report.failed[0].reason).toMatch(/text\/html/);
   });
 
-  it("extension comes from the content type, then the URL, then img", () => {
-    expect(imageExtension("image/png; charset=binary", A)).toBe("png");
-    expect(imageExtension("image/jpeg", B)).toBe("jpg");
-    expect(imageExtension("image/x-unknown", B)).toBe("png");
-    expect(imageExtension("image/x-unknown", "https://cdn.example/photo")).toBe("img");
+  it("extension comes from the content type", () => {
+    expect(imageExtension("image/png; charset=binary")).toBe("png");
+    expect(imageExtension("image/jpeg")).toBe("jpg");
+    expect(imageExtension("image/webp")).toBe("webp");
+    expect(imageExtension("image/svg+xml")).toBeNull();
+  });
+
+  it("SVG and other image types that are not in the list are refused", async () => {
+    const { store, puts } = fakeStore();
+    const { fetchImpl } = fakeFetch({ [A]: { type: "image/svg+xml", body: "<svg/>" } });
+    const out = await copyImages(result([event("1", A)]), { store, fetch: fetchImpl });
+    expect(puts).toEqual([]);
+    expect(out.result.events[0].imageUrl).toBe(A);
+    expect(out.report.failed[0].reason).toMatch(/image\/svg\+xml/);
+  });
+
+  it("image over the size limit is refused and reported", async () => {
+    const { store, puts } = fakeStore();
+    const { fetchImpl } = fakeFetch({ [A]: { type: "image/jpeg", body: "x".repeat(11) } });
+    const out = await copyImages(result([event("1", A)]), {
+      store,
+      fetch: fetchImpl,
+      maxBytes: 10,
+    });
+    expect(puts).toEqual([]);
+    expect(out.report.failed[0].reason).toMatch(/too large/);
+  });
+
+  it("each download has a time limit", async () => {
+    const { store } = fakeStore();
+    let signal: AbortSignal | null | undefined;
+    const fetchImpl = (async (_url: string | URL | Request, init?: RequestInit) => {
+      signal = init?.signal;
+      return new Response("AAA", { headers: { "content-type": "image/jpeg" } });
+    }) as typeof fetch;
+    await copyImages(result([event("1", A)]), { store, fetch: fetchImpl });
+    expect(signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("Blob URLs are told apart from Tockify URLs", () => {
+    expect(isBlobUrl(`${BLOB}/events/abc.jpg`)).toBe(true);
+    expect(isBlobUrl(A)).toBe(false);
+    expect(isBlobUrl(null)).toBe(false);
+    expect(isBlobUrl("not a url")).toBe(false);
   });
 
   it("no Blob credentials keeps every URL and reports images not copied", async () => {

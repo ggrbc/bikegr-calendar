@@ -68,7 +68,12 @@ export interface CopyImagesOptions {
   /** Null when there are no Blob credentials. */
   store: BlobStore | null;
   fetch?: typeof fetch;
+  /** Larger images are refused and reported. Default 10 MB. */
+  maxBytes?: number;
 }
+
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const DOWNLOAD_TIMEOUT_MS = 15_000;
 
 export interface CopyImagesResult {
   /** The import result with Blob URLs for the copied images. */
@@ -80,7 +85,7 @@ export interface CopyImagesResult {
 
 export async function copyImages(
   input: ImportResult,
-  { store, fetch: fetchImpl = fetch }: CopyImagesOptions,
+  { store, fetch: fetchImpl = fetch, maxBytes = MAX_IMAGE_BYTES }: CopyImagesOptions,
 ): Promise<CopyImagesResult> {
   const report: ImageReport = {
     status: store ? "done" : "noCredentials",
@@ -94,8 +99,8 @@ export async function copyImages(
   if (store) {
     for (const url of urls) {
       try {
-        const { bytes, contentType } = await download(fetchImpl, url);
-        const pathname = `events/${sha256(bytes)}.${imageExtension(contentType, url)}`;
+        const { bytes, contentType, extension } = await download(fetchImpl, url, maxBytes);
+        const pathname = `events/${sha256(bytes)}.${extension}`;
         const found = await store.head(pathname);
         if (found) {
           report.alreadyInBlob.push({ from: url, to: found.url });
@@ -127,20 +132,27 @@ export async function copyImages(
 async function download(
   fetchImpl: typeof fetch,
   url: string,
-): Promise<{ bytes: Uint8Array; contentType: string }> {
-  const response = await fetchImpl(url);
+  maxBytes: number,
+): Promise<{ bytes: Uint8Array; contentType: string; extension: string }> {
+  const response = await fetchImpl(url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const contentType = (response.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
-  if (!contentType.startsWith("image/")) {
-    throw new Error(`not an image (content type "${contentType || "none"}")`);
+  const extension = imageExtension(contentType);
+  if (!extension) {
+    throw new Error(`not an allowed image type (content type "${contentType || "none"}")`);
   }
-  return { bytes: new Uint8Array(await response.arrayBuffer()), contentType };
+  const tooLarge = () => new Error(`image too large (over ${maxBytes} bytes)`);
+  if (Number(response.headers.get("content-length") ?? 0) > maxBytes) throw tooLarge();
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (bytes.byteLength > maxBytes) throw tooLarge();
+  return { bytes, contentType, extension };
 }
 
 function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+/** The only image types the import copies. No SVG: it can carry script. */
 const EXTENSIONS: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/jpg": "jpg",
@@ -150,12 +162,17 @@ const EXTENSIONS: Record<string, string> = {
   "image/avif": "avif",
 };
 
-/** From the content type; else from the URL path (`.jpeg` becomes `jpg`); else `img`. */
-export function imageExtension(contentType: string, url: string): string {
-  const fromType = EXTENSIONS[contentType.split(";")[0].trim().toLowerCase()];
-  if (fromType) return fromType;
-  const match = /\.([a-z0-9]{2,5})$/i.exec(new URL(url).pathname);
-  if (!match) return "img";
-  const ext = match[1].toLowerCase();
-  return ext === "jpeg" ? "jpg" : ext;
+/** The file extension for an allowed image content type, or null if the type is not allowed. */
+export function imageExtension(contentType: string): string | null {
+  return EXTENSIONS[contentType.split(";")[0].trim().toLowerCase()] ?? null;
+}
+
+/** True for a Vercel Blob URL (`https://<store>.public.blob.vercel-storage.com/…`). */
+export function isBlobUrl(url: string | null): boolean {
+  if (!url) return false;
+  try {
+    return new URL(url).hostname.endsWith(".blob.vercel-storage.com");
+  } catch {
+    return false;
+  }
 }
