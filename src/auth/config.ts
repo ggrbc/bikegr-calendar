@@ -10,6 +10,7 @@ import { authAccounts, authSessions, authVerificationTokens, editors } from "@/d
 import type { Db } from "@/db/types";
 import { findEditorByEmail } from "./editors";
 import { magicLinkKind, type Mailer } from "./mailer";
+import { magicLinkLimiter } from "./magic-link-limits";
 import { canSignIn, isValidEmail, normalizeEmail } from "./rules";
 
 export const LOGIN_PATH = "/login";
@@ -19,7 +20,17 @@ const VERIFY_REQUEST_PATH = "/api/auth/verify-request?provider=resend&type=email
 
 const EXPECTED_ERRORS =new Set<string>(["AccessDenied", "Verification"]);
 
-export function buildAuthConfig({ db, mailer }: { db: Db; mailer: Mailer }): AuthConfig {
+export interface AuthDeps {
+  db: Db;
+  mailer: Mailer;
+  /**
+   * The client's IP for the magic-link rate limit (`clientIp` from `@/rate-limit`), or null. The
+   * `signIn` callback gets no request, so the caller gives it. Called only at a link request.
+   */
+  getClientIp: () => Promise<string | null>;
+}
+
+export function buildAuthConfig({ db, mailer, getClientIp }: AuthDeps): AuthConfig {
   return {
     adapter: DrizzleAdapter(db, {
       usersTable: editors,
@@ -72,12 +83,26 @@ export function buildAuthConfig({ db, mailer }: { db: Db; mailer: Mailer }): Aut
        * At the link request, a refusal returns the same redirect as a sent link (no token, no
        * email), so the response does not show who is an Editor. At the link click, the person has
        * proved the address, so a refusal is a plain `false` (AccessDenied).
+       *
+       * At the link request only, the rate limits run (docs/plans/magic-link-rate-limit.md): per IP
+       * for every request, then per email for an active Editor. A limited request gets the same
+       * redirect as a sent link, with no token and no email.
        */
       async signIn({ user, email }) {
+        const limiter = email?.verificationRequest ? magicLinkLimiter(db) : null;
+        if (limiter) {
+          const ip = await getClientIp();
+          if (ip && !(await limiter.allows("ip", ip))) return VERIFY_REQUEST_PATH;
+        }
+
         const editor = user.email ? await findEditorByEmail(db, user.email) : null;
-        if (canSignIn(editor)) return true;
-        console.warn("[auth] Refused sign-in: not an active Editor.");
-        return email?.verificationRequest ? VERIFY_REQUEST_PATH : false;
+        if (!editor || !canSignIn(editor)) {
+          console.warn("[auth] Refused sign-in: not an active Editor.");
+          return limiter ? VERIFY_REQUEST_PATH : false;
+        }
+
+        if (limiter && !(await limiter.allows("email", editor.email))) return VERIFY_REQUEST_PATH;
+        return true;
       },
       session({ session, user }) {
         session.user.id = user.id;
