@@ -5,7 +5,7 @@
  * new date ("Rescheduled from …") and a short entry on the old date ("Rescheduled to …"), each only
  * when its date is in the window. A move to another time on the same day shows once.
  */
-import { type LocalDate, type QueryWindow, timingStart } from "@/engine";
+import { type LocalDate, type QueryWindow, timingStart, touchesWindow } from "@/engine";
 import { dayHeading, shortSlot, timeText } from "./dates";
 import type { AgendaRow } from "./load-occurrences";
 
@@ -47,9 +47,11 @@ export function groupAgendaDays(rows: AgendaRow[], window: QueryWindow): AgendaD
   for (const row of rows) {
     const start = timingStart(row.timing);
     const key = `${row.eventId}/${row.originalStart}`;
-    // A multi-day Occurrence that started before the window shows on the first day.
-    const date = dateOf(start) < window.from ? window.from : dateOf(start);
-    if (date < window.to) {
+    // Only when the actual slot touches the window: a rescheduled Occurrence can be in the rows
+    // because of its old slot alone. A multi-day Occurrence that started before the window and is
+    // still running shows on the first day.
+    if (touchesWindow(row.timing, window)) {
+      const date = dateOf(start) < window.from ? window.from : dateOf(start);
       placed.push({
         date,
         sortKey: start,

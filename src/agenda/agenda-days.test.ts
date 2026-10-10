@@ -120,6 +120,27 @@ describe("groupAgendaDays", () => {
     ]);
   });
 
+  it("New date before the window, old date in the window shows only 'Rescheduled to'", () => {
+    const moved = row({
+      originalTiming: timed("2026-10-13"),
+      originalStart: "2026-10-13T18:00",
+      timing: timed("2026-10-01"),
+      scheduleStatus: "rescheduled",
+    });
+    const days = groupAgendaDays([moved], WINDOW);
+    expect(days.map((d) => [d.date, d.entries.map((e) => [e.kind, e.badge])])).toEqual([
+      ["2026-10-13", [["movedAway", "Rescheduled to Thu, Oct 1, 6:00 pm"]]],
+    ]);
+  });
+
+  it("timed Occurrence that ends before the window is not listed", () => {
+    const days = groupAgendaDays(
+      [row({ timing: { kind: "timed", start: "2026-10-11T22:00", end: "2026-10-12T00:00" } })],
+      WINDOW,
+    );
+    expect(days).toEqual([]);
+  });
+
   it("an Occurrence moved to a new time on the same day shows once", () => {
     const moved = row({
       originalTiming: timed("2026-10-14"),
