@@ -1,8 +1,8 @@
 # Plan — Google login for Editors
 
 Stream: `google-login`. Terms follow [CONTEXT.md](../../CONTEXT.md) (Editor, Admin). Branch
-`google-login`, from `origin/main` (f24c1e2). Status: **plan only, waiting for Jeremy's "go"** and
-the answers to the open decisions below.
+`google-login`, from `origin/main` (f24c1e2). **Approved by Jeremy ("go", Q52 = A), 2026-10-10:**
+the recommended option of each open decision below (B, B, A, A).
 
 ## Context
 

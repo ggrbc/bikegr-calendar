@@ -38,7 +38,7 @@ Put this in a **Code** block (not a Markdown or Text block):
 ## Stack
 
 Next.js 16 (App Router, Cache Components) on Vercel · TypeScript · Tailwind 4 · Postgres on Neon with
-Drizzle (PGlite in tests) · Auth.js magic links, invite only · Resend email · Vercel Blob images with
+Drizzle (PGlite in tests) · Auth.js magic links and Google sign-in, invite only · Resend email · Vercel Blob images with
 sharp · Cloudflare Turnstile on the Submission form · `rrule` for Series, in America/Detroit
 wall-clock time.
 
@@ -71,6 +71,9 @@ Needs Node 24, pnpm 10, and Docker.
    `TURNSTILE_TEST_KEYS=1` in `.env.local` and leave both Turnstile keys empty: then Cloudflare's
    always-pass test keys are used. Without keys or this opt-in, the form says "Submissions are
    closed".
+4. Google login: leave `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` empty to hide the Google button.
+   To try it, set them to the "local" OAuth client (redirect URI
+   `http://localhost:3000/api/auth/callback/google`; see `docs/plans/google-login.md`).
 
 ## Tests
 
@@ -100,6 +103,6 @@ Needs Node 24, pnpm 10, and Docker.
 - Production env values live in Vercel and in Bike GR's password manager, never in the repo. The
   names are in [.env.example](.env.example): `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL`,
   `RESEND_API_KEY`, `EMAIL_FROM`, `BLOB_STORE_ID` (Blob uses Vercel OIDC), `TURNSTILE_SITE_KEY`,
-  `TURNSTILE_SECRET_KEY`.
+  `TURNSTILE_SECRET_KEY`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` (Production only; redeploy after a change).
 - After a deploy, check the public pages and that the CSS has the brand classes (one deploy once
   served stale CSS from the Vercel build cache; a redeploy without the build cache fixes it).
