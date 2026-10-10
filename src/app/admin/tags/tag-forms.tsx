@@ -2,24 +2,26 @@
 
 import { useActionState } from "react";
 import type { CalendarSlug } from "@/engine";
+import { buttonClass, inputClass, labelClass, smallInputClass } from "../_components/ui";
 import { addTagAction, type TagFormState, tagRowAction } from "./actions";
 
 const idle: TagFormState = { result: "idle" };
 
-const input = "rounded border border-gray-400 px-2 py-1";
-const button = "rounded border border-gray-500 px-3 py-1 disabled:opacity-60";
+const input = smallInputClass;
+const button = buttonClass("secondary", "sm");
+const summary = `cursor-pointer list-none ${buttonClass("secondary", "sm")} [&::-webkit-details-marker]:hidden`;
 
 function Message({ state }: { state: TagFormState }) {
   if (state.result === "error") {
     return (
-      <p role="alert" className="text-sm text-red-700">
+      <p role="alert" className="text-sm font-semibold text-red-700">
         {state.message}
       </p>
     );
   }
   if (state.result === "ok") {
     return (
-      <p role="status" className="text-sm text-green-800">
+      <p role="status" className="text-sm font-semibold text-[#4d5822]">
         {state.message}
       </p>
     );
@@ -31,14 +33,14 @@ export function AddTagForm({ calendar }: { calendar: CalendarSlug }) {
   const [state, action, pending] = useActionState(addTagAction, idle);
   const id = `add-tag-${calendar}`;
   return (
-    <form action={action} className="mb-4 flex flex-col gap-2">
+    <form action={action} className="mb-6 flex flex-col gap-2">
       <input type="hidden" name="calendar" value={calendar} />
-      <label htmlFor={id} className="font-medium">
+      <label htmlFor={id} className={labelClass}>
         New Tag
       </label>
       <div className="flex flex-wrap gap-2">
-        <input id={id} name="name" required maxLength={40} className={input} />
-        <button type="submit" disabled={pending} className="rounded bg-blue-700 px-3 py-1 font-medium text-white disabled:opacity-60">
+        <input id={id} name="name" required maxLength={40} className={`${inputClass} max-w-xs`} />
+        <button type="submit" disabled={pending} className={buttonClass("primary")}>
           {pending ? "Adding…" : "Add Tag"}
         </button>
       </div>
@@ -70,7 +72,7 @@ export function TagActions({ tag, mergeTargets }: TagRowProps) {
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-2">
         <details>
-          <summary className="cursor-pointer underline">Rename</summary>
+          <summary className={summary}>Rename</summary>
           <form action={action} className="mt-2 flex flex-wrap gap-2">
             <input type="hidden" name="tagId" value={tag.id} />
             <input type="hidden" name="intent" value="rename" />
@@ -94,7 +96,7 @@ export function TagActions({ tag, mergeTargets }: TagRowProps) {
 
         {mergeTargets.length > 0 && (
           <details>
-            <summary className="cursor-pointer underline">Merge into…</summary>
+            <summary className={summary}>Merge into…</summary>
             <form action={action} onSubmit={confirmMerge} className="mt-2 flex flex-wrap gap-2">
               <input type="hidden" name="tagId" value={tag.id} />
               <input type="hidden" name="intent" value="merge" />

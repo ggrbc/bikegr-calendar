@@ -6,6 +6,18 @@ import { requireEditor } from "@/auth/dal";
 import { getDb } from "@/db";
 import type { CalendarSlug } from "@/engine";
 import { listReviewQueue } from "@/submissions/queue";
+import {
+  CalendarTabs,
+  EmptyState,
+  linkClass,
+  mutedClass,
+  PageHeader,
+  rowClass,
+  tableClass,
+  tdClass,
+  theadRowClass,
+  thClass,
+} from "../_components/ui";
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? "";
 
@@ -18,82 +30,70 @@ async function ReviewQueue({ searchParams }: { searchParams: Promise<Record<stri
   const calendar: CalendarSlug | null = param === "rides" || param === "advocacy" ? param : null;
   const rows = await listReviewQueue(getDb(), { calendar });
 
-  const tabs: { value: string; label: string }[] = [
+  const tabs = [
     { value: "", label: "All" },
     { value: "rides", label: CALENDAR_LABELS.rides },
     { value: "advocacy", label: CALENDAR_LABELS.advocacy },
-  ];
+  ].map((tab) => ({
+    href: tab.value ? `/admin/review?calendar=${tab.value}` : "/admin/review",
+    label: tab.label,
+    current: (calendar ?? "") === tab.value,
+  }));
 
   return (
     <>
-      <nav aria-label="Calendars" className="mb-4 flex gap-4 border-b border-gray-300">
-        {tabs.map((tab) => {
-          const current = (calendar ?? "") === tab.value;
-          return (
-            <Link
-              key={tab.value}
-              href={tab.value ? `/admin/review?calendar=${tab.value}` : "/admin/review"}
-              aria-current={current ? "page" : undefined}
-              className={`-mb-px border-b-2 px-1 pb-2 ${current ? "border-blue-700 font-semibold" : "border-transparent"}`}
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
-      </nav>
+      <CalendarTabs tabs={tabs} />
 
       {rows.length === 0 ? (
-        <p>No Submissions wait for review.</p>
+        <EmptyState>No Submissions wait for review.</EmptyState>
       ) : (
-        <>
+        <div className="rounded-lg border border-brand-divider bg-white px-4 sm:px-6">
           {/* A phone gets a list; the table needs about 900 px. */}
-          <ul className="divide-y divide-gray-200 border-y border-gray-200 sm:hidden">
+          <ul className="divide-y divide-brand-divider sm:hidden">
             {rows.map((row) => (
               <li key={row.id} className="flex flex-col gap-1 py-3">
-                <Link href={`/admin/events/${row.id}`} className="font-medium underline">
+                <Link href={`/admin/events/${row.id}`} className={`${linkClass} font-semibold`}>
                   {row.title}
                 </Link>
                 <span>
                   {CALENDAR_LABELS[row.calendar]} · {row.when}
                 </span>
                 <span>{row.repeat}</span>
-                <span className="text-sm text-gray-700">
+                <span className={`text-sm ${mutedClass}`}>
                   {row.submitterName ?? "No Submitter"} · sent {formatInstantDetroit(row.submittedAt)}
                 </span>
               </li>
             ))}
           </ul>
-          <div className="hidden sm:block">
-            <table className="w-full border-collapse text-left">
-              <thead>
-                <tr className="border-b border-gray-300">
-                  <th className="py-2 pr-3">Title</th>
-                  <th className="py-2 pr-3">Calendar</th>
-                  <th className="py-2 pr-3">First date</th>
-                  <th className="py-2 pr-3">Repeat</th>
-                  <th className="py-2 pr-3">Submitter</th>
-                  <th className="py-2">Sent (Detroit time)</th>
+          <table className={`${tableClass} hidden sm:table`}>
+            <thead>
+              <tr className={theadRowClass}>
+                <th className={thClass}>Title</th>
+                <th className={thClass}>Calendar</th>
+                <th className={thClass}>First date</th>
+                <th className={thClass}>Repeat</th>
+                <th className={thClass}>Submitter</th>
+                <th className={thClass}>Sent (Detroit time)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id} className={rowClass}>
+                  <td className={tdClass}>
+                    <Link href={`/admin/events/${row.id}`} className={linkClass}>
+                      {row.title}
+                    </Link>
+                  </td>
+                  <td className={tdClass}>{CALENDAR_LABELS[row.calendar]}</td>
+                  <td className={tdClass}>{row.when}</td>
+                  <td className={tdClass}>{row.repeat}</td>
+                  <td className={tdClass}>{row.submitterName ?? "—"}</td>
+                  <td className={`${tdClass} text-sm`}>{formatInstantDetroit(row.submittedAt)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id} className="border-b border-gray-200 align-top">
-                    <td className="py-2 pr-3">
-                      <Link href={`/admin/events/${row.id}`} className="underline">
-                        {row.title}
-                      </Link>
-                    </td>
-                    <td className="py-2 pr-3">{CALENDAR_LABELS[row.calendar]}</td>
-                    <td className="py-2 pr-3">{row.when}</td>
-                    <td className="py-2 pr-3">{row.repeat}</td>
-                    <td className="py-2 pr-3">{row.submitterName ?? "—"}</td>
-                    <td className="py-2 text-sm">{formatInstantDetroit(row.submittedAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </>
   );
@@ -102,12 +102,13 @@ async function ReviewQueue({ searchParams }: { searchParams: Promise<Record<stri
 export default function ReviewQueuePage({ searchParams }: PageProps<"/admin/review">) {
   return (
     <>
-      <h1 className="mb-2 text-2xl font-semibold">Review queue</h1>
-      <p className="mb-4 text-gray-800">
-        Submissions from the public form. They are not public until an Editor approves them. Open one to
-        change, approve, or reject it.
-      </p>
-      <Suspense fallback={<p>Loading…</p>}>
+      <PageHeader title="Review queue">
+        <p className="max-w-2xl">
+          Submissions from the public form. They are not public until an Editor approves them. Open one
+          to change, approve, or reject it.
+        </p>
+      </PageHeader>
+      <Suspense fallback={<p className={mutedClass}>Loading…</p>}>
         <ReviewQueue searchParams={searchParams} />
       </Suspense>
     </>

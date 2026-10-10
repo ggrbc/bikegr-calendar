@@ -2,22 +2,23 @@
 
 import { useActionState } from "react";
 import type { EditorRole } from "@/db/schema";
+import { buttonClass, smallInputClass } from "../_components/ui";
 import { editorRowAction, type EditorFormState } from "./actions";
 
 const idle: EditorFormState = { result: "idle" };
-const button = "rounded border border-gray-500 px-3 py-1 disabled:opacity-60";
+const button = buttonClass("secondary", "sm");
 
 function Message({ state }: { state: EditorFormState }) {
   if (state.result === "error") {
     return (
-      <p role="alert" className="text-sm text-red-700">
+      <p role="alert" className="text-sm font-semibold text-red-700">
         {state.message}
       </p>
     );
   }
   if (state.result === "ok") {
     return (
-      <p role="status" className="text-sm text-green-800">
+      <p role="status" className="text-sm font-semibold text-[#4d5822]">
         {state.message}
       </p>
     );
@@ -62,7 +63,7 @@ export function EditorActions({ editor }: EditorActionsProps) {
               name="role"
               defaultValue={editor.role}
               key={editor.role}
-              className="rounded border border-gray-400 px-2 py-1"
+              className={smallInputClass}
             >
               <option value="editor">Editor</option>
               <option value="admin">Admin</option>
@@ -74,7 +75,7 @@ export function EditorActions({ editor }: EditorActionsProps) {
           <form action={action} onSubmit={confirmDeactivate}>
             <input type="hidden" name="editorId" value={editor.id} />
             <input type="hidden" name="intent" value="deactivate" />
-            <button type="submit" disabled={pending} className={button}>
+            <button type="submit" disabled={pending} className={buttonClass("danger", "sm")}>
               Deactivate
             </button>
           </form>

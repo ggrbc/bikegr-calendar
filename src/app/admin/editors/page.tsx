@@ -2,6 +2,19 @@ import { Suspense } from "react";
 import { listEditorsForAdmin } from "@/admin/editors/editors";
 import { requireAdmin } from "@/auth/dal";
 import { getDb } from "@/db";
+import {
+  Badge,
+  Card,
+  mutedClass,
+  PageHeader,
+  stackRowClass,
+  stackTableClass,
+  stackTbodyClass,
+  stackTdClass,
+  stackTheadClass,
+  theadRowClass,
+  thClass,
+} from "../_components/ui";
 import { EditorActions } from "./editor-forms";
 import { InviteForm } from "./invite-form";
 
@@ -19,73 +32,77 @@ async function EditorList() {
 
   return (
     <>
-      <section aria-labelledby="invite-heading" className="mb-10">
-        <h2 id="invite-heading" className="mb-3 text-xl font-semibold">
-          Invite an Editor
-        </h2>
+      <Card title="Invite an Editor" titleId="invite-heading" className="mb-8">
         <InviteForm />
-      </section>
+      </Card>
 
-      <section aria-labelledby="list-heading">
-        <h2 id="list-heading" className="mb-3 text-xl font-semibold">
-          Editors
-        </h2>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-sm">
-            <thead>
-              <tr className="border-b border-gray-400">
-                <th className="py-2 pr-4">Name</th>
-                <th className="py-2 pr-4">Role</th>
-                <th className="py-2 pr-4">Account</th>
-                <th className="py-2 pr-4">Invited</th>
-                <th className="py-2 pr-4">First sign-in</th>
-                <th className="py-2 pr-4">Last active (about)</th>
-                <th className="py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((editor) => {
-                const isMe = editor.id === admin.id;
-                return (
-                  <tr key={editor.id} className="border-b border-gray-200 align-top">
-                    <td className="py-2 pr-4">
-                      {editor.name && <div className="font-medium">{editor.name}</div>}
-                      <div>{editor.email}</div>
-                    </td>
-                    <td className="py-2 pr-4">{editor.role === "admin" ? "Admin" : "Editor"}</td>
-                    <td className="py-2 pr-4">
-                      {editor.deactivatedAt
-                        ? `Deactivated ${day(editor.deactivatedAt)}${editor.deactivatedByName ? ` by ${editor.deactivatedByName}` : ""}`
-                        : "Active"}
-                    </td>
-                    <td className="py-2 pr-4">
-                      {editor.invitedAt
-                        ? `${day(editor.invitedAt)}${editor.invitedByName ? ` by ${editor.invitedByName}` : ""}`
-                        : "Seeded"}
-                    </td>
-                    <td className="py-2 pr-4">{day(editor.firstSignIn)}</td>
-                    <td className="py-2 pr-4">{day(editor.lastActive)}</td>
-                    <td className="py-2">
-                      {isMe ? (
-                        <span>You</span>
-                      ) : (
-                        <EditorActions
-                          editor={{
-                            id: editor.id,
-                            label: editor.name ?? editor.email,
-                            role: editor.role,
-                            deactivated: editor.deactivatedAt !== null,
-                          }}
-                        />
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <Card title="Editors" titleId="list-heading">
+        {/* One markup: on a phone each row is a stacked block (ARIA roles keep the table semantics). */}
+        <table role="table" className={`${stackTableClass} text-sm`}>
+          <thead role="rowgroup" className={stackTheadClass}>
+            <tr role="row" className={theadRowClass}>
+              <th role="columnheader" className={thClass}>Name</th>
+              <th role="columnheader" className={thClass}>Role</th>
+              <th role="columnheader" className={thClass}>Account</th>
+              <th role="columnheader" className={thClass}>Invited</th>
+              <th role="columnheader" className={thClass}>First sign-in</th>
+              <th role="columnheader" className={thClass}>Last active (about)</th>
+              <th role="columnheader" className={thClass}>Actions</th>
+            </tr>
+          </thead>
+          <tbody role="rowgroup" className={stackTbodyClass}>
+            {list.map((editor) => {
+              const isMe = editor.id === admin.id;
+              return (
+                <tr role="row" key={editor.id} className={stackRowClass}>
+                  <td role="cell" className={`${stackTdClass} max-sm:before:content-none`}>
+                    {editor.name && <div className="font-semibold">{editor.name}</div>}
+                    <div className="break-all">{editor.email}</div>
+                  </td>
+                  <td role="cell" data-label="Role" className={stackTdClass}>
+                    {editor.role === "admin" ? "Admin" : "Editor"}
+                  </td>
+                  <td role="cell" data-label="Account" className={stackTdClass}>
+                    {editor.deactivatedAt ? (
+                      <Badge tone="deleted">
+                        Deactivated {day(editor.deactivatedAt)}
+                        {editor.deactivatedByName ? ` by ${editor.deactivatedByName}` : ""}
+                      </Badge>
+                    ) : (
+                      <Badge tone="approved">Active</Badge>
+                    )}
+                  </td>
+                  <td role="cell" data-label="Invited" className={stackTdClass}>
+                    {editor.invitedAt
+                      ? `${day(editor.invitedAt)}${editor.invitedByName ? ` by ${editor.invitedByName}` : ""}`
+                      : "Seeded"}
+                  </td>
+                  <td role="cell" data-label="First sign-in" className={stackTdClass}>
+                    {day(editor.firstSignIn)}
+                  </td>
+                  <td role="cell" data-label="Last active (about)" className={stackTdClass}>
+                    {day(editor.lastActive)}
+                  </td>
+                  <td role="cell" className={`${stackTdClass} max-sm:pt-1 max-sm:before:content-none`}>
+                    {isMe ? (
+                      <span className={mutedClass}>You</span>
+                    ) : (
+                      <EditorActions
+                        editor={{
+                          id: editor.id,
+                          label: editor.name ?? editor.email,
+                          role: editor.role,
+                          deactivated: editor.deactivatedAt !== null,
+                        }}
+                      />
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </Card>
     </>
   );
 }
@@ -93,8 +110,8 @@ async function EditorList() {
 export default function AdminEditorsPage() {
   return (
     <>
-      <h1 className="mb-4 text-2xl font-semibold">Editors</h1>
-      <Suspense fallback={<p>Loading…</p>}>
+      <PageHeader title="Editors" />
+      <Suspense fallback={<p className={mutedClass}>Loading…</p>}>
         <EditorList />
       </Suspense>
     </>

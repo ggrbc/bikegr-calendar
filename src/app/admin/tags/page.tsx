@@ -5,6 +5,20 @@ import { getDb } from "@/db";
 import { CALENDARS } from "@/db/schema";
 import type { CalendarSlug } from "@/engine";
 import { CALENDAR_NAMES } from "@/app/_components/agenda-list";
+import {
+  Badge,
+  Card,
+  EmptyState,
+  mutedClass,
+  PageHeader,
+  stackRowClass,
+  stackTableClass,
+  stackTbodyClass,
+  stackTdClass,
+  stackTheadClass,
+  theadRowClass,
+  thClass,
+} from "../_components/ui";
 import { AddTagForm, TagActions } from "./tag-forms";
 
 async function CalendarTags({ calendar }: { calendar: CalendarSlug }) {
@@ -13,32 +27,38 @@ async function CalendarTags({ calendar }: { calendar: CalendarSlug }) {
   const headingId = `tags-${calendar}`;
 
   return (
-    <section aria-labelledby={headingId} className="mb-10">
-      <h2 id={headingId} className="mb-3 text-xl font-semibold">
-        {CALENDAR_NAMES[calendar]}
-      </h2>
+    <Card title={CALENDAR_NAMES[calendar]} titleId={headingId} className="mb-8">
       <AddTagForm calendar={calendar} />
       {list.length === 0 ? (
-        <p>No Tags yet.</p>
+        <EmptyState>No Tags yet.</EmptyState>
       ) : (
-        <table className="w-full border-collapse text-left">
-          <thead>
-            <tr className="border-b border-gray-400">
-              <th className="py-2 pr-4">Name</th>
-              <th className="py-2 pr-4">Slug</th>
-              <th className="py-2 pr-4">Events</th>
-              <th className="py-2 pr-4">Active / retired</th>
-              <th className="py-2">Actions</th>
+        // One markup: on a phone each row is a stacked block (ARIA roles keep the table semantics).
+        <table role="table" className={stackTableClass}>
+          <thead role="rowgroup" className={stackTheadClass}>
+            <tr role="row" className={theadRowClass}>
+              <th role="columnheader" className={thClass}>Name</th>
+              <th role="columnheader" className={thClass}>Slug</th>
+              <th role="columnheader" className={thClass}>Events</th>
+              <th role="columnheader" className={thClass}>Active / retired</th>
+              <th role="columnheader" className={thClass}>Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody role="rowgroup" className={stackTbodyClass}>
             {list.map((tag) => (
-              <tr key={tag.id} className="border-b border-gray-200 align-top">
-                <td className="py-2 pr-4">{tag.name}</td>
-                <td className="py-2 pr-4 font-mono text-sm">{tag.slug}</td>
-                <td className="py-2 pr-4">{tag.eventCount}</td>
-                <td className="py-2 pr-4">{tag.retiredAt ? "Retired" : "Active"}</td>
-                <td className="py-2">
+              <tr role="row" key={tag.id} className={stackRowClass}>
+                <td role="cell" className={`${stackTdClass} font-semibold max-sm:before:content-none`}>
+                  {tag.name}
+                </td>
+                <td role="cell" data-label="Slug" className={`${stackTdClass} font-mono text-sm`}>
+                  {tag.slug}
+                </td>
+                <td role="cell" data-label="Events" className={stackTdClass}>
+                  {tag.eventCount}
+                </td>
+                <td role="cell" className={`${stackTdClass} max-sm:before:content-none`}>
+                  {tag.retiredAt ? <Badge tone="deleted">Retired</Badge> : <Badge tone="approved">Active</Badge>}
+                </td>
+                <td role="cell" className={`${stackTdClass} max-sm:pt-1 max-sm:before:content-none`}>
                   <TagActions
                     tag={{
                       id: tag.id,
@@ -55,7 +75,7 @@ async function CalendarTags({ calendar }: { calendar: CalendarSlug }) {
           </tbody>
         </table>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -78,8 +98,8 @@ async function TagLists() {
 export default function AdminTagsPage() {
   return (
     <>
-      <h1 className="mb-4 text-2xl font-semibold">Tags</h1>
-      <Suspense fallback={<p>Loading…</p>}>
+      <PageHeader title="Tags" />
+      <Suspense fallback={<p className={mutedClass}>Loading…</p>}>
         <TagLists />
       </Suspense>
     </>

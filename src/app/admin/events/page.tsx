@@ -1,20 +1,33 @@
 import { io } from "next/cache";
 import Link from "next/link";
 import { Suspense } from "react";
-import { CALENDAR_LABELS, statusLabel } from "@/admin/events/format";
-import { listEvents, type ReviewStatus } from "@/admin/events/queries";
+import { CALENDAR_LABELS } from "@/admin/events/format";
+import { type EventListRow, listEvents, type ReviewStatus } from "@/admin/events/queries";
 import { shortSlot, todayInDetroit } from "@/agenda/dates";
 import { requireEditor } from "@/auth/dal";
 import { getDb } from "@/db";
 import type { CalendarSlug } from "@/engine";
+import {
+  Badge,
+  buttonClass,
+  CalendarTabs,
+  EmptyState,
+  inputClass,
+  labelClass,
+  linkClass,
+  mutedClass,
+  PageHeader,
+  REVIEW_LABELS,
+  ReviewBadge,
+  rowClass,
+  ScheduleBadge,
+  tableClass,
+  tdClass,
+  theadRowClass,
+  thClass,
+} from "../_components/ui";
 
 type Search = Record<string, string | string[] | undefined>;
-
-const REVIEW_LABELS: Record<ReviewStatus, string> = {
-  pending: "Pending",
-  approved: "Approved",
-  rejected: "Rejected",
-};
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? "";
 
@@ -50,45 +63,41 @@ async function EventList({ searchParams }: { searchParams: Promise<Search> }) {
     today: todayInDetroit(new Date()),
   });
 
-  const tabs: { value: string; label: string }[] = [
+  const tabs = [
     { value: "", label: "All" },
     { value: "rides", label: CALENDAR_LABELS.rides },
     { value: "advocacy", label: CALENDAR_LABELS.advocacy },
-  ];
+  ].map((tab) => ({
+    href: hrefWith(search, { calendar: tab.value }),
+    label: tab.label,
+    current: (calendar ?? "") === tab.value,
+  }));
+
+  const nextText = (row: EventListRow) => (row.next ? shortSlot(row.next.timing) : "None");
+  const badges = (row: EventListRow) => (
+    <>
+      {row.deleted && <Badge tone="deleted">Deleted</Badge>}
+      {row.next && <ScheduleBadge status={row.next.scheduleStatus} />}
+    </>
+  );
 
   return (
     <>
-      <nav aria-label="Calendars" className="mb-4 flex gap-4 border-b border-gray-300">
-        {tabs.map((tab) => {
-          const current = (calendar ?? "") === tab.value;
-          return (
-            <Link
-              key={tab.value}
-              href={hrefWith(search, { calendar: tab.value })}
-              aria-current={current ? "page" : undefined}
-              className={`-mb-px border-b-2 px-1 pb-2 ${current ? "border-blue-700 font-semibold" : "border-transparent"}`}
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
-      </nav>
+      <CalendarTabs tabs={tabs} />
 
-      <form method="get" action="/admin/events" className="mb-4 flex flex-wrap items-end gap-3">
+      <form
+        method="get"
+        action="/admin/events"
+        className="mb-6 flex flex-wrap items-end gap-3 rounded-lg border border-brand-divider bg-white p-4"
+      >
         {calendar && <input type="hidden" name="calendar" value={calendar} />}
-        <label className="flex flex-col gap-1">
-          <span className="font-medium">Title</span>
-          <input
-            type="search"
-            name="q"
-            defaultValue={q}
-            className="rounded border border-gray-400 px-3 py-2"
-            placeholder="Search by title"
-          />
+        <label className="flex min-w-0 grow flex-col gap-1 sm:grow-0">
+          <span className={labelClass}>Title</span>
+          <input type="search" name="q" defaultValue={q} className={inputClass} placeholder="Search by title" />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="font-medium">Review status</span>
-          <select name="review" defaultValue={review ?? ""} className="rounded border border-gray-400 px-3 py-2">
+          <span className={labelClass}>Review status</span>
+          <select name="review" defaultValue={review ?? ""} className={inputClass}>
             <option value="">Any</option>
             {(Object.keys(REVIEW_LABELS) as ReviewStatus[]).map((r) => (
               <option key={r} value={r}>
@@ -98,52 +107,75 @@ async function EventList({ searchParams }: { searchParams: Promise<Search> }) {
           </select>
         </label>
         {isAdmin && (
-          <label className="flex items-center gap-2 py-2">
-            <input type="checkbox" name="deleted" value="1" defaultChecked={includeDeleted} />
+          <label className="flex min-h-11 items-center gap-2 sm:min-h-10">
+            <input type="checkbox" name="deleted" value="1" defaultChecked={includeDeleted} className="size-4 accent-brand-orange-text" />
             Show deleted
           </label>
         )}
-        <button type="submit" className="rounded border border-gray-400 px-4 py-2">
+        <button type="submit" className={buttonClass("secondary")}>
           Filter
         </button>
       </form>
 
       {rows.length === 0 ? (
-        <p>No Events match.</p>
+        <EmptyState>No Events match.</EmptyState>
       ) : (
-        <table className="w-full border-collapse text-left">
-          <thead>
-            <tr className="border-b border-gray-300">
-              <th className="py-2 pr-3">Title</th>
-              <th className="py-2 pr-3">Calendar</th>
-              <th className="py-2 pr-3">Repeat</th>
-              <th className="py-2 pr-3">Next date</th>
-              <th className="py-2">Review status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => {
-              const badge = row.next ? statusLabel(row.next.scheduleStatus) : null;
-              return (
-                <tr key={row.id} className="border-b border-gray-200 align-top">
-                  <td className="py-2 pr-3">
-                    <Link href={`/admin/events/${row.id}`} className="underline">
-                      {row.title}
-                    </Link>
-                    {row.deleted && <span className="ml-2 rounded bg-red-100 px-1 text-sm text-red-900">Deleted</span>}
+        <div className="rounded-lg border border-brand-divider bg-white px-4 sm:px-6">
+          {/* A phone gets a list; the table needs about 700 px. The rows are read-only, so two markups are safe. */}
+          <ul className="divide-y divide-brand-divider sm:hidden">
+            {rows.map((row) => (
+              <li key={row.id} className="flex flex-col gap-1 py-3">
+                <span className="flex flex-wrap items-center gap-2">
+                  <Link href={`/admin/events/${row.id}`} className={`${linkClass} font-semibold`}>
+                    {row.title}
+                  </Link>
+                  <ReviewBadge status={row.reviewStatus} />
+                  {badges(row)}
+                </span>
+                <span className={mutedClass}>
+                  {CALENDAR_LABELS[row.calendar]} · {row.repeat}
+                </span>
+                <span>Next: {nextText(row)}</span>
+              </li>
+            ))}
+          </ul>
+          <table className={`${tableClass} hidden sm:table`}>
+            <thead>
+              <tr className={theadRowClass}>
+                <th className={thClass}>Title</th>
+                <th className={thClass}>Calendar</th>
+                <th className={thClass}>Repeat</th>
+                <th className={thClass}>Next date</th>
+                <th className={thClass}>Review status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id} className={rowClass}>
+                  <td className={tdClass}>
+                    <span className="flex flex-wrap items-center gap-2">
+                      <Link href={`/admin/events/${row.id}`} className={linkClass}>
+                        {row.title}
+                      </Link>
+                      {row.deleted && <Badge tone="deleted">Deleted</Badge>}
+                    </span>
                   </td>
-                  <td className="py-2 pr-3">{CALENDAR_LABELS[row.calendar]}</td>
-                  <td className="py-2 pr-3">{row.repeat}</td>
-                  <td className="py-2 pr-3">
-                    {row.next ? shortSlot(row.next.timing) : "None"}
-                    {badge && <span className="ml-2 rounded bg-gray-200 px-1 text-sm">{badge}</span>}
+                  <td className={tdClass}>{CALENDAR_LABELS[row.calendar]}</td>
+                  <td className={tdClass}>{row.repeat}</td>
+                  <td className={tdClass}>
+                    <span className="flex flex-wrap items-center gap-2">
+                      {nextText(row)}
+                      {row.next && <ScheduleBadge status={row.next.scheduleStatus} />}
+                    </span>
                   </td>
-                  <td className="py-2">{REVIEW_LABELS[row.reviewStatus]}</td>
+                  <td className={tdClass}>
+                    <ReviewBadge status={row.reviewStatus} />
+                  </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </>
   );
@@ -152,13 +184,15 @@ async function EventList({ searchParams }: { searchParams: Promise<Search> }) {
 export default function AdminEventsPage({ searchParams }: PageProps<"/admin/events">) {
   return (
     <>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Events</h1>
-        <Link href="/admin/events/new" className="rounded bg-blue-700 px-4 py-2 font-medium text-white">
-          New Event
-        </Link>
-      </div>
-      <Suspense fallback={<p>Loading…</p>}>
+      <PageHeader
+        title="Events"
+        actions={
+          <Link href="/admin/events/new" className={buttonClass("primary")}>
+            New Event
+          </Link>
+        }
+      />
+      <Suspense fallback={<p className={mutedClass}>Loading…</p>}>
         <EventList searchParams={searchParams} />
       </Suspense>
     </>
