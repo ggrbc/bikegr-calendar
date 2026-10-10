@@ -2,24 +2,12 @@
  * Text report of one import run, and the filter that keeps secrets out of it. The CLI prints only
  * text that went through `redactSecrets`.
  */
+import { redactSecrets } from "@/db/redact-secrets";
 import type { ImageReport } from "./images";
 import type { ImportResult } from "./types";
 import type { EventRef, WriteReport } from "./write";
 
-const SECRET_PATTERNS: [RegExp, string][] = [
-  [/postgres(?:ql)?:\/\/\S+/gi, "postgres://[hidden]"],
-  [/npg_[A-Za-z0-9]+/g, "npg_[hidden]"],
-  // Neon host (`ep-<name>-<id>.<region>.aws.neon.tech`), with or without the `@` before it.
-  [/(?:@|\b)ep-[a-z0-9-]+(?:\.[a-z0-9-]+)*/gi, "[hidden]"],
-  [/vercel_blob_rw_[A-Za-z0-9_]+/g, "vercel_blob_rw_[hidden]"],
-  [/store_[A-Za-z0-9]+/g, "store_[hidden]"],
-  // JWT-shaped text (the Vercel OIDC token): base64url header that starts with `{"`.
-  [/eyJ[A-Za-z0-9_-]*(?:\.[A-Za-z0-9_-]*){0,2}/g, "[hidden]"],
-];
-
-export function redactSecrets(text: string): string {
-  return SECRET_PATTERNS.reduce((out, [pattern, replacement]) => out.replace(pattern, replacement), text);
-}
+export { redactSecrets };
 
 const ref = (e: EventRef) => `${e.title} (${e.sourceId})`;
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;

@@ -1,6 +1,7 @@
 import { io } from "next/cache";
-import { type AgendaEntry, groupAgendaDays } from "@/agenda/agenda-days";
+import type { AgendaEntry } from "@/agenda/agenda-days";
 import { agendaWindow, AGENDA_WEEKS, todayInDetroit } from "@/agenda/dates";
+import { loadAgenda } from "@/agenda/load-agenda";
 import { loadOccurrences } from "@/agenda/load-occurrences";
 import { getDb } from "@/db";
 import type { CalendarSlug } from "@/engine";
@@ -17,8 +18,17 @@ export const CALENDAR_NAMES: Record<CalendarSlug, string> = {
 export async function AgendaList({ calendar }: { calendar: CalendarSlug | null }) {
   await io();
   const window = agendaWindow(todayInDetroit(new Date()));
-  const days = groupAgendaDays(await loadOccurrences(getDb(), window, calendar), window);
+  // getDb() is inside the callback: a missing DATABASE_URL is a load error too.
+  const agenda = await loadAgenda(() => loadOccurrences(getDb(), window, calendar), window);
 
+  if (!agenda.ok) {
+    return (
+      <p role="alert" className="text-gray-900">
+        Events could not load. Try again later.
+      </p>
+    );
+  }
+  const { days } = agenda;
   if (days.length === 0) {
     return <p className="text-gray-700">No events in the next {AGENDA_WEEKS} weeks.</p>;
   }
