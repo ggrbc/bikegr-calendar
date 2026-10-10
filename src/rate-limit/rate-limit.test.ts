@@ -61,6 +61,20 @@ describe("hitRateLimit", () => {
     expect(row).toMatchObject({ hits: 2, windowStart: at(60) });
   });
 
+  it("a window more than one window ahead (a far-future clock) resets to the current window", async () => {
+    for (let i = 0; i < 4; i++) await hitRateLimit(db, RULE, "k", at(3601)); // a clock 1 hour ahead
+    expect(await hitRateLimit(db, RULE, "k", at(1))).toEqual({ allowed: true, retryAfterSeconds: 0 });
+    const [row] = await rows();
+    expect(row).toMatchObject({ hits: 1, windowStart: at(0), expiresAt: at(60) });
+  });
+
+  it("a window exactly one window ahead still counts (a clock a little ahead)", async () => {
+    await hitRateLimit(db, RULE, "k", at(60));
+    await hitRateLimit(db, RULE, "k", at(59));
+    const [row] = await rows();
+    expect(row).toMatchObject({ hits: 2, windowStart: at(60) });
+  });
+
   it("buckets are separate for the same key", async () => {
     for (let i = 0; i < 3; i++) await hitRateLimit(db, RULE, "k", at(1));
     const other = { ...RULE, bucket: "test:email" };
@@ -91,20 +105,26 @@ describe("hitRateLimit", () => {
     expect(dump).toContain("magic-link:email");
   });
 
-  it("expired rows are deleted when a new window starts, and live rows stay", async () => {
+  it("rows expired more than 60 s ago are deleted when a new window starts, and live rows stay", async () => {
     await hitRateLimit(db, RULE, "old", at(1)); // expires at(60)
     await hitRateLimit(db, { ...RULE, windowSeconds: 3600 }, "long", at(1)); // expires at(3600)
-    await hitRateLimit(db, RULE, "new", at(61)); // a new window: prunes
+    await hitRateLimit(db, RULE, "new", at(121)); // a new window, 61 s after "old" expired: prunes
     const keys = (await rows()).map((r) => r.expiresAt.getTime()).sort();
-    expect(keys).toEqual([at(120).getTime(), at(3600).getTime()]);
+    expect(keys).toEqual([at(180).getTime(), at(3600).getTime()]);
+  });
+
+  it("a server clock up to 60 s ahead does not prune a row that is still live", async () => {
+    await hitRateLimit(db, RULE, "live", at(1)); // expires at(60)
+    await hitRateLimit(db, RULE, "ahead", at(90)); // a clock 30 s past that end: no prune yet
+    expect((await rows()).map((r) => r.expiresAt.getTime()).sort()).toEqual([at(60).getTime(), at(120).getTime()]);
   });
 
   it("no prune when the hit is not the first in its window", async () => {
-    await hitRateLimit(db, RULE, "k", at(61)); // first in its window; nothing to prune yet
+    await hitRateLimit(db, RULE, "k", at(121)); // first in its window; nothing to prune yet
     await db.execute(sql`
       INSERT INTO rate_limits (bucket, key_hash, window_start, hits, expires_at)
       VALUES ('test:old', 'h', ${T0.toISOString()}::timestamptz, 1, ${at(60).toISOString()}::timestamptz)`);
-    await hitRateLimit(db, RULE, "k", at(62)); // second hit: no prune
+    await hitRateLimit(db, RULE, "k", at(122)); // second hit: no prune
     expect((await rows()).map((r) => r.bucket).sort()).toEqual(["test:ip", "test:old"]);
   });
 
@@ -113,7 +133,7 @@ describe("hitRateLimit", () => {
       INSERT INTO rate_limits (bucket, key_hash, window_start, hits, expires_at)
       SELECT 'test:old', 'h' || n, ${T0.toISOString()}::timestamptz, 1, ${at(60).toISOString()}::timestamptz
       FROM generate_series(1, 600) AS n`);
-    await hitRateLimit(db, RULE, "new", at(61));
+    await hitRateLimit(db, RULE, "new", at(121));
     const [{ n }] = await db
       .select({ n: sql<number>`count(*)::int` })
       .from(rateLimits)

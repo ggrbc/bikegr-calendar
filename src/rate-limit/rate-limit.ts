@@ -22,6 +22,11 @@ export interface RateLimitResult {
 
 /** At most this many expired rows are deleted in one call, so one call stays fast. */
 const PRUNE_BATCH = 500;
+/**
+ * Only rows that expired at least this long ago are pruned, so a server whose clock is ahead does
+ * not delete rows that are still live for the other servers.
+ */
+const PRUNE_GRACE_MS = 60_000;
 
 /**
  * Counts one hit for `key` in `rule.bucket` and tells whether it is allowed.
@@ -30,8 +35,9 @@ const PRUNE_BATCH = 500;
  *   gets a different count and exactly `limit` hits in a window are allowed.
  * - A refused hit still counts (capped at `limit + 1`), so retrying does not help.
  * - Windows are aligned to the epoch. A late hit from an instance with an older clock counts in the
- *   current window.
- * - When a key starts a new window, the call also deletes up to 500 expired rows.
+ *   current window. A stored window more than one window ahead (a far-future clock) is reset.
+ * - When a key starts a new window, the call also deletes up to 500 rows that expired more than
+ *   60 s ago.
  * - Strict: a database error throws. The caller decides to fail open or closed.
  */
 export async function hitRateLimit(
@@ -44,6 +50,8 @@ export async function hitRateLimit(
   const windowMs = rule.windowSeconds * 1000;
   const windowStart = new Date(Math.floor(now.getTime() / windowMs) * windowMs);
   const windowEnd = new Date(windowStart.getTime() + windowMs);
+  const reset = sql`(${rateLimits.windowStart} < excluded.window_start
+    OR ${rateLimits.windowStart} > excluded.expires_at)`;
 
   const [row] = await db
     .insert(rateLimits)
@@ -56,11 +64,13 @@ export async function hitRateLimit(
     })
     .onConflictDoUpdate({
       target: [rateLimits.bucket, rateLimits.keyHash],
+      // `reset`: the stored window is older (a new window began), or it starts after this hit's
+      // window end, so more than one window ahead (it came from a far-future clock and would lock
+      // the key). A window one ahead (a clock a little ahead) is kept, and the hit counts in it.
       set: {
-        hits: sql`CASE WHEN ${rateLimits.windowStart} < excluded.window_start THEN 1
-          ELSE LEAST(${rateLimits.hits} + 1, ${rule.limit + 1}::int) END`,
-        windowStart: sql`GREATEST(${rateLimits.windowStart}, excluded.window_start)`,
-        expiresAt: sql`GREATEST(${rateLimits.expiresAt}, excluded.expires_at)`,
+        hits: sql`CASE WHEN ${reset} THEN 1 ELSE LEAST(${rateLimits.hits} + 1, ${rule.limit + 1}::int) END`,
+        windowStart: sql`CASE WHEN ${reset} THEN excluded.window_start ELSE ${rateLimits.windowStart} END`,
+        expiresAt: sql`CASE WHEN ${reset} THEN excluded.expires_at ELSE ${rateLimits.expiresAt} END`,
       },
     })
     .returning({ hits: rateLimits.hits, windowStart: rateLimits.windowStart });
@@ -88,7 +98,7 @@ async function pruneExpired(db: Db, now: Date) {
     const expired = db
       .select({ ctid: sql`ctid` })
       .from(rateLimits)
-      .where(lt(rateLimits.expiresAt, now))
+      .where(lt(rateLimits.expiresAt, new Date(now.getTime() - PRUNE_GRACE_MS)))
       .limit(PRUNE_BATCH);
     await db.delete(rateLimits).where(inArray(sql`ctid`, expired));
   } catch (error) {
