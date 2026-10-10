@@ -5,7 +5,7 @@ import { createTestDb } from "@/db/test-db";
 import type { Db } from "@/db/types";
 import { createEvent } from "./create-event";
 import { editOneTimeEvent, editSeriesContent } from "./edit-event";
-import type { SeriesContentDraft } from "./event-input";
+import { parseSeriesContentInput, type SeriesContentDraft } from "./event-input";
 import { addEditor, addTag, contentDraft, draft, eventRow, historyOf, rowCounts, tagIdsOfEvent } from "./test-helpers";
 import type { Actor } from "./write-helpers";
 
@@ -59,7 +59,34 @@ describe("edit an Event", () => {
     ]);
   });
 
-  it("a one-time edit of a Series is refused (time changes need This date and later)", async () => {
+  it("A content edit of a Series that sends a time change is refused: the time and the rule stay", async () => {
+    const id = await newEvent();
+    // The client sends a new time and a new repeat with the "All dates" scope. The parser for that
+    // scope takes content and skipped dates only, so the write cannot change the time or the rule.
+    const parsed = parseSeriesContentInput(
+      {
+        ...content({ title: "New title" }),
+        exdates: [],
+        allDay: false,
+        start: "2026-10-06T19:00",
+        end: "2026-10-06T21:00",
+        rule: { mode: "advanced", text: "FREQ=WEEKLY;BYDAY=WE" },
+      },
+      { isAdmin: true, storedImageUrl: null, isImageUrl: () => false },
+    );
+    if (!parsed.ok) throw new Error("parse");
+    expect(parsed.value).not.toHaveProperty("rule");
+    expect(parsed.value).not.toHaveProperty("start");
+    expect((await editSeriesContent(db, sam, { id, version: 1 }, parsed.value)).ok).toBe(true);
+    expect(await eventRow(db, id)).toMatchObject({
+      title: "New title",
+      startLocal: "2026-10-06T18:00",
+      endLocal: "2026-10-06T20:00",
+      rrule: "FREQ=WEEKLY;BYDAY=TU",
+    });
+  });
+
+  it("the one-time edit is refused for a Series (a time change needs This date and later)", async () => {
     const id = await newEvent();
     const result = await editOneTimeEvent(db, sam, { id, version: 1 }, draft());
     expect(result).toMatchObject({ ok: false, reason: "invalid" });

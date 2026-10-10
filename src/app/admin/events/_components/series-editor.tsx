@@ -4,7 +4,8 @@ import { useActionState, useMemo, useState } from "react";
 import { describeRrule } from "@/admin/events/describe-rule";
 import type { FieldErrors, SeriesContentValues, SplitDraft, SplitFormValues } from "@/admin/events/event-input";
 import { rruleFromChoice } from "@/admin/events/form-values";
-import { planSplit, type SplitPlan, type SplitSeries } from "@/admin/events/plan-split";
+import { planSplit, type SplitBounds, type SplitPlan, type SplitSeries } from "@/admin/events/plan-split";
+import type { RuleEnd } from "@/admin/events/rule-form";
 import { nextOccurrences } from "@/admin/events/preview";
 import type { PickerTag } from "@/admin/tags/tags";
 import { shortDate, timeText } from "@/agenda/dates";
@@ -23,6 +24,8 @@ export interface SeriesEditorProps {
   contentInitial: SeriesContentValues;
   splitInitial: SplitFormValues;
   series: SplitSeries & { rrule: string };
+  /** The neighbors in a chain of splits (the server checks them again). */
+  bounds: SplitBounds;
   overrides: OverrideInput[];
   tagsByCalendar: Record<CalendarSlug, PickerTag[]>;
   isAdmin: boolean;
@@ -169,7 +172,12 @@ function SplitPanel(props: SeriesEditorProps) {
 }
 
 /** The plan for the form's values, as the server will make it. */
-function planFor(values: SplitFormValues, series: SplitSeries, overrides: OverrideInput[]): SplitPlan {
+function planFor(
+  values: SplitFormValues,
+  series: SplitSeries,
+  overrides: OverrideInput[],
+  bounds: SplitBounds,
+): SplitPlan {
   if (!isLocalDate(values.splitDate)) return { kind: "refused", message: "Pick a date." };
   const rule = rruleFromChoice(values.rule, values.splitDate, series.rrule);
   if (!rule.ok) return { kind: "refused", message: rule.message, field: "rule" };
@@ -179,12 +187,17 @@ function planFor(values: SplitFormValues, series: SplitSeries, overrides: Overri
   if (time.kind === "timed" && !(/^\d{2}:\d{2}$/.test(time.startTime) && /^\d{2}:\d{2}$/.test(time.endTime))) {
     return { kind: "refused", message: "Give a start time and an end time." };
   }
-  return planSplit(series, overrides, {
-    splitDate: values.splitDate,
-    mode: values.mode,
-    time,
-    rule: values.rule.mode === "same" || !rule.rrule ? { kind: "same" } : { kind: "rrule", rrule: rule.rrule },
-  });
+  return planSplit(
+    series,
+    overrides,
+    {
+      splitDate: values.splitDate,
+      mode: values.mode,
+      time,
+      rule: values.rule.mode === "same" || !rule.rrule ? { kind: "same" } : { kind: "rrule", rrule: rule.rrule },
+    },
+    bounds,
+  );
 }
 
 function firstDay(timing: Timing): string {
@@ -222,7 +235,15 @@ function PlanSummary({ plan }: { plan: SplitPlan }) {
       );
     }
     if (plan.moved.length > 0) {
-      lines.push(`${changesText(plan.moved.length)} ${plan.moved.length === 1 ? "moves" : "move"} to the new time.`);
+      const n = plan.moved.length;
+      const where = plan.kind === "split" ? "move to the new Event" : "stay, keyed to the new time";
+      lines.push(`${changesText(n)} ${n === 1 ? where.replace("move", "moves").replace("stay", "stays") : where}.`);
+      const dropped = plan.moved.filter((m) => m.dropTiming).length;
+      if (dropped > 0) {
+        lines.push(
+          `${changesText(dropped)} ${dropped === 1 ? "loses its" : "lose their"} own time, because the new time slot is ${plan.next.timing.kind === "allDay" ? "all day" : "timed"}.`,
+        );
+      }
     }
   }
   return (
@@ -246,6 +267,7 @@ function PlanSummary({ plan }: { plan: SplitPlan }) {
 function SplitBody({
   splitInitial,
   series,
+  bounds,
   overrides,
   tagsByCalendar,
   isAdmin,
@@ -257,7 +279,12 @@ function SplitBody({
   const [values, setValues] = useState(splitInitial);
   const [uploading, setUploading] = useState(false);
   const set = (patch: Partial<SplitFormValues>) => setValues((v) => ({ ...v, ...patch }));
-  const plan = useMemo(() => planFor(values, series, overrides), [values, series, overrides]);
+  const planBounds = useMemo(() => ({ ...bounds, today }), [bounds, today]);
+  const plan = useMemo(() => planFor(values, series, overrides, planBounds), [values, series, overrides, planBounds]);
+  // A new repeat ends before the later part of the Series by default, so it does not overlap.
+  const defaultEnd: RuleEnd | undefined = bounds.successorFirstDate
+    ? { kind: "until", date: addDays(bounds.successorFirstDate, -1) }
+    : undefined;
   const preview = useMemo(() => {
     if (plan.kind !== "split" && plan.kind !== "in-place") return null;
     const from = values.splitDate > today ? values.splitDate : today;
@@ -274,6 +301,7 @@ function SplitBody({
         <input
           id="split-date"
           type="date"
+          min={today}
           className={`${inputClass} max-w-xs`}
           value={values.splitDate}
           onChange={(e) => set({ splitDate: e.target.value })}
@@ -347,6 +375,7 @@ function SplitBody({
             allowSame
             allowNone={false}
             storedRrule={series.rrule}
+            defaultEnd={defaultEnd}
             errors={errors}
           />
           <details className="rounded border border-gray-300 p-3">

@@ -70,6 +70,7 @@ export function RuleEditor({
   allowSame = false,
   allowNone = true,
   storedRrule = null,
+  defaultEnd,
   errors,
 }: {
   value: RuleChoice;
@@ -79,10 +80,12 @@ export function RuleEditor({
   allowSame?: boolean;
   allowNone?: boolean;
   storedRrule?: string | null;
+  /** The end of a new repeat when there is none yet. */
+  defaultEnd?: RuleEnd;
   errors: FieldErrors;
 }) {
   const kind = kindOf(value);
-  const currentEnd: RuleEnd = value.mode === "form" ? value.form.end : { kind: "never" };
+  const currentEnd: RuleEnd = value.mode === "form" ? value.form.end : (defaultEnd ?? { kind: "never" });
   const kinds: RepeatKind[] = [
     ...(allowNone ? (["none"] as const) : []),
     ...(allowSame ? (["same"] as const) : []),

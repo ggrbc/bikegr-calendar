@@ -34,7 +34,7 @@ describe("preview of the next Occurrences", () => {
     ]);
   });
 
-  it("skipped dates are not in the preview; a cancelled Override shows its status", () => {
+  it("skipped dates are not in the preview; a cancelled Override shows its Schedule status", () => {
     const result = nextOccurrences(
       series({ exdates: ["2026-10-13T18:00"] }),
       [{ eventId: "e1", originalStart: "2026-10-20T18:00", scheduleStatus: "cancelled" }],

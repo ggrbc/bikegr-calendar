@@ -242,7 +242,7 @@ describe("Series content, split, and Override input", () => {
     });
   });
 
-  it("override input refuses a stored status that is not allowed (rescheduled is derived)", () => {
+  it("override input refuses a stored Schedule status that is not allowed (rescheduled is derived)", () => {
     const result = parseOverrideInput(
       { originalStart: "2026-11-03", start: "2026-11-03", end: "2026-11-03", title: "x", scheduleStatus: "rescheduled" },
       true,

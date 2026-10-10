@@ -20,11 +20,18 @@ import { addDays, isLocalDate, timingStart } from "@/engine";
 import { DeleteRestore } from "../_components/delete-restore";
 import { EventForm } from "../_components/event-form";
 import { SeriesEditor } from "../_components/series-editor";
+import { loadSplitBounds } from "@/admin/events/split-series";
 
 type Search = Record<string, string | string[] | undefined>;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATES_SHOWN = 20;
+
+const REVIEW_LABELS: Record<EventForEdit["row"]["reviewStatus"], string> = {
+  pending: "Pending",
+  approved: "Approved",
+  rejected: "Rejected",
+};
 
 const SAVED_NOTICES: Record<string, string> = {
   created: "Created. The Event is approved and public.",
@@ -140,7 +147,8 @@ async function EventPage({ params, searchParams }: { params: Promise<{ id: strin
   const deleted = row.deletedAt !== null;
   const today = todayInDetroit(new Date());
   const fromParam = typeof search.from === "string" ? search.from : "";
-  const from = isLocalDate(fromParam) ? fromParam : today;
+  // The list starts 30 days back, so recent past dates can be changed too.
+  const from = isLocalDate(fromParam) ? fromParam : addDays(today, -30);
   const saved = typeof search.saved === "string" ? SAVED_NOTICES[search.saved] : undefined;
   const tagsByCalendar = {
     rides: await listPickerTags(db, "rides"),
@@ -153,7 +161,7 @@ async function EventPage({ params, searchParams }: { params: Promise<{ id: strin
         <h1 className="text-2xl font-semibold">{row.title}</h1>
         <p className="text-gray-800">
           {CALENDAR_LABELS[row.calendar]} · {row.rrule ? describeRrule(row.rrule) : "One time"} · Review status:{" "}
-          {row.reviewStatus}
+          {REVIEW_LABELS[row.reviewStatus]}
           {row.sourceId && " · Imported from Tockify"}
         </p>
         {event.predecessor && (
@@ -204,6 +212,7 @@ async function EventPage({ params, searchParams }: { params: Promise<{ id: strin
           contentInitial={seriesContentValuesFromRow(row, event.tagIds)}
           splitInitial={splitValuesFromRow(row, event.tagIds, today)}
           series={{ timing: eventRowToRuleInput(row).timing, rrule: row.rrule, exdates: row.exdates }}
+          bounds={await loadSplitBounds(db, row)}
           overrides={event.overrides}
           tagsByCalendar={tagsByCalendar}
           isAdmin={isAdmin}
