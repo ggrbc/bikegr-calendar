@@ -27,7 +27,7 @@ describe("Tag cleanup", () => {
   it("drops weekday Tags", () => {
     expect(
       names(["Group-Ride", "Monday", "Tuesday", "Wednesday", "thursday", "Friday", "Saturday"]),
-    ).toEqual(["Group-Ride"]);
+    ).toEqual(["Group Ride"]);
     expect(names(["Sunday", "Race"])).toEqual(["Race"]);
   });
 
@@ -37,14 +37,22 @@ describe("Tag cleanup", () => {
 
   it("gives each Tag a name and a slug, in the order of the categories", () => {
     expect(cleanTags(["Non-Drop", "Group-Ride"])).toEqual([
-      { name: "Non-Drop", slug: "non-drop" },
-      { name: "Group-Ride", slug: "group-ride" },
+      { name: "Non Drop", slug: "non-drop" },
+      { name: "Group Ride", slug: "group-ride" },
+    ]);
+  });
+
+  it("a new Tag's name has spaces instead of dashes; the slug keeps its dashes", () => {
+    expect(cleanTags(["Group-Ride", "Women--Only ", "Race"])).toEqual([
+      { name: "Group Ride", slug: "group-ride" },
+      { name: "Women Only", slug: "women-only" },
+      { name: "Race", slug: "race" },
     ]);
   });
 
   it("removes Tags whose slug repeats, and keeps the first name", () => {
     expect(cleanTags(["Group-Ride", "Group Ride", "group-ride"])).toEqual([
-      { name: "Group-Ride", slug: "group-ride" },
+      { name: "Group Ride", slug: "group-ride" },
     ]);
   });
 
