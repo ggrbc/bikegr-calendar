@@ -394,3 +394,15 @@ the dev server (Neon dev, Blob OIDC) and with screenshots.
 
 Event editing, the Event form, `event_history` writes, settings, per-Calendar Editor access, a
 role-change audit trail, and Tag aliases (a redirect from a merged Tag's slug).
+
+## Built — differences from the plan
+
+- Jeremy chose upload option **A**. The three changes outside the file scope were approved.
+- Each Tag row and each Editor row uses **one** server action (`tagRowAction`, `editorRowAction`,
+  with a hidden `intent`), so a row shows only its last message. With one action per control, a
+  stale "deactivated" message stayed after a reactivate.
+- `toEventWebp` reads the header with no pixel limit (`sharp` throws on `metadata()` over the
+  limit), checks the pixel count with a clear message, then decodes with the limit.
+- `ImageUploadField` has one more optional prop, `disabled`. The rest of the interface is as above.
+- `sharp` is not in a build trace yet: no page uses the upload action until the Event form imports
+  `ImageUploadField`. Next.js then traces `sharp` as an external package.
