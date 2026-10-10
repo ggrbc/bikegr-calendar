@@ -36,19 +36,25 @@ export function assignCalendar(title: string, categories: string[]): CalendarSlu
 
 /**
  * The Tags to keep from Tockify categories, in category order: no Advocacy category, no weekday
- * categories, no empty slug, and one Tag for each slug (the first name wins). Tockify's names are
- * kept. Every import path uses this function.
+ * categories, no empty slug, and one Tag for each slug (the first name wins). A name gets spaces
+ * instead of dashes ("Group-Ride" becomes "Group Ride"); the slug keeps its dashes ("group-ride").
+ * Every import path uses this function.
  */
 export function cleanTags(categories: string[]): CleanTag[] {
   const bySlug = new Map<string, CleanTag>();
   for (const category of categories) {
-    const name = category.trim();
+    const name = tagName(category);
     const lower = name.toLowerCase();
     if (lower === ADVOCACY_CATEGORY || WEEKDAYS.has(lower)) continue;
     const slug = tagSlug(name);
     if (slug !== "" && !bySlug.has(slug)) bySlug.set(slug, { name, slug });
   }
   return [...bySlug.values()];
+}
+
+/** The display name of a category: dashes become spaces, and spaces are collapsed. */
+export function tagName(category: string): string {
+  return category.replace(/-/g, " ").replace(/\s+/g, " ").trim();
 }
 
 /**

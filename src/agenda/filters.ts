@@ -9,15 +9,13 @@
  */
 import {
   addDays,
-  type CalendarSlug,
   checkLocalDate,
   dayOfWeek,
   type LocalDate,
   type QueryWindow,
-  timingStart,
+  type Timing,
 } from "@/engine";
 import type { AgendaRow } from "./occurrence-rows";
-import type { CalendarTag } from "./snapshot";
 
 export const WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
@@ -140,6 +138,35 @@ export function matchesDays(date: LocalDate, days: readonly Weekday[]): boolean 
   return days.length === 0 || days.includes(WEEKDAYS[dayOfWeek(date)]);
 }
 
+/** A timed Occurrence counts for a later day only if it still runs after this wall-clock time. */
+export const OVERNIGHT_CUTOFF = "06:00";
+
+/**
+ * The wall-clock dates (America/Detroit) that an Occurrence covers, for the Day filter. At most
+ * seven dates: a longer span covers every weekday anyway.
+ *
+ * - All-day: every date from the start date to the end date (inclusive in our model; the same as an
+ *   exclusive iCalendar `DTEND`).
+ * - Timed: the start date, and each later date on which it still runs after 06:00. A 6 pm to 1 am
+ *   ride is a Tuesday ride only; a ride to 7 am also counts for the next day.
+ */
+export function coveredDates(timing: Timing): LocalDate[] {
+  const start = timing.kind === "allDay" ? timing.startDate : timing.start.slice(0, 10);
+  const dates = [start];
+  for (let date = addDays(start, 1); dates.length < 7; date = addDays(date, 1)) {
+    const covered =
+      timing.kind === "allDay" ? date <= timing.endDate : timing.end > `${date}T${OVERNIGHT_CUTOFF}`;
+    if (!covered) break;
+    dates.push(date);
+  }
+  return dates;
+}
+
+/** True if any date that the Occurrence covers is on one of `days` (empty = every day). */
+export function matchesDaysOf(timing: Timing, days: readonly Weekday[]): boolean {
+  return days.length === 0 || coveredDates(timing).some((date) => matchesDays(date, days));
+}
+
 /** Folds case and removes accents, so "Café" matches "cafe". */
 export function foldText(text: string): string {
   return text.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase();
@@ -159,27 +186,13 @@ export function matchesContent(row: AgendaRow, filters: AgendaFilters): boolean 
 }
 
 /**
- * Tags, Day filter, and text search. The Day filter uses the wall-clock date of the actual start
- * (after Overrides), so a rescheduled Occurrence uses its new date. The date range is the window.
+ * Tags, Day filter, and text search. The Day filter uses every wall-clock date that the actual
+ * time slot (after Overrides) covers ({@link coveredDates}), so a rescheduled Occurrence uses its
+ * new dates. The date range is the window.
  */
 export function matchesFilters(row: AgendaRow, filters: AgendaFilters): boolean {
   return (
     matchesContent(row, filters) &&
-    matchesDays(timingStart(row.timing).slice(0, 10), filters.days)
+    matchesDaysOf(row.timing, filters.days)
   );
-}
-
-/**
- * The filters to keep when the rider switches to `target` (null = All): day, text, and dates stay;
- * a Tag slug stays only if the target has an active Tag with that slug.
- */
-export function switcherFilters(
-  filters: AgendaFilters,
-  target: CalendarSlug | null,
-  activeTags: readonly CalendarTag[],
-): AgendaFilters {
-  const slugs = new Set(
-    activeTags.filter((tag) => target === null || tag.calendar === target).map((tag) => tag.slug),
-  );
-  return { ...filters, tags: filters.tags.filter((slug) => slugs.has(slug)) };
 }

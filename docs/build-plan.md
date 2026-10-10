@@ -40,7 +40,7 @@ Occurrence engine. If it is wrong, all of them are wrong.
 
 ## Public side and Embed
 
-- Agenda view per Calendar, plus the standalone switcher (Rides & Events | Advocacy | All).
+- Agenda view per Calendar (the standalone switcher was built, then removed on 2026-10-10).
 - Filters in the URL: Tags (AND), Day filter (OR within days), text search, date range.
 - Schedule status badges and notes; Event detail page with JSON-LD; 410 for deleted Events.
 - Add to calendar for one Occurrence (`.ics`, Google, Outlook).

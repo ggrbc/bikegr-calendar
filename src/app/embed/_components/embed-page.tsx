@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import type { FilterParams } from "@/agenda/filters";
 import { calendarName, calendarPath, SITE_ORIGIN } from "@/agenda/site";
 import { EMBED_ROOT_ID } from "@/embed/protocol";
@@ -16,8 +15,10 @@ export function embedMetadata(calendar: CalendarSlug | null): Metadata {
 }
 
 /**
- * One Calendar inside a Squarespace page (an iframe placed by public/embed.js). No site chrome: no
- * home link and no Calendar switcher. The root element is what the iframe measures for its height.
+ * One Calendar inside a Squarespace page (an iframe placed by public/embed.js). No header and no
+ * site chrome. The background is the bikegr.org page gray (#F2F2F3), the color of the Squarespace
+ * section around the iframe, so the Embed does not look like a box. The root element is what the
+ * iframe measures for its height. Blocking like the standalone pages (`instant = false`).
  */
 export function EmbedPage({
   calendar,
@@ -27,15 +28,8 @@ export function EmbedPage({
   searchParams: Promise<FilterParams>;
 }) {
   return (
-    <main id={EMBED_ROOT_ID} className="w-full bg-white px-2 py-3 text-brand-gray sm:bg-brand-page sm:px-4">
-      <p className="mb-3 font-chivo text-xs">
-        <a href={`${SITE_ORIGIN}${calendarPath(calendar)}`} target="_blank" rel="noopener" className="underline">
-          Bike GR Calendar · {calendarName(calendar)}
-        </a>
-      </p>
-      <Suspense fallback={<p>Loading events…</p>}>
-        <AgendaList calendar={calendar} searchParams={searchParams} variant="embed" />
-      </Suspense>
+    <main id={EMBED_ROOT_ID} className="w-full bg-brand-page px-1 py-2 text-brand-gray sm:px-2">
+      <AgendaList calendar={calendar} searchParams={searchParams} variant="embed" />
     </main>
   );
 }

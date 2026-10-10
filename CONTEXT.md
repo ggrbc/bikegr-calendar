@@ -19,7 +19,7 @@ Tockify and are embedded in the Bike GR Squarespace site. One organization, two 
 | **Schedule note** | Short public text on one Occurrence, shown next to its badge (e.g. "Rain — see you next week"). Allowed with any Schedule status. |
 | **Tag** | A label used to filter Events (Group-Ride, Non-Drop, Race, …). Belongs to one Calendar. Editors manage the list; Submitters only pick from it. |
 | **Tag slug** | The stable, URL-safe name of a Tag (`non-drop`). Renaming a Tag keeps its slug, so shared filter links keep working. |
-| **Day filter** | A filter by day of week (one or more days), taken from an Occurrence's wall-clock date. Not a Tag. |
+| **Day filter** | A filter by day of week (one or more days). An Occurrence matches on every day it covers, in wall-clock dates (a Friday-to-Sunday event shows for Fri, Sat, and Sun). Not a Tag. |
 | **Submission** | An Event that a member of the public sent through the public form. It is an Event with Review status `pending`, not a separate record type. Its Calendar comes from the link the Submitter followed; it may repeat weekly until a date. |
 | **Submitter** | The person who sent a Submission. Name and email are kept for contact and never shown publicly. |
 | **Review status** | The review life cycle of an Event: `pending` → `approved` or `rejected`. Only `approved` Events are public. |

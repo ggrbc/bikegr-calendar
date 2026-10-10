@@ -7,7 +7,6 @@ import {
   matchesFilters,
   parseFilters,
   serializeFilters,
-  switcherFilters,
 } from "./filters";
 import { allDay, row, timed } from "./test-fixtures";
 
@@ -131,10 +130,32 @@ describe("matchesFilters", () => {
     expect(matchesFilters(moved, parse("day=tue"))).toBe(false);
   });
 
-  it("multi-day all-day Occurrence matches only the day it starts", () => {
-    const weekend = row({ timing: allDay("2026-10-17", "2026-10-18") }); // Saturday and Sunday
-    expect(matchesFilters(weekend, parse("day=sat"))).toBe(true);
-    expect(matchesFilters(weekend, parse("day=sun"))).toBe(false);
+  it("Fri–Sun all-day Occurrence matches every day it covers: sat yes, mon no", () => {
+    const weekend = row({ timing: allDay("2026-10-16", "2026-10-18") }); // Friday to Sunday
+    for (const day of ["fri", "sat", "sun"]) expect(matchesFilters(weekend, parse(`day=${day}`)), day).toBe(true);
+    expect(matchesFilters(weekend, parse("day=mon"))).toBe(false);
+  });
+
+  it("18:00 to 01:00 matches its start day only (ends before 06:00 the next day)", () => {
+    const late = row({ timing: { kind: "timed", start: "2026-10-13T18:00", end: "2026-10-14T01:00" } });
+    expect(matchesFilters(late, parse("day=tue"))).toBe(true);
+    expect(matchesFilters(late, parse("day=wed"))).toBe(false);
+  });
+
+  it("18:00 to 07:00 matches both days", () => {
+    const overnight = row({ timing: { kind: "timed", start: "2026-10-13T18:00", end: "2026-10-14T07:00" } });
+    expect(matchesFilters(overnight, parse("day=tue"))).toBe(true);
+    expect(matchesFilters(overnight, parse("day=wed"))).toBe(true);
+    expect(matchesFilters(overnight, parse("day=thu"))).toBe(false);
+  });
+
+  it("a 7-day span matches every day", () => {
+    const week = row({ timing: allDay("2026-10-12", "2026-10-18") });
+    for (const day of ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]) {
+      expect(matchesFilters(week, parse(`day=${day}`)), day).toBe(true);
+    }
+    const timedWeek = row({ timing: { kind: "timed", start: "2026-10-12T09:00", end: "2026-10-18T17:00" } });
+    expect(matchesFilters(timedWeek, parse("day=sat"))).toBe(true);
   });
 
   it("text search matches title, location, description, and Tag names, case-insensitive, without accents", () => {
@@ -172,22 +193,5 @@ describe("matchesFilters", () => {
   it("knows when Tag, Day, or text filters are set", () => {
     expect(hasContentFilters(parse("from=2026-11-01"))).toBe(false);
     expect(hasContentFilters(parse("day=tue"))).toBe(true);
-  });
-});
-
-describe("switcherFilters", () => {
-  it("keeps day, search, and dates, and keeps only the Tags that the target Calendar has", () => {
-    const filters = parse("tag=non-drop,meeting&day=tue&q=park&from=2026-11-01");
-    const target = [{ calendar: "advocacy" as const, name: "Meeting", slug: "meeting" }];
-    expect(switcherFilters(filters, "advocacy", target)).toEqual({ ...filters, tags: ["meeting"] });
-  });
-
-  it("switcher to All keeps every Tag that either Calendar has", () => {
-    const filters = parse("tag=non-drop,meeting,gone");
-    const all = [
-      { calendar: "rides" as const, name: "Non-Drop", slug: "non-drop" },
-      { calendar: "advocacy" as const, name: "Meeting", slug: "meeting" },
-    ];
-    expect(switcherFilters(filters, null, all).tags).toEqual(["meeting", "non-drop"]);
   });
 });

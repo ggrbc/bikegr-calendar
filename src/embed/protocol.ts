@@ -15,8 +15,13 @@ export const RESIZE_MESSAGE = "bikegr-calendar:resize";
 export const LOCATION_MESSAGE = "bikegr-calendar:location";
 export const MAX_HEIGHT = 50_000;
 export const MAX_SEARCH_LENGTH = 2_000;
-/** The filter keys that the host page URL can carry for the Embed. */
+/** The filter keys that the Embed passes between the host page URL and the iframe. */
 export const HOST_FILTER_KEYS = ["tag", "day", "q", "from", "to"] as const;
+/**
+ * On the host page URL the keys have this prefix (`bgr-day=tue`), so they never clash with the
+ * host page's own keys (Squarespace uses `?q=`). The calendar site and the Feeds use the short keys.
+ */
+export const HOST_KEY_PREFIX = "bgr-";
 /** The id of the element that the iframe measures. */
 export const EMBED_ROOT_ID = "bikegr-embed-root";
 

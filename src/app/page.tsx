@@ -7,6 +7,9 @@ export const metadata: Metadata = {
   alternates: { canonical: `${SITE_ORIGIN}/` },
 };
 
+/** Blocking: the first HTML has the events, also without JavaScript. */
+export const instant = false;
+
 export default function Home({ searchParams }: PageProps<"/">) {
   return <AgendaPage title={ALL_NAME} calendar={null} searchParams={searchParams} />;
 }

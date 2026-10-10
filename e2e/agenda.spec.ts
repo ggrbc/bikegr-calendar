@@ -1,8 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { todayInDetroit } from "@/agenda/dates";
+import { addDays } from "@/engine";
 import { fixtureDates, IDS, segment } from "./fixture";
 
-const dates = fixtureDates(todayInDetroit(new Date()));
+const today = todayInDetroit(new Date());
+const dates = fixtureDates(today);
 
 test("agenda for Rides shows days, and a Day filter changes the list and the URL", async ({ page }) => {
   await page.goto("/rides");
@@ -14,21 +16,153 @@ test("agenda for Rides shows days, and a Day filter changes the list and the URL
   await expect(page.getByText("E2E Pending Ride")).toHaveCount(0);
 
   await page.getByText("Filter", { exact: true }).click();
+  // One checkbox click filters the list (no Apply click).
   await page.getByRole("checkbox", { name: "Thu", exact: true }).check();
-  await page.getByRole("button", { name: "Apply filters" }).click();
   await expect(page).toHaveURL(/\/rides\?day=thu$/);
   await expect(page.getByRole("link", { name: "E2E Thursday Ride" }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "E2E Tuesday Ride" })).toHaveCount(0);
 });
 
-test("Calendar switcher keeps the Day filter and drops a Tag that the target does not have", async ({ page }) => {
-  await page.goto("/rides?day=thu&tag=non-drop");
-  const nav = page.getByRole("navigation", { name: "Calendars" });
-  await expect(nav.getByRole("link", { name: "Rides & Events" })).toHaveAttribute("aria-current", "page");
-  await expect(nav.getByRole("link", { name: "Advocacy" })).toHaveAttribute("href", "/advocacy?day=thu");
-  await expect(nav.getByRole("link", { name: "All" })).toHaveAttribute("href", "/?tag=non-drop&day=thu");
-  await nav.getByRole("link", { name: "Advocacy" }).click();
-  await expect(page).toHaveURL(/\/advocacy\?day=thu$/);
+test("no Calendar switcher on the public pages; the routes stay", async ({ page }) => {
+  for (const path of ["/rides", "/advocacy", "/"]) {
+    const response = await page.goto(path);
+    expect(response?.status()).toBe(200);
+    await expect(page.getByRole("navigation", { name: "Calendars" })).toHaveCount(0);
+  }
+});
+
+test("typing a date with the keyboard navigates once, with the right from", async ({ page }) => {
+  await page.goto("/rides");
+  const year = Number(today.slice(0, 4));
+  const target = `${year}-11-20` > today ? `${year}-11-20` : `${year + 1}-11-20`;
+  const navigations: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (request.headers()["rsc"] === "1" && url.pathname === "/rides" && url.searchParams.has("from")) {
+      navigations.push(url.search);
+    }
+  });
+  await page.getByText("Filter", { exact: true }).click();
+  const from = page.getByLabel("From");
+  // focus() puts the caret on the first part (the month), as Tab does for a rider.
+  await from.focus();
+  await page.keyboard.type(`${target.slice(5, 7)}${target.slice(8, 10)}${target.slice(0, 4)}`);
+  await expect(page).toHaveURL(new RegExp(`from=${target}`));
+  await page.waitForTimeout(500);
+  expect(navigations).toHaveLength(1);
+  await expect(from).toHaveValue(target);
+});
+
+test("Back keeps the day boxes in step with the URL", async ({ page }) => {
+  await page.goto("/rides");
+  await page.getByText("Filter", { exact: true }).click();
+  const tue = page.getByRole("checkbox", { name: "Tue", exact: true });
+  const thu = page.getByRole("checkbox", { name: "Thu", exact: true });
+  await tue.check();
+  await expect(page).toHaveURL(/\?day=tue$/);
+  await thu.check();
+  await expect(page).toHaveURL(/\?day=tue,thu$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\?day=tue$/);
+  await expect(tue).toBeChecked();
+  await expect(thu).not.toBeChecked();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/rides$/);
+  await expect(tue).not.toBeChecked();
+  await expect(thu).not.toBeChecked();
+});
+
+test("text typed in the search while a filter loads stays", async ({ page }) => {
+  await page.goto("/rides");
+  await page.route("**/rides?*", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await route.continue();
+  });
+  await page.getByText("Filter", { exact: true }).click();
+  await page.getByRole("checkbox", { name: "Fri", exact: true }).check();
+  const search = page.getByRole("searchbox", { name: "Search" });
+  await search.fill("Wee");
+  await expect(page).toHaveURL(/\?day=fri$/);
+  await page.waitForTimeout(300);
+  await expect(search).toHaveValue("Wee");
+});
+
+test("From and then To both arrive in the URL", async ({ page }) => {
+  const from = addDays(today, 10);
+  const to = addDays(today, 15);
+  await page.goto("/rides");
+  await page.getByText("Filter", { exact: true }).click();
+  await page.getByLabel("From").fill(from);
+  await page.getByLabel("To").fill(to);
+  await page.keyboard.press("Tab");
+  await expect(page).toHaveURL(new RegExp(`\\?from=${from}&to=${to}$`));
+});
+
+test("a From change moves the default range; to stays out of the URL", async ({ page }) => {
+  const from = addDays(today, 10);
+  await page.goto("/rides");
+  await page.getByText("Filter", { exact: true }).click();
+  await page.getByLabel("From").fill(from);
+  await page.keyboard.press("Tab");
+  await expect(page).toHaveURL(new RegExp(`\\?from=${from}$`));
+  await expect(page.getByLabel("To")).toHaveValue(addDays(from, 55));
+});
+
+test("the list is marked busy while a filter click loads", async ({ page }) => {
+  await page.goto("/rides");
+  await page.route("**/rides?*", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    await route.continue();
+  });
+  await page.getByText("Filter", { exact: true }).click();
+  await page.getByRole("checkbox", { name: "Thu", exact: true }).check();
+  await expect(page.locator("#agenda-results")).toHaveAttribute("aria-busy", "true");
+  await expect(page).toHaveURL(/\?day=thu$/);
+  await expect(page.locator("#agenda-results")).not.toHaveAttribute("aria-busy", "true");
+});
+
+test("Escape closes the phone menu and puts the focus back on its button", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/rides");
+  const menu = page.locator("#site-menu");
+  await menu.locator("summary").click();
+  await expect(menu).toHaveAttribute("open", "");
+  await page.keyboard.press("Escape");
+  await expect(menu).not.toHaveAttribute("open", "");
+  await expect(menu.locator("summary")).toBeFocused();
+});
+
+test("the search box placeholder and border meet AA contrast", async ({ page }) => {
+  await page.goto("/rides");
+  const search = page.getByRole("searchbox", { name: "Search" });
+  const style = await search.evaluate((el) => {
+    const s = getComputedStyle(el);
+    return { border: s.borderTopColor, width: s.borderTopWidth };
+  });
+  expect(style).toEqual({ border: "rgb(133, 132, 134)", width: "1px" });
+});
+
+test("the search applies on Enter, and Clear removes every filter", async ({ page }) => {
+  await page.goto("/rides");
+  await page.getByRole("searchbox", { name: "Search" }).fill("thursday");
+  await page.getByRole("searchbox", { name: "Search" }).press("Enter");
+  await expect(page).toHaveURL(/\/rides\?q=thursday$/);
+  await expect(page.getByRole("link", { name: "E2E Tuesday Ride" })).toHaveCount(0);
+  await page.getByRole("link", { name: "Clear" }).click();
+  await expect(page).toHaveURL(/\/rides$/);
+  await expect(page.getByRole("link", { name: "E2E Tuesday Ride" }).first()).toBeVisible();
+});
+
+test("without JavaScript, the Apply button submits the filters", async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+  await page.goto("/rides");
+  await page.getByText("Filter", { exact: true }).click();
+  await page.getByRole("checkbox", { name: "Thu", exact: true }).check();
+  await page.getByRole("button", { name: "Apply" }).click();
+  await expect(page).toHaveURL(/\/rides\?.*day=thu/);
+  await expect(page.getByRole("link", { name: "E2E Tuesday Ride" })).toHaveCount(0);
+  await context.close();
 });
 
 test("a far-future from is clamped: the page renders, with no error", async ({ page }) => {

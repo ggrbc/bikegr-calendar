@@ -7,6 +7,9 @@ export const metadata: Metadata = {
   alternates: { canonical: `${SITE_ORIGIN}/advocacy` },
 };
 
+/** Blocking: the first HTML has the events, also without JavaScript. */
+export const instant = false;
+
 export default function AdvocacyPage({ searchParams }: PageProps<"/advocacy">) {
   return <AgendaPage title={CALENDAR_NAMES.advocacy} calendar="advocacy" searchParams={searchParams} />;
 }
