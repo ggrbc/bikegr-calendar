@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstProperty, parseIcsEvents, textValue } from "./ics";
+import { firstProperty, parseIcsEvents, textListValue, textValue } from "./ics";
 
 const CRLF = "\r\n";
 const calendar = (...lines: string[]) =>
@@ -31,6 +31,16 @@ describe("ICS parser", () => {
     expect(textValue("Line one\\nLine two\\NLine three")).toBe("Line one\nLine two\nLine three");
     expect(textValue("Riverside Park\\,Grand Rapids\\, MI")).toBe("Riverside Park,Grand Rapids, MI");
     expect(textValue("a\\;b\\\\n")).toBe("a;b\\n");
+  });
+
+  it("splits a text list at commas that are not escaped", () => {
+    expect(textListValue("Group-Ride,Non-Drop")).toEqual(["Group-Ride", "Non-Drop"]);
+    expect(textListValue("Kids\\, Family,Race")).toEqual(["Kids, Family", "Race"]);
+  });
+
+  it("splits a text list after an escaped backslash", () => {
+    // Raw "A\\,B": an escaped backslash, then a real comma.
+    expect(textListValue("A\\\\,B")).toEqual(["A\\", "B"]);
   });
 
   it("reads parameters, including quoted values that contain a colon", () => {

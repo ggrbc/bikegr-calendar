@@ -144,6 +144,7 @@ describe("Tockify Occurrence mapping", () => {
   it("reads the categories and drops empty ones", () => {
     expect(vevent().categories).toEqual(["Group-Ride", "Wednesday", "Non-Drop"]);
     expect(vevent({ CATEGORIES: "CATEGORIES:" }).categories).toEqual([]);
+    expect(vevent({ CATEGORIES: "CATEGORIES:A\\\\,B" }).categories).toEqual(["A\\", "B"]);
   });
 
   it("promotion button gives a CTA label and URL", () => {

@@ -9,7 +9,13 @@ import {
   type StoredScheduleStatus,
   type Timing,
 } from "@/engine";
-import { firstProperty, textValue, type IcsEvent, type IcsProperty } from "./ics";
+import {
+  firstProperty,
+  textListValue,
+  textValue,
+  type IcsEvent,
+  type IcsProperty,
+} from "./ics";
 import type { Cta, TockifyOccurrence } from "./types";
 
 /** `TKF/<calendarId>/<eventId>/<startMinutes>/0/0` */
@@ -106,8 +112,8 @@ function readDateTime(property: IcsProperty, uid: string): string {
 function readCategories(event: IcsEvent): string[] {
   return event.properties
     .filter((property) => property.name === "CATEGORIES")
-    .flatMap((property) => property.value.split(/(?<!\\),/))
-    .map((category) => textValue(category).trim())
+    .flatMap((property) => textListValue(property.value))
+    .map((category) => category.trim())
     .filter((category) => category !== "");
 }
 

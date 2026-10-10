@@ -64,6 +64,29 @@ export function textValue(raw: string): string {
   );
 }
 
+/**
+ * Splits a comma list of text values (such as `CATEGORIES`) at commas that are not escaped, then
+ * removes the escapes from each item. A scanner, so `A\\,B` (escaped backslash, then a comma) is
+ * two items.
+ */
+export function textListValue(raw: string): string[] {
+  const items: string[] = [];
+  let item = "";
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i] === "\\" && i + 1 < raw.length) {
+      item += raw[i] + raw[i + 1];
+      i++;
+    } else if (raw[i] === ",") {
+      items.push(item);
+      item = "";
+    } else {
+      item += raw[i];
+    }
+  }
+  items.push(item);
+  return items.map(textValue);
+}
+
 /** A line break followed by one space or tab is a fold. */
 function unfoldText(text: string): string {
   return text.replace(/\r?\n[ \t]/g, "");
