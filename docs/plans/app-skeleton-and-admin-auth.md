@@ -15,7 +15,7 @@ built in parallel by another stream. This stream does not change `src/engine/**`
 |---|---|---|
 | ORM | `drizzle-orm` 0.45 (latest stable) + `drizzle-kit` 0.31 | 1.0 is still RC. 0.45 is what `@auth/drizzle-adapter` 1.11 is built against. Upgrade to 1.0 when it is stable. |
 | Auth | `next-auth` 5 beta (Auth.js v5) + `@auth/drizzle-adapter` | The design says Auth.js. v5 is still "beta" after 2 years and gets mostly maintenance now (the Better Auth team owns it). It declares `next ^16` as a peer. Better Auth is the active alternative, but it is a design change; not proposed now. |
-| Production driver | `drizzle-orm/neon-serverless` (WebSocket `Pool` from `@neondatabase/serverless`) | Decided by Jeremy (Option B, below). Interactive `db.transaction(async tx => …)` works in production and locally, so code cannot pass locally and fail only in production. Cost: a WebSocket per request and more cold-start time than HTTP. One `Pool` per request, ended after the response (`after()`), all inside the one `db` module. |
+| Production driver | `drizzle-orm/neon-serverless` (WebSocket `Pool` from `@neondatabase/serverless`) | Decided by Jeremy (Option B, below). Interactive `db.transaction(async tx => …)` works in production and locally, so code cannot pass locally and fail only in production. Cost: WebSocket connections and more cold-start time than HTTP. One module-scope `Pool` per server instance, attached with `attachDatabasePool` from `@vercel/functions` (Vercel Fluid compute guidance), all inside the one `db` module. |
 | Local driver | `drizzle-orm/postgres-js` (`postgres`) against Docker Postgres 17 | Plain TCP, no native build step. The `db` module picks the driver: a `DATABASE_URL` host that ends in `.neon.tech` uses `neon-serverless`; all other hosts use `postgres-js`. Both are typed as one `Db` type (`PgDatabase<…, typeof schema>`), so callers never see the driver. |
 | Test database | `@electric-sql/pglite` (real Postgres compiled to WASM, in process) via `drizzle-orm/pglite` | Tests run the real migration SQL, CHECK constraints, and FKs with no Docker and no network, so `pnpm test` works in CI. Cost: a third driver, test-only. Docker Postgres is still used for the end-to-end login check. |
 | Email | `resend` SDK when `RESEND_API_KEY` is set; else a console transport that prints the magic link | The Submissions milestone reuses the same mailer module. |
@@ -32,10 +32,15 @@ the Series split.
 - **Option B (chosen by Jeremy):** `drizzle-orm/neon-serverless` with a WebSocket `Pool`. Both drivers
   support interactive `db.transaction(async tx => …)`.
 
-Neon's serverless guidance: make the `Pool` inside the request and end it when the request is done.
-The `db` module does this: `getDb()` makes one `Pool` per request (memoized with React `cache`) and
-registers `pool.end()` with `after()`. Scripts and tests use `openDb()`, which returns the `db` and a
-`close()` function. Node 24 has a global `WebSocket`, so no `ws` package is needed.
+Pool life cycle (changed after review): a first version made one `Pool` per request with React
+`cache` and `after()`. That was wrong: React `cache` scopes only inside a Flight render, so route
+handlers and server actions opened several Pools. Now `getDb()` makes **one module-scope `Pool`** and
+calls `attachDatabasePool(pool)` (`@vercel/functions`). On Vercel Fluid compute, requests on one
+instance share the Pool, and Vercel keeps the instance alive until idle connections close. Outside
+Vercel, `attachDatabasePool` does nothing. postgres-js (Docker) keeps one client too. Scripts and
+tests use `openDb()`, which returns the `db` and a `close()` function. `pnpm db:smoke` runs a
+read-only transaction and a rollback through the real Neon driver. Node 24 has a global `WebSocket`,
+so no `ws` package is needed.
 
 ## Time storage — why these column types
 
@@ -132,7 +137,8 @@ A Series split moves Overrides by an `update overrides set event_id = …`.
 | `name` | text not null | |
 | `slug` | text not null | CHECK `^[a-z0-9]+(-[a-z0-9]+)*$`; unique `(calendar, slug)` |
 | `retired_at` | timestamptz null | null = active |
-| `created_at`, `created_by` | | |
+| `retired_by` | uuid null → `editors.id` | |
+| `created_at`, `created_by`, `updated_at`, `updated_by` | as in `events` | |
 
 Extra unique key `(id, calendar)`.
 
@@ -198,10 +204,15 @@ A type test also checks that the `calendar` enum values equal `CalendarSlug` and
   `canSignIn(editor | null)`: it allows only an Editor row that exists and has `deactivated_at` null.
   Auth.js calls the callback **before** it makes the token and sends the email, so a refused email
   gets no token and no email. It also runs again when the link is clicked, so a link sent before a
-  deactivation does not work after it. Emails are made lowercase before the lookup.
+  deactivation does not work after it. Emails get NFKC normalization, trim, and lowercase before the
+  lookup; the format check refuses `"`, `,`, `<`, and `>`.
 - **No email enumeration:** the login page shows the same message for sent and refused:
-  "If this email belongs to an Editor, we sent a sign-in link. No email? Ask an Admin." The server
-  log records the refusal.
+  "If this email belongs to an Editor, we sent a sign-in link. No email? Ask an Admin." The Auth.js
+  route (`POST /api/auth/signin/resend`) also gives the same redirect for both: at the link request,
+  a refusal returns the verify-request path, not `false` (no token, no email). At the link click,
+  a refusal stays `false` (AccessDenied), because the person has proved the address. The server log
+  records the refusal. Deferred: a rate limit on link requests (with the Submissions rate-limit
+  table), and the timing difference between refused and sent (accepted risk).
 - **Every request** reads the session in the Data Access Layer (`src/auth/dal.ts`, `server-only`):
   `requireEditor()` loads the session and the Editor, checks `deactivated_at` again, and redirects to
   `/login` if any check fails. `requireAdmin()` also checks `role = 'admin'`. Every server action
@@ -210,8 +221,10 @@ A type test also checks that the `calendar` enum values equal `CalendarSlug` and
   present, redirect to `/login`. No database access in the proxy.
 - **Cache Components:** the admin layout renders a static shell; the part that reads the session
   sits in a `<Suspense>` boundary (the docs make a `cookies()` read outside one a build error).
-- **Lazy init:** `NextAuth(() => config)` and a lazy `getDb()`, so `next build` imports no driver
+- **Lazy init:** `NextAuth(() => buildAuthConfig(…))` and a lazy `getDb()`, so `next build` opens no
   connection and needs no `DATABASE_URL`.
+- **Console transport:** refused whenever `VERCEL` is set (Production and Preview), so Vercel logs
+  never hold magic links.
 - **Invite (Admin only):** a server action on `/admin` calls `requireAdmin()`, validates the email and
   role, inserts the Editor (`invited_by`, `invited_at`), and then calls `signIn("resend", { email,
   redirect: false })` so Auth.js makes and sends the magic link. If the email is already an Editor,
@@ -238,24 +251,51 @@ is safe to run again, also against production:
 
 - `docker-compose.yml`: `postgres:17-alpine`, user, password, and database `bikegr`, port 5432, a named
   volume, and a health check. It matches `DATABASE_URL` in `.env.example`.
-- Scripts: `db:up` (`docker compose up -d`), `db:generate` (`drizzle-kit generate`), `db:migrate`
-  (`drizzle-kit migrate`), `db:seed`, `db:studio`.
+- Scripts: `db:up` (`docker compose up -d --wait`), `db:down`, `db:generate` (`drizzle-kit
+  generate`), `db:migrate` (`drizzle-kit migrate`), `db:seed`, `db:smoke` (Neon driver check),
+  `db:studio`.
 - Migrations run by hand (`pnpm db:migrate` with the target `DATABASE_URL`), not in `next build`, so
   the build needs no database.
 
 ## Files
 
-- `src/db/schema.ts`, `src/db/columns.ts` (the `localDateTime` type), `src/db/index.ts` (lazy `getDb`,
-  driver choice), `src/db/mappers.ts`, `src/db/seed.ts`, `src/db/test-db.ts` (PGlite + migrations, for
-  tests)
-- `drizzle/0000_*.sql` + `drizzle/meta/**`, `drizzle.config.ts`, `docker-compose.yml`
-- `src/auth/index.ts` (`auth`, `signIn`, `signOut`, `handlers`), `src/auth/config.ts`,
-  `src/auth/rules.ts` (`canSignIn`, invite input check), `src/auth/editors.ts` (find, invite),
-  `src/auth/mailer.ts`, `src/auth/dal.ts`, `src/auth/next-auth.d.ts` (session types: Editor id, role)
-- `src/proxy.ts`
-- `src/app/api/auth/[...nextauth]/route.ts`, `src/app/login/page.tsx` + actions,
-  `src/app/admin/layout.tsx`, `src/app/admin/page.tsx`, `src/app/admin/invite-form.tsx` + actions
-- `package.json` (dependencies, scripts), `.env.example` (comments only if needed)
+Database (`src/db/`):
+
+- `schema.ts` — tables, enums, CHECKs, composite FKs
+- `columns.ts` — the wall-clock `localDateTime` column type
+- `types.ts` — the driver-neutral `Db` type
+- `client.ts` — `driverFor`, `openDb` (Neon `Pool` or postgres-js), `requireDatabaseUrl`; no Next.js
+- `index.ts` — `getDb()` for the app (module-scope handle, `attachDatabasePool`), `server-only`
+- `mappers.ts` — rows to `EventRuleInput` and `OverrideInput`
+- `seed-admins.ts` + `seed.ts` — the first Admins and the `pnpm db:seed` script
+- `smoke.ts` — the `pnpm db:smoke` script
+- `load-env.ts` — loads `.env.local` for scripts
+- `test-db.ts` — PGlite with the real migrations, for tests
+- Tests: `columns.test.ts`, `schema.test.ts`, `mappers.test.ts`, `client.test.ts`,
+  `seed-admins.test.ts`
+
+Auth (`src/auth/`):
+
+- `config.ts` — `buildAuthConfig({ db, mailer })`: adapter, provider, callbacks; no Next.js
+- `index.ts` — `NextAuth(() => buildAuthConfig(…))`: `auth`, `signIn`, `signOut`, `handlers`
+- `rules.ts` — `canSignIn`, `canInvite`, `normalizeEmail`, `isValidEmail`, `parseInviteInput`
+- `editors.ts` — `findEditorByEmail`, `findEditorById`, `inviteEditor`
+- `mailer.ts` — Resend and console transports, invite or sign-in text
+- `dal.ts` — `getCurrentEditor`, `requireEditor`, `requireAdmin`, `server-only`
+- Tests: `rules.test.ts`, `mailer.test.ts`, `editors.test.ts`, `config.test.ts` (Auth.js wiring:
+  `Auth()` + Drizzle adapter on PGlite + mock mailer)
+
+App and root:
+
+- `src/proxy.ts` — optimistic session-cookie check for `/admin`
+- `src/app/api/auth/[...nextauth]/route.ts`
+- `src/app/login/page.tsx`, `login-form.tsx`, `actions.ts`
+- `src/app/admin/layout.tsx`, `page.tsx`, `invite-form.tsx`, `actions.ts` (invite, sign-out)
+- `drizzle/0000_initial-schema.sql` + `drizzle/meta/**`, `drizzle.config.ts`, `docker-compose.yml`
+- `package.json` (dependencies, scripts), `.env.example`
+
+Not made (planned, then not needed): `src/auth/next-auth.d.ts` — the DAL reads the Editor row by the
+session's user id, so no session type augmentation is necessary.
 
 ## Test cases
 
@@ -282,8 +322,10 @@ Unit tests (no database):
 
 Database tests (PGlite, real migration SQL):
 
-- **Local time stays wall-clock** — insert `2026-11-03T18:00` (after the DST change) and read back
-  the same string.
+- **Local time stays wall-clock** — write `2026-11-03T18:00` (after the DST change) with the session
+  zone `America/Detroit`, read it with `UTC`, and get the same string; `information_schema` shows
+  `timestamp without time zone`.
+- **Tag keeps who changed and who retired it** — `updated_at`, `updated_by`, `retired_by`.
 - **Timing shape must be complete** — a row with both timed and date columns, or neither, is refused.
 - **Zone must be America/Detroit** — another zone is refused.
 - **OriginalStart format is enforced** — a bad `original_start` or `exdates` entry is refused.
@@ -299,6 +341,14 @@ Database tests (PGlite, real migration SQL):
   that email.
 - **Invite of an existing Editor fails** — clear error, no new row, no email.
 - **Invite by a non-Admin is refused** — the invite logic refuses an Editor with role `editor`.
+
+Auth.js wiring tests (`Auth()` + Drizzle adapter on PGlite + mock mailer, added after review):
+
+- **Unknown email gets no token and no email.**
+- **Seeded Admin gets one token and one email.**
+- **Refused and sent responses have the same Location.**
+- **An active Editor's link makes a session.**
+- **A link used after deactivation is refused and makes no session** — `error=AccessDenied`.
 
 End to end, by hand (Docker Postgres, console transport), recorded in the final report:
 
