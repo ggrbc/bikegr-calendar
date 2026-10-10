@@ -33,7 +33,7 @@ Tockify is embedded today on two Squarespace pages:
 | Concern | Choice |
 |---|---|
 | App | Next.js (App Router) — admin UI, public views, Embed, and Feeds in one deployable |
-| Database | Postgres (Neon), serverless HTTP driver |
+| Database | Postgres (Neon). Production: `neon-serverless` WebSocket `Pool` at module scope with Vercel `attachDatabasePool`, so interactive transactions work (the HTTP driver cannot stop a batch when a `version` check fails). Any `*.neon.tech` URL (also the dev branch) uses this Pool; local Docker Postgres uses postgres-js. Migrations run by hand (`pnpm db:migrate`), not in the build. |
 | Data access | Drizzle (schema in TypeScript, `drizzle-kit` migrations, `sql` tag for hard queries) |
 | Auth | Auth.js — magic-link email (Google login after cutover) |
 | Email | Resend, sending from a `calendar.bikegr.org` subdomain |
