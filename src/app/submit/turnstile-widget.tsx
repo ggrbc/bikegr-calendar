@@ -6,6 +6,7 @@
  * once, so the parent gives a new `resetSignal` after each refused send to get a new one.
  */
 import { useEffect, useRef } from "react";
+import { TURNSTILE_ACTION } from "@/submissions/turnstile";
 
 const SCRIPT_URL = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 
@@ -67,7 +68,7 @@ export function TurnstileWidget({
         if (cancelled || !container.current) return;
         widgetId.current = api.render(container.current, {
           sitekey: siteKey,
-          action: "submit",
+          action: TURNSTILE_ACTION,
           "response-field": false,
           callback: (token: string) => callbacks.current.onToken(token),
           "expired-callback": () => callbacks.current.onToken(null),

@@ -159,6 +159,17 @@ test("a field error keeps the input; a refused spam check saves nothing", async 
   await expect(page.getByText("E2E Refused Ride")).toHaveCount(0);
 });
 
+test("a spam-check pass for another hostname saves nothing", async ({ page, context }) => {
+  await stubTurnstile(page, "198.51.100.5", "e2e-other-host");
+  await page.goto("/submit");
+  await fillRide(page, "E2E Other Host Ride");
+  await send(page);
+  await expect(page.getByText("The spam check did not pass.", { exact: false })).toBeVisible();
+  await logIn(context);
+  await page.goto("/admin/review");
+  await expect(page.getByText("E2E Other Host Ride")).toHaveCount(0);
+});
+
 test("the agenda pages link to the form with their Calendar; the Embed has no link", async ({ page }) => {
   await page.goto("/rides");
   await expect(page.getByRole("link", { name: "Submit an Event" })).toHaveAttribute("href", "/submit?calendar=rides");

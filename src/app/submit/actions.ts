@@ -21,7 +21,7 @@ import { clientIp, hitRateLimit } from "@/rate-limit";
 import { submissionFromFormData } from "@/submissions/form-data";
 import { MESSAGES, submitEvent } from "@/submissions/submit-event";
 import { submissionCalendar } from "@/submissions/submission-input";
-import { turnstileConfig, verifyTurnstile } from "@/submissions/turnstile";
+import { expectedHostname, turnstileConfig, verifyTurnstile } from "@/submissions/turnstile";
 
 /** After each error the form gets a new Turnstile token (a token works once). */
 export type SubmitState = { status: "idle" } | { status: "error"; message: string; errors: FieldErrors };
@@ -41,7 +41,9 @@ export async function submitEventAction(_prev: SubmitState, data: FormData): Pro
 
   const db = getDb();
   const store = blobCredentials(process.env) ? vercelBlobStore() : null;
-  const ip = clientIp(await headers());
+  const requestHeaders = await headers();
+  const ip = clientIp(requestHeaders);
+  const hostname = expectedHostname(process.env, requestHeaders.get("host"));
   const result = await submitEvent(
     db,
     {
@@ -54,7 +56,8 @@ export async function submitEventAction(_prev: SubmitState, data: FormData): Pro
     {
       today: todayInDetroit(new Date()),
       hitRateLimit: (rule, key) => hitRateLimit(db, rule, key),
-      verifyTurnstile: (token, from) => verifyTurnstile(token, from, { secret: config.secret, url: config.verifyUrl }),
+      verifyTurnstile: (token, from) =>
+        verifyTurnstile(token, from, { secret: config.secret, url: config.verifyUrl, hostname }),
       storeImage: store ? (bytes) => uploadEventImage(bytes, { store }) : null,
     },
   );

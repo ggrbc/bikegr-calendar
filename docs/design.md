@@ -256,8 +256,9 @@ Rejected for v1: a web component with Shadow DOM (Squarespace CSS and JS can lea
     new-Submission email and the magic link share the Resend quota). A failed rate-limit check
     refuses the Submission (fail closed) with "try again later".
   - **Turnstile:** `TURNSTILE_SITE_KEY` (a server prop, no `NEXT_PUBLIC_`) and
-    `TURNSTILE_SECRET_KEY`. Empty off Vercel: Cloudflare's always-pass test keys. Missing on Vercel:
-    the form is closed.
+    `TURNSTILE_SECRET_KEY`. No keys: the form is closed. Cloudflare's always-pass test keys only
+    with the opt-in `TURNSTILE_TEST_KEYS=1`, never on Vercel (local `pnpm dev`, e2e). A pass counts
+    only for the action `submit` and the hostname of `AUTH_URL` (else the request host).
   - **Image:** one image, sent with the form; sharp runs only after every check passed. Reject and
     Delete as spam remove the blob when no other Event uses it.
   - **No "we got it" email** to the Submitter; the thank-you page says it arrived.

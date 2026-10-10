@@ -23,9 +23,11 @@ export default defineConfig({
       env: {
         DATABASE_URL: E2E_DATABASE_URL,
         EMBED_EXTRA_FRAME_ANCESTORS: HOST,
-        // Test-only values. Empty Turnstile keys give Cloudflare's always-pass test keys; the tests
-        // serve a stub widget script, and the host server stands in for siteverify: no network.
+        // Test-only values. TURNSTILE_TEST_KEYS=1 opts in to Cloudflare's always-pass test keys; the
+        // tests serve a stub widget script, and the host server stands in for siteverify (with the
+        // action and the hostname, which the app checks): no network.
         // No Resend and no Blob: the console email transport, and no image field.
+        TURNSTILE_TEST_KEYS: "1",
         AUTH_SECRET: E2E_AUTH_SECRET,
         AUTH_URL: APP,
         AUTH_TRUST_HOST: "true",
