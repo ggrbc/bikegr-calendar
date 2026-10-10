@@ -4,9 +4,14 @@
  * A rescheduled Occurrence is one row, but it shows on both dates (design.md): the full entry on the
  * new date ("Rescheduled from …") and a short entry on the old date ("Rescheduled to …"), each only
  * when its date is in the window. A move to another time on the same day shows once.
+ *
+ * Day filter: the full entry shows when its actual (new) start date matches (design.md); the short
+ * "Rescheduled to" entry shows when the old date matches, so a rider who looks for that weekday sees
+ * that the Occurrence moved.
  */
 import { type LocalDate, type QueryWindow, timingStart, touchesWindow } from "@/engine";
 import { dayHeading, shortSlot, timeText } from "./dates";
+import { matchesDays, type Weekday } from "./filters";
 import type { AgendaRow } from "./load-occurrences";
 
 export interface AgendaEntry {
@@ -40,7 +45,11 @@ export function badgeText(row: AgendaRow): string | null {
 
 const dateOf = (start: string): LocalDate => start.slice(0, 10);
 
-export function groupAgendaDays(rows: AgendaRow[], window: QueryWindow): AgendaDay[] {
+export function groupAgendaDays(
+  rows: AgendaRow[],
+  window: QueryWindow,
+  days: readonly Weekday[] = [],
+): AgendaDay[] {
   const placed: { date: LocalDate; sortKey: string; entry: AgendaEntry }[] = [];
   const inWindow = (date: LocalDate) => date >= window.from && date < window.to;
 
@@ -50,7 +59,7 @@ export function groupAgendaDays(rows: AgendaRow[], window: QueryWindow): AgendaD
     // Only when the actual slot touches the window: a rescheduled Occurrence can be in the rows
     // because of its old slot alone. A multi-day Occurrence that started before the window and is
     // still running shows on the first day.
-    if (touchesWindow(row.timing, window)) {
+    if (touchesWindow(row.timing, window) && matchesDays(dateOf(start), days)) {
       const date = dateOf(start) < window.from ? window.from : dateOf(start);
       placed.push({
         date,
@@ -62,7 +71,7 @@ export function groupAgendaDays(rows: AgendaRow[], window: QueryWindow): AgendaD
     if (row.scheduleStatus === "rescheduled") {
       const originalStart = timingStart(row.originalTiming);
       const oldDate = dateOf(originalStart);
-      if (oldDate !== dateOf(start) && inWindow(oldDate)) {
+      if (oldDate !== dateOf(start) && inWindow(oldDate) && matchesDays(oldDate, days)) {
         placed.push({
           date: oldDate,
           sortKey: originalStart,
@@ -79,11 +88,11 @@ export function groupAgendaDays(rows: AgendaRow[], window: QueryWindow): AgendaD
   }
 
   placed.sort((a, b) => a.date.localeCompare(b.date) || a.sortKey.localeCompare(b.sortKey));
-  const days: AgendaDay[] = [];
+  const result: AgendaDay[] = [];
   for (const { date, entry } of placed) {
-    const last = days.at(-1);
+    const last = result.at(-1);
     if (last?.date === date) last.entries.push(entry);
-    else days.push({ date, heading: dayHeading(date), entries: [entry] });
+    else result.push({ date, heading: dayHeading(date), entries: [entry] });
   }
-  return days;
+  return result;
 }

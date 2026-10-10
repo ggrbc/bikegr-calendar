@@ -1,40 +1,32 @@
 /**
- * Loads the agenda days, and turns a database error into a fallback, so the page keeps its heading
- * and shows a short message instead of an error page. The log line has only the error name and
- * code: driver messages can contain the connection string or query values.
+ * Loads the agenda days for a set of filters, and turns a database error into a fallback, so the
+ * page keeps its heading and shows a short message instead of an error page. The log line has only
+ * the error name and code.
  */
-import type { QueryWindow } from "@/engine";
-import { redactSecrets } from "@/db/redact-secrets";
 import { type AgendaDay, groupAgendaDays } from "./agenda-days";
-import type { AgendaRow } from "./load-occurrences";
+import { describeError } from "./describe-error";
+import { type AgendaFilters, filterWindow, matchesContent } from "./filters";
+import { expandSnapshot } from "./occurrence-rows";
+import type { CalendarSnapshot, CalendarTag } from "./snapshot";
 
-export type AgendaResult = { ok: true; days: AgendaDay[] } | { ok: false };
+export type AgendaResult =
+  | { ok: true; days: AgendaDay[]; tags: CalendarTag[] }
+  | { ok: false };
 
 export async function loadAgenda(
-  load: () => Promise<AgendaRow[]>,
-  window: QueryWindow,
+  load: () => Promise<CalendarSnapshot>,
+  filters: AgendaFilters,
   log: (line: string) => void = console.error,
 ): Promise<AgendaResult> {
-  let rows: AgendaRow[];
+  let snapshot: CalendarSnapshot;
   try {
-    rows = await load();
+    snapshot = await load();
   } catch (error) {
-    log(redactSecrets(`Agenda could not load: ${describe(error)}`));
+    log(`Agenda could not load: ${describeError(error)}`);
     return { ok: false };
   }
-  return { ok: true, days: groupAgendaDays(rows, window) };
-}
-
-function describe(error: unknown): string {
-  if (!(error instanceof Error)) return typeof error;
-  const code = codeOf(error) ?? codeOf(error.cause);
-  return code ? `${error.name} (${code})` : error.name;
-}
-
-function codeOf(value: unknown): string | undefined {
-  if (value && typeof value === "object" && "code" in value) {
-    const code = (value as { code: unknown }).code;
-    if (typeof code === "string" || typeof code === "number") return String(code);
-  }
-  return undefined;
+  const window = filterWindow(filters);
+  // Tags and text search here; the Day filter per entry in groupAgendaDays.
+  const rows = expandSnapshot(snapshot, window).filter((row) => matchesContent(row, filters));
+  return { ok: true, days: groupAgendaDays(rows, window, filters.days), tags: snapshot.tags };
 }

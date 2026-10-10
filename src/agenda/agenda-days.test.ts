@@ -144,6 +144,25 @@ describe("groupAgendaDays", () => {
     expect(days).toEqual([]);
   });
 
+  it('under a Day filter, the "Rescheduled to" entry shows on the old date when the old date matches', () => {
+    const moved = row({
+      originalTiming: timed("2026-10-14"), // Wednesday
+      originalStart: "2026-10-14T18:00",
+      timing: timed("2026-10-16", "18:30", "20:30"), // Friday
+      scheduleStatus: "rescheduled",
+    });
+    const kinds = (days: ("wed" | "fri" | "mon")[]) =>
+      groupAgendaDays([moved], WINDOW, days).map((d) => [d.date, d.entries.map((e) => e.kind)]);
+    expect(kinds(["wed"])).toEqual([["2026-10-14", ["movedAway"]]]);
+    expect(kinds(["fri"])).toEqual([["2026-10-16", ["occurrence"]]]);
+    expect(kinds(["mon"])).toEqual([]);
+  });
+
+  it("under a Day filter, an Occurrence that starts on another day is not listed", () => {
+    const days = groupAgendaDays([row({ timing: timed("2026-10-14") })], WINDOW, ["tue"]);
+    expect(days).toEqual([]);
+  });
+
   it("an Occurrence moved to a new time on the same day shows once", () => {
     const moved = row({
       originalTiming: timed("2026-10-14"),
