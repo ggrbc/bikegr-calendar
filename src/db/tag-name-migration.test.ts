@@ -43,6 +43,10 @@ describe("migration: Tag names without dashes", () => {
       { calendar: "rides", name: "Social-Ride", slug: "social-ride" },
       // The same name in the other Calendar is no clash.
       { calendar: "advocacy", name: "Group-Ride", slug: "group-ride" },
+      // Two Tags whose new names are the same: neither is renamed.
+      { calendar: "advocacy", name: "Bike-Lane", slug: "bike-lane" },
+      { calendar: "advocacy", name: "Bike - Lane", slug: "lanes" },
+      { calendar: "advocacy", name: "bike--lane", slug: "lanes-2" },
     ]);
     await runMigration(db);
   });
@@ -56,8 +60,21 @@ describe("migration: Tag names without dashes", () => {
       { calendar: "rides", name: "Social Ride", slug: "social" },
       { calendar: "rides", name: "Social-Ride", slug: "social-ride" },
       { calendar: "rides", name: "Women Only", slug: "women-only" },
+      { calendar: "advocacy", name: "Bike-Lane", slug: "bike-lane" },
       { calendar: "advocacy", name: "Group Ride", slug: "group-ride" },
+      { calendar: "advocacy", name: "Bike - Lane", slug: "lanes" },
+      { calendar: "advocacy", name: "bike--lane", slug: "lanes-2" },
     ]);
+  });
+
+  it("uses the same name rule as the import", async () => {
+    const { tagName } = await import("@/import/calendar-and-tags");
+    for (const name of ["Group-Ride", "Women - Only ", "a--b", " x -  y "]) {
+      const [row] = await db.execute<{ n: string }>(
+        sql`select btrim(regexp_replace(replace(${name}, '-', ' '), '\\s+', ' ', 'g')) as n`,
+      ).then((r) => ("rows" in r ? (r.rows as { n: string }[]) : (r as unknown as { n: string }[])));
+      expect(row.n, name).toBe(tagName(name));
+    }
   });
 
   it("a second run changes nothing", async () => {
