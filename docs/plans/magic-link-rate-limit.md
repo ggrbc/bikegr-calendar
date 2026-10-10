@@ -70,26 +70,30 @@ bucket share the same boundaries, so the window is easy to compute and to test.
 INSERT INTO rate_limits AS r (bucket, key_hash, window_start, hits, expires_at)
 VALUES ($bucket, $keyHash, $windowStart, 1, $windowEnd)
 ON CONFLICT (bucket, key_hash) DO UPDATE SET
-  hits = CASE WHEN r.window_start < EXCLUDED.window_start THEN 1
-              ELSE LEAST(r.hits + 1, $limit + 1) END,
-  window_start = GREATEST(r.window_start, EXCLUDED.window_start),
-  expires_at = GREATEST(r.expires_at, EXCLUDED.expires_at)
+  -- reset = (r.window_start < EXCLUDED.window_start OR r.window_start > EXCLUDED.expires_at)
+  hits = CASE WHEN reset THEN 1 ELSE LEAST(r.hits + 1, $limit + 1) END,
+  window_start = CASE WHEN reset THEN EXCLUDED.window_start ELSE r.window_start END,
+  expires_at = CASE WHEN reset THEN EXCLUDED.expires_at ELSE r.expires_at END
 RETURNING hits, window_start;
 ```
+
+(Changed after review: the first draft used `GREATEST`, so a row from a far-future clock locked its
+key until that time. Now a stored window more than one window ahead resets.)
 
 - `allowed = hits <= limit`. A refused hit still counts (capped at `limit + 1`), so a client that
   keeps trying does not get a new allowance.
 - Postgres locks the row for `ON CONFLICT DO UPDATE`. Concurrent hits on the same key wait in line,
   and each one gets a different `hits` value. Two first hits on a new key also work: one inserts,
   the other updates. So exactly `limit` hits are allowed.
-- `GREATEST` keeps a late request with a slightly older clock (another Vercel instance) in the
-  current window. It does not reset the count.
+- A late request with a slightly older clock (another Vercel instance) counts in the current
+  window. It does not reset the count.
 - `retryAfterSeconds`: `0` when allowed; else the seconds to the window end, rounded up, at least
   `1`.
 
 **Old rows are removed on write, without a cron.** When the upsert returns `hits = 1` (a new window
-started for this key), the same call also deletes up to 500 expired rows:
-`DELETE FROM rate_limits WHERE ctid IN (SELECT ctid FROM rate_limits WHERE expires_at < $now LIMIT 500)`,
+started for this key), the same call also deletes up to 500 rows that expired more than 60 s ago
+(so a server whose clock is ahead does not delete rows that are still live):
+`DELETE FROM rate_limits WHERE ctid IN (SELECT ctid FROM rate_limits WHERE expires_at < $now - 60 s LIMIT 500)`,
 with an index on `expires_at`. This runs at most once for each key in each window, is deterministic
 (easy to test), and needs no Vercel cron. A key that is used again reuses its row (the upsert resets
 it), so only keys that stop leave rows, and the next new window removes them. If the delete fails,
