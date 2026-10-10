@@ -45,7 +45,9 @@ export function OccurrenceCard({
             className={`size-[72px] object-cover sm:size-[136px] sm:rounded-full ${moved ? "opacity-50" : ""}`}
           />
         ) : (
-          <div className="size-[72px] bg-brand-green sm:size-[136px] sm:rounded-full" />
+          <div className="flex size-[72px] items-center justify-center bg-brand-green sm:size-[136px] sm:rounded-full">
+            <BikeIcon />
+          </div>
         )}
       </div>
       <div className="min-w-0 flex-1">
@@ -93,5 +95,24 @@ export function OccurrenceCard({
         )}
       </div>
     </li>
+  );
+}
+
+/** The placeholder for an Event with no image: a white bicycle on the Bike GR green. */
+function BikeIcon() {
+  return (
+    <svg
+      viewBox="0 0 64 40"
+      className="w-[44px] sm:w-[76px]"
+      fill="none"
+      stroke="white"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="13" cy="27" r="10" />
+      <circle cx="51" cy="27" r="10" />
+      <path d="M13 27 L24 8 H40 M22 8 H28 M24 8 L33 27 L45 11 M42 6 H49 M33 27 H13 M45 11 L51 27" />
+    </svg>
   );
 }

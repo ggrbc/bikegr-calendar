@@ -54,8 +54,8 @@ export function FilterForm({
       aria-label="Filter events"
       className="mb-6 rounded border border-brand-divider bg-[#f7f7f2] p-3 text-sm text-brand-gray"
     >
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="flex min-w-48 flex-1 flex-col gap-1">
+      <div className="flex items-end gap-2">
+        <label className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="sr-only">Search</span>
           <input
             type="search"
