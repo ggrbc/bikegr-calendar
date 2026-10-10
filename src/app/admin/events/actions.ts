@@ -24,6 +24,7 @@ import { loadEventForEdit } from "@/admin/events/queries";
 import { splitSeries } from "@/admin/events/split-series";
 import type { WriteFailure } from "@/admin/events/write-helpers";
 import { isEventImageUrl } from "@/admin/images/image-url";
+import { invalidatePublicEvents } from "@/agenda/cache";
 import { todayInDetroit } from "@/agenda/dates";
 import { getDb } from "@/db";
 
@@ -77,12 +78,16 @@ function context(editor: CurrentEditor, storedImageUrl: string | null): ParseCon
 
 const actor = (editor: CurrentEditor) => ({ id: editor.id, role: editor.role });
 
-/** Every admin Event page, and the public agenda pages. */
+/**
+ * Every admin Event page, the public agenda pages, and the public Calendar cache (the agenda, the
+ * Embed, and the Feeds read the cached snapshot). Each successful Event write calls this.
+ */
 function revalidateEvents(): void {
   revalidatePath("/admin/events", "layout");
   revalidatePath("/");
   revalidatePath("/rides");
   revalidatePath("/advocacy");
+  invalidatePublicEvents();
 }
 
 export async function createEventAction(_prev: SaveState, input: unknown): Promise<SaveState> {
