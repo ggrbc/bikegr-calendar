@@ -33,7 +33,8 @@
     "react-dom": "19.3.0",
     "resend": "^6.32.1",
     "rrule": "2.8.1",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
