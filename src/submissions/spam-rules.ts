@@ -1,19 +1,10 @@
 /**
  * Spam control values for the public form (decided 2026-10-10, Q50). The rate limit itself is the
- * shared Postgres module `src/rate-limit` (stream `magic-link-rate-limit`); these types are the same
- * shape as its contract, so its functions fit `SubmitDeps` as they are.
+ * shared Postgres module `src/rate-limit`.
  */
+import type { RateLimitRule } from "@/rate-limit";
 
-export interface RateLimitRule {
-  bucket: string;
-  limit: number;
-  windowSeconds: number;
-}
-
-export interface RateLimitResult {
-  allowed: boolean;
-  retryAfterSeconds: number;
-}
+export type { RateLimitResult, RateLimitRule } from "@/rate-limit";
 
 const HOUR = 3600;
 const DAY = 86400;
