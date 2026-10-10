@@ -1,5 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { googleSignInEmail, isGoogleAuthoritative } from "./google";
+import { googleCredentials, googleSignInEmail, isGoogleAuthoritative } from "./google";
+
+describe("googleCredentials", () => {
+  it("both env values set give the client", () => {
+    expect(googleCredentials({ AUTH_GOOGLE_ID: "id.apps", AUTH_GOOGLE_SECRET: "test-secret" })).toEqual({
+      clientId: "id.apps",
+      clientSecret: "test-secret",
+    });
+  });
+
+  it("an empty or missing value gives null (no Google provider, no button)", () => {
+    expect(googleCredentials({})).toBeNull();
+    expect(googleCredentials({ AUTH_GOOGLE_ID: "id.apps", AUTH_GOOGLE_SECRET: "" })).toBeNull();
+    expect(googleCredentials({ AUTH_GOOGLE_ID: " ", AUTH_GOOGLE_SECRET: "test-secret" })).toBeNull();
+  });
+});
 
 describe("googleSignInEmail", () => {
   it("a verified email is normalized (NFKC, trim, lowercase)", () => {

@@ -8,6 +8,24 @@ import { isValidEmail, normalizeEmail } from "./rules";
 
 export const GOOGLE_PROVIDER_ID = "google";
 
+/** The Google OAuth client (`AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`). */
+export interface GoogleCredentials {
+  clientId: string;
+  clientSecret: string;
+  /** Tests only: answers Google's discovery and token requests (`[customFetch]`). */
+  fetch?: typeof fetch;
+}
+
+/**
+ * The Google client from the env, or null when either value is empty. Null means no Google
+ * provider and no Google button (local development, the tests, and the Preview deployments).
+ */
+export function googleCredentials(env: Record<string, string | undefined>): GoogleCredentials | null {
+  const clientId = env.AUTH_GOOGLE_ID?.trim();
+  const clientSecret = env.AUTH_GOOGLE_SECRET?.trim();
+  return clientId && clientSecret ? { clientId, clientSecret } : null;
+}
+
 /** The Google ID token claims that the sign-in rules read. Other claims are ignored. */
 export interface GoogleClaims {
   email?: unknown;
