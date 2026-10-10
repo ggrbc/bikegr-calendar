@@ -15,10 +15,17 @@
  * 6. **Exact-match check:** the final rule, expanded by the engine itself up to the horizon, must
  *    make exactly the original list. If it does not, the Series is flagged.
  */
-import { expandOccurrences } from "@/engine/expand-occurrences";
-import { nextRuleStart, ruleStartsBetween } from "@/engine/expand-rule";
-import type { LocalDate, OriginalStart, Timing } from "@/engine/types";
-import { addDays, daysBetween, toFloating } from "@/engine/wall-clock";
+import {
+  addDays,
+  dayOfWeek,
+  daysBetween,
+  expandOccurrences,
+  nextRuleStart,
+  ruleStartsBetween,
+  type LocalDate,
+  type OriginalStart,
+  type Timing,
+} from "@/engine";
 
 export interface InferRuleInput {
   /** Time slot of the first Occurrence, at the Series' usual time of day and length. */
@@ -173,7 +180,7 @@ function gcd(a: number, b: number): number {
 }
 
 function weekdayOf(date: LocalDate): string {
-  return WEEKDAYS[toFloating(date).getUTCDay()];
+  return WEEKDAYS[dayOfWeek(date)];
 }
 
 function dateOf(start: OriginalStart): LocalDate {

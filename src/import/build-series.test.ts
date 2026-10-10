@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays } from "@/engine/wall-clock";
+import { addDays } from "@/engine";
 import { buildEvent } from "./build-series";
 import type { TockifyOccurrence } from "./types";
 

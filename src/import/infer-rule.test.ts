@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Timing } from "@/engine/types";
-import { addDays } from "@/engine/wall-clock";
+import { addDays, type Timing } from "@/engine";
 import { exactMatch, inferRule } from "./infer-rule";
 
 /** `count` dates from `first`, `step` days apart. */

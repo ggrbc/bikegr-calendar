@@ -9,7 +9,7 @@ import type {
   OverrideInput,
   StoredScheduleStatus,
   Timing,
-} from "@/engine/types";
+} from "@/engine";
 
 /** Call to action: Tockify's "promotion button". */
 export interface Cta {

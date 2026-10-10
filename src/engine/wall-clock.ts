@@ -57,6 +57,11 @@ export function addDays(value: LocalDate, days: number): LocalDate {
   return fromFloatingDate(new Date(toFloating(value).getTime() + days * DAY_MS));
 }
 
+/** Day of the week of a local date: 0 = Sunday … 6 = Saturday. */
+export function dayOfWeek(value: LocalDate): number {
+  return toFloating(value).getUTCDay();
+}
+
 /** Wall-clock minutes from `from` to `to`. */
 export function minutesBetween(from: LocalDateTime, to: LocalDateTime): number {
   return Math.round((toFloating(to).getTime() - toFloating(from).getTime()) / MINUTE_MS);

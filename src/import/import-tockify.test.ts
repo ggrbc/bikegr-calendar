@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { expandOccurrences } from "@/engine/expand-occurrences";
-import { addDays } from "@/engine/wall-clock";
+import { addDays, expandOccurrences } from "@/engine";
 import { parseIcsEvents } from "./ics";
 import { importTockify } from "./import-tockify";
 import { toTockifyOccurrence } from "./tockify-occurrence";

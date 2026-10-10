@@ -2,7 +2,7 @@
  * Calendar assignment and Tag cleanup for imported Events (design.md, "Tockify import", steps 3
  * and 4). Advocacy is a Calendar, not a Tag. Weekday Tags are replaced by the Day filter.
  */
-import type { CalendarSlug } from "@/engine/types";
+import type { CalendarSlug } from "@/engine";
 
 const ADVOCACY_TAG = "advocacy";
 /** Events with no Advocacy Tag in Tockify that belong to the advocacy Calendar. */

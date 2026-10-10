@@ -1,10 +1,19 @@
 export * from "./types";
 export { expandOccurrences } from "./expand-occurrences";
 export { InvalidRuleError, isRuleStart, nextRuleStart, ruleStartsBetween } from "./expand-rule";
-export { sameTiming, shiftTiming, timingLength, timingStart, touchesWindow } from "./timing";
+export {
+  checkLocalDate,
+  checkTiming,
+  sameTiming,
+  shiftTiming,
+  timingLength,
+  timingStart,
+  touchesWindow,
+} from "./timing";
 export {
   addDays,
   addMinutes,
+  dayOfWeek,
   daysBetween,
   isLocalDate,
   isLocalDateTime,

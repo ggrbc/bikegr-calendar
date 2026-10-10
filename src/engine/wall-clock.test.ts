@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   addDays,
   addMinutes,
+  dayOfWeek,
   daysBetween,
   fromFloating,
   fromFloatingDate,
@@ -34,6 +35,12 @@ describe("wall-clock helpers", () => {
   it("adds days across a month end and a leap day", () => {
     expect(addDays("2028-02-28", 1)).toBe("2028-02-29");
     expect(addDays("2026-10-01", -1)).toBe("2026-09-30");
+  });
+
+  it("gives the day of the week of a local date (0 = Sunday)", () => {
+    expect(dayOfWeek("2026-09-06")).toBe(0);
+    expect(dayOfWeek("2026-09-08")).toBe(2);
+    expect(dayOfWeek("2026-09-12")).toBe(6);
   });
 
   it("measures wall-clock minutes and days", () => {
