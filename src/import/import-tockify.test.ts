@@ -142,7 +142,17 @@ describe("Tockify import — real feed fixture", () => {
     expect(JSON.stringify(result)).not.toContain("tockify.com/bikegr/detail");
   });
 
-  it("running the import twice gives the same result", () => {
-    expect(importTockify(feed)).toEqual(result);
+  it("the feed with its VEVENTs in reverse order gives the same result", () => {
+    // latin1 keeps one character per byte, so the UTF-8 bytes go back unchanged.
+    const text = Buffer.from(feed).toString("latin1");
+    const blocks = text.match(/BEGIN:VEVENT\r\n[\s\S]*?END:VEVENT\r\n/g)!;
+    expect(blocks).toHaveLength(551);
+    const head = text.slice(0, text.indexOf(blocks[0]));
+    const tail = text.slice(text.lastIndexOf(blocks[blocks.length - 1]) + blocks.at(-1)!.length);
+    const reversed = new Uint8Array(
+      Buffer.from(head + [...blocks].reverse().join("") + tail, "latin1"),
+    );
+    expect(reversed).not.toEqual(feed);
+    expect(importTockify(reversed)).toEqual(result);
   });
 });
