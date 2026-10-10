@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { addDays, expandOccurrences } from "@/engine";
+import { addDays, expandOccurrences, timingStart } from "@/engine";
 import { parseIcsEvents } from "./ics";
 import { importTockify } from "./import-tockify";
 import { toTockifyOccurrence } from "./tockify-occurrence";
@@ -9,7 +9,8 @@ import { toTockifyOccurrence } from "./tockify-occurrence";
 const feed = new Uint8Array(
   readFileSync(new URL("./__fixtures__/tockify-bikegr-2026-10-09.ics", import.meta.url)),
 );
-const result = importTockify(feed);
+const IMPORT_DATE = "2026-10-09";
+const result = importTockify(feed, { importDate: IMPORT_DATE });
 const feedOccurrences = parseIcsEvents(feed).map(toTockifyOccurrence);
 
 describe("Tockify import — real feed fixture", () => {
@@ -19,8 +20,26 @@ describe("Tockify import — real feed fixture", () => {
     expect(result.series).toHaveLength(15);
   });
 
-  it("feed horizon is 2029-07-04", () => {
-    expect(result.feedHorizon).toBe("2029-07-04");
+  it("the import date is an explicit input and is in the result", () => {
+    expect(result.importDate).toBe("2026-10-09");
+    expect(result.openEndedAfter).toBe("2027-10-09");
+    expect(() => importTockify(feed, { importDate: "2026-13-01" })).toThrow(/importDate/);
+  });
+
+  it("with import date 2026-10-09, 9 Series are open-ended and 6 keep their UNTIL", () => {
+    const openEnded = result.series.filter((s) => s.until === null).map((s) => s.title);
+    expect(openEnded).toEqual([
+      "Wednesday Evening Rides",
+      "Switchback Community Ride",
+      "Kent County Road Commission Meeting",
+      "ENTF Transportation Subcommittee",
+      "Mobile GR Commission Meeting",
+      "Hair of the Dog Ride",
+      "ENTF Transportation Committee Meeting",
+      "11th Annual CDR",
+      "Ada Park Thursday Group Ride",
+    ]);
+    expect(result.series.filter((s) => s.until !== null)).toHaveLength(6);
   });
 
   it("every Series is rebuilt by an exact-match rule or flagged, and the report matches the expected table", () => {
@@ -33,9 +52,9 @@ describe("Tockify import — real feed fixture", () => {
     );
     expect(table).toEqual({
       "1 Wednesday Evening Rides":
-        "rule | FREQ=WEEKLY;BYDAY=WE;UNTIL=20281004T235959 | until 2028-10-04 | 109 Occurrences, 0 EXDATEs, 1 Overrides",
+        "rule | FREQ=WEEKLY;BYDAY=WE | until open-ended | 109 Occurrences, 0 EXDATEs, 1 Overrides",
       "2 Switchback Community Ride":
-        "rule | FREQ=WEEKLY;BYDAY=TH;UNTIL=20281005T235959 | until 2028-10-05 | 109 Occurrences, 0 EXDATEs, 0 Overrides",
+        "rule | FREQ=WEEKLY;BYDAY=TH | until open-ended | 109 Occurrences, 0 EXDATEs, 0 Overrides",
       "3 Kent County Road Commission Meeting":
         "rule | FREQ=MONTHLY;BYDAY=2TU,4TU | until open-ended | 67 Occurrences, 0 EXDATEs, 0 Overrides",
       "7 ENTF Transportation Subcommittee":
@@ -61,30 +80,32 @@ describe("Tockify import — real feed fixture", () => {
       "59 11th Annual CDR":
         "rule | FREQ=YEARLY;BYMONTH=7;BYMONTHDAY=4 | until open-ended | 3 Occurrences, 0 EXDATEs, 0 Overrides",
       "61 Ada Park Thursday Group Ride":
-        "rule | FREQ=WEEKLY;BYDAY=TH;UNTIL=20281005T235959 | until 2028-10-05 | 109 Occurrences, 0 EXDATEs, 0 Overrides",
+        "rule | FREQ=WEEKLY;BYDAY=TH | until open-ended | 109 Occurrences, 0 EXDATEs, 0 Overrides",
     });
     expect(result.flags).toEqual([]);
   });
 
   it("every rebuilt Series, with its Overrides, expands through the engine to exactly its feed Occurrences", () => {
-    const window = { from: "2026-01-01", to: addDays(result.feedHorizon, 1) };
     for (const report of result.series.filter((s) => s.outcome === "rule")) {
       const event = result.events.find((e) => e.sourceId === report.sourceId)!;
+      const inFeed = feedOccurrences
+        .filter((o) => o.tockifyEventId === report.sourceId)
+        .sort((a, b) => a.startMinutes - b.startMinutes);
+      // Open-ended rules go on after the feed, so the window ends at the last feed date.
+      const lastDate = timingStart(inFeed.at(-1)!.timing).slice(0, 10);
+      const window = { from: "2026-01-01", to: addDays(lastDate, 1) };
       const expanded = expandOccurrences(event.rule, result.overrides, window).map((o) => ({
         timing: o.timing,
         scheduleStatus: o.scheduleStatus,
         title: o.title ?? event.title,
         location: o.location ?? event.location,
       }));
-      const expected = feedOccurrences
-        .filter((o) => o.tockifyEventId === report.sourceId)
-        .sort((a, b) => a.startMinutes - b.startMinutes)
-        .map((o) => ({
-          timing: o.timing,
-          scheduleStatus: o.scheduleStatus,
-          title: o.title,
-          location: o.location,
-        }));
+      const expected = inFeed.map((o) => ({
+        timing: o.timing,
+        scheduleStatus: o.scheduleStatus,
+        title: o.title,
+        location: o.location,
+      }));
       expect(expanded, report.title).toEqual(expected);
     }
   });
@@ -153,6 +174,6 @@ describe("Tockify import — real feed fixture", () => {
       Buffer.from(head + [...blocks].reverse().join("") + tail, "latin1"),
     );
     expect(reversed).not.toEqual(feed);
-    expect(importTockify(reversed)).toEqual(result);
+    expect(importTockify(reversed, { importDate: IMPORT_DATE })).toEqual(result);
   });
 });

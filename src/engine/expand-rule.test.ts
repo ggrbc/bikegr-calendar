@@ -3,7 +3,6 @@ import {
   buildRule,
   InvalidRuleError,
   isRuleStart,
-  nextRuleStart,
   ruleStartsBetween,
 } from "./expand-rule";
 import { allDay, timed } from "./test-helpers";
@@ -21,29 +20,6 @@ describe("expand-rule", () => {
     expect(
       ruleStartsBetween(allDay("2026-09-10"), "FREQ=WEEKLY;INTERVAL=2", "2026-09-01", "2026-09-30"),
     ).toEqual(["2026-09-10", "2026-09-24"]);
-  });
-
-  it("finds the next rule start after a value", () => {
-    expect(nextRuleStart(tuesday6pm, "FREQ=WEEKLY;BYDAY=TU", "2026-09-29T18:00")).toBe(
-      "2026-10-06T18:00",
-    );
-  });
-
-  it("next rule start is exact for a monthly nth-weekday rule", () => {
-    const meeting = timed("2026-09-22T08:00", "2026-09-22T09:00");
-    expect(nextRuleStart(meeting, "FREQ=MONTHLY;BYDAY=4TU", "2026-09-22T08:00")).toBe(
-      "2026-10-27T08:00",
-    );
-  });
-
-  it("next rule start is exact for a yearly rule", () => {
-    const ride = timed("2027-07-04T09:30", "2027-07-04T14:00");
-    expect(nextRuleStart(ride, "FREQ=YEARLY", "2029-07-04T09:30")).toBe("2030-07-04T09:30");
-  });
-
-  it("next rule start is null after the UNTIL", () => {
-    const rule = "FREQ=WEEKLY;BYDAY=TU;UNTIL=20260929T235959";
-    expect(nextRuleStart(tuesday6pm, rule, "2026-09-29T18:00")).toBeNull();
   });
 
   it("tells if a value is a rule start", () => {

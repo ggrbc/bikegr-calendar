@@ -2,39 +2,36 @@
  * The Tockify import, pure part: ICS feed in, plain import records out. No database, no network,
  * no image copy. The caller upserts the records by Source ID, so the import is safe to run again.
  */
-import { timingStart, type LocalDate } from "@/engine";
+import { checkLocalDate } from "@/engine";
 import { buildEvent } from "./build-series";
 import { parseIcsEvents } from "./ics";
+import { openEndedAfter } from "./infer-rule";
 import { toTockifyOccurrence } from "./tockify-occurrence";
-import type { ImportResult, ImportedTag, TockifyOccurrence } from "./types";
+import type { ImportOptions, ImportResult, ImportedTag, TockifyOccurrence } from "./types";
 
-/** Give the feed as bytes when you can (see `parseIcsEvents`). */
-export function importTockify(ics: string | Uint8Array): ImportResult {
+/**
+ * Give the feed as bytes when you can (see `parseIcsEvents`). `importDate` decides which Series are
+ * open-ended, so the same feed and date always give the same result.
+ */
+export function importTockify(ics: string | Uint8Array, { importDate }: ImportOptions): ImportResult {
+  checkLocalDate(importDate, "importDate");
   const occurrences = parseIcsEvents(ics).map(toTockifyOccurrence);
   if (occurrences.length === 0) throw new Error("The Tockify feed has no events");
 
-  const feedHorizon = latestStartDate(occurrences);
   const groups = groupByEvent(occurrences);
   const built = [...groups.keys()]
     .sort((a, b) => a.localeCompare(b, "en", { numeric: true }))
-    .map((eventId) => buildEvent(groups.get(eventId)!, feedHorizon));
+    .map((eventId) => buildEvent(groups.get(eventId)!, importDate));
 
-  const events = built.flatMap((b) => b.events);
   return {
-    feedHorizon,
-    events,
+    importDate,
+    openEndedAfter: openEndedAfter(importDate),
+    events: built.flatMap((b) => b.events),
     overrides: built.flatMap((b) => b.overrides),
     tags: tagList(built.flatMap((b) => b.tags)),
     flags: built.flatMap((b) => b.flags),
     series: built.flatMap((b) => (b.report ? [b.report] : [])),
   };
-}
-
-/** The feed horizon: the latest Occurrence start date in the whole feed. */
-function latestStartDate(occurrences: TockifyOccurrence[]): LocalDate {
-  return occurrences
-    .map((o) => timingStart(o.timing).slice(0, 10))
-    .reduce((latest, date) => (date > latest ? date : latest));
 }
 
 function groupByEvent(occurrences: TockifyOccurrence[]): Map<string, TockifyOccurrence[]> {

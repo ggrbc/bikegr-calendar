@@ -1,6 +1,6 @@
 export * from "./types";
 export { expandOccurrences } from "./expand-occurrences";
-export { InvalidRuleError, isRuleStart, nextRuleStart, ruleStartsBetween } from "./expand-rule";
+export { InvalidRuleError, isRuleStart, ruleStartsBetween } from "./expand-rule";
 export {
   checkLocalDate,
   checkTiming,

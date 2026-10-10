@@ -39,7 +39,7 @@ export interface BuiltEvent {
   report: SeriesReport | null;
 }
 
-export function buildEvent(group: TockifyOccurrence[], feedHorizon: LocalDate): BuiltEvent {
+export function buildEvent(group: TockifyOccurrence[], importDate: LocalDate): BuiltEvent {
   const occurrences = [...group].sort((a, b) => a.startMinutes - b.startMinutes);
   const sourceId = occurrences[0].tockifyEventId;
   const calendar = assignCalendar(
@@ -73,7 +73,7 @@ export function buildEvent(group: TockifyOccurrence[], feedHorizon: LocalDate): 
   const duplicateDate = new Set(originalStarts).size !== originalStarts.length;
   const inferred = duplicateDate
     ? ({ ok: false, reason: "two Occurrences start on one date" } as const)
-    : inferRule({ timing: firstTiming, originalStarts, feedHorizon });
+    : inferRule({ timing: firstTiming, originalStarts, importDate });
 
   if (!inferred.ok) {
     flags.push({

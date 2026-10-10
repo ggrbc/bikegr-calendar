@@ -82,9 +82,16 @@ export interface SeriesReport {
   overrides: number;
 }
 
+export interface ImportOptions {
+  /** The day the import runs, in Detroit. The import never reads the clock itself. */
+  importDate: LocalDate;
+}
+
 export interface ImportResult {
-  /** Latest Occurrence start date in the whole feed. */
-  feedHorizon: LocalDate;
+  /** The import date given in {@link ImportOptions}. */
+  importDate: LocalDate;
+  /** Same date one year after `importDate`. A Series that ends after it is open-ended. */
+  openEndedAfter: LocalDate;
   events: ImportedEvent[];
   /** `eventId` is the Series' `sourceId`. */
   overrides: OverrideInput[];

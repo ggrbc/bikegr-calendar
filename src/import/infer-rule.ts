@@ -5,22 +5,22 @@
  * 1. Make a short list of candidate rules from the dates: weekly (with `INTERVAL`), weekly in the
  *    seen months (`BYMONTH`), monthly on the last weekday (`-1TU`), monthly on the nth weekday (at
  *    most two positions), monthly on a day of the month, and yearly on a date.
- * 2. Expand each candidate up to the feed horizon. Drop it if it misses an original date.
- * 3. **Feed horizon.** The next rule date is the first date that the rule makes after the last
- *    original. If it is after the feed horizon, the Series is open-ended (no `UNTIL`): the feed
- *    would show that date if it existed. If not, the Series gets `UNTIL=<last date>T235959`.
- * 4. Dates that the rule makes but the feed does not have become `EXDATE`s. A rule may use
+ * 2. Expand each candidate from the first to the last original. Drop it if it misses an original.
+ * 3. Dates that the rule makes but the feed does not have become `EXDATE`s. A rule may use
  *    `EXDATE`s for at most a quarter of its dates.
- * 5. Choose the candidate with the fewest `EXDATE`s (the first in list order on a tie).
- * 6. **Exact-match check:** the final rule, expanded by the engine itself up to the horizon, must
- *    make exactly the original list. If it does not, the Series is flagged.
+ * 4. Choose the candidate with the fewest `EXDATE`s (the first in list order on a tie).
+ * 5. **Open-ended Series** (Jeremy's decision, 2026-10-09): if the last original starts more than
+ *    12 months after the import date (strictly after {@link openEndedAfter}), the rule has no
+ *    `UNTIL`. If not, it gets `UNTIL=<last date>T235959`.
+ * 6. **Exact-match check:** the final rule, expanded by the engine itself from the first to the
+ *    last original (an open-ended rule goes on after that), must make exactly the original list. If
+ *    it does not, the Series is flagged.
  */
 import {
   addDays,
   dayOfWeek,
   daysBetween,
   expandOccurrences,
-  nextRuleStart,
   ruleStartsBetween,
   type LocalDate,
   type OriginalStart,
@@ -32,8 +32,18 @@ export interface InferRuleInput {
   timing: Timing;
   /** Sorted, unique original starts (date + usual time, or date for all-day Series). */
   originalStarts: OriginalStart[];
-  /** Latest Occurrence start date in the whole feed. */
-  feedHorizon: LocalDate;
+  /** The day the import runs, in Detroit. An explicit input: the import never reads the clock. */
+  importDate: LocalDate;
+}
+
+/**
+ * The same calendar date one year after `importDate` (29 February gives 28 February). A Series
+ * whose last Occurrence starts after this date is open-ended.
+ */
+export function openEndedAfter(importDate: LocalDate): LocalDate {
+  const year = Number(importDate.slice(0, 4)) + 1;
+  const monthDay = importDate.slice(5) === "02-29" ? "02-28" : importDate.slice(5);
+  return `${year}-${monthDay}`;
 }
 
 export type InferRuleResult =
@@ -44,14 +54,15 @@ export type InferRuleResult =
 const MAX_EXDATE_SHARE = 0.25;
 const WEEKDAYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"] as const;
 
-export function inferRule({ timing, originalStarts, feedHorizon }: InferRuleInput): InferRuleResult {
+export function inferRule({ timing, originalStarts, importDate }: InferRuleInput): InferRuleResult {
   if (originalStarts.length < 2) return { ok: false, reason: "a Series needs two or more dates" };
 
   let best: { rrule: string; exdates: OriginalStart[]; until: LocalDate | null } | null = null;
   let fewestRejected = Infinity;
+  const openEnded = dateOf(originalStarts[originalStarts.length - 1]) > openEndedAfter(importDate);
 
   for (const candidate of candidateRules(originalStarts.map(dateOf))) {
-    const fitted = fitCandidate(timing, candidate, originalStarts, feedHorizon);
+    const fitted = fitCandidate(timing, candidate, originalStarts, openEnded);
     if (!fitted) continue;
     const share = fitted.exdates.length / (fitted.exdates.length + originalStarts.length);
     if (share > MAX_EXDATE_SHARE) {
@@ -70,7 +81,7 @@ export function inferRule({ timing, originalStarts, feedHorizon }: InferRuleInpu
           : "no candidate rule makes every date",
     };
   }
-  if (!exactMatch(timing, best.rrule, best.exdates, originalStarts, feedHorizon)) {
+  if (!exactMatch(timing, best.rrule, best.exdates, originalStarts)) {
     return { ok: false, reason: `rule ${best.rrule} does not expand to the exact original list` };
   }
   return { ok: true, ...best };
@@ -78,15 +89,16 @@ export function inferRule({ timing, originalStarts, feedHorizon }: InferRuleInpu
 
 /**
  * Exact-match check: the rule with its `EXDATE`s, expanded by the engine from the first original
- * date to the end of the feed horizon day, makes exactly `originalStarts`.
+ * date to the end of the last original date, makes exactly `originalStarts`. The window ends at
+ * the Series' own last Occurrence, because an open-ended rule goes on after it.
  */
 export function exactMatch(
   timing: Timing,
   rrule: string,
   exdates: OriginalStart[],
   originalStarts: OriginalStart[],
-  feedHorizon: LocalDate,
 ): boolean {
+  const lastDate = dateOf(originalStarts[originalStarts.length - 1]);
   const occurrences = expandOccurrences(
     {
       eventId: "exact-match-check",
@@ -97,7 +109,7 @@ export function exactMatch(
       scheduleNote: null,
     },
     [],
-    { from: dateOf(originalStarts[0]), to: addDays(feedHorizon, 1) },
+    { from: dateOf(originalStarts[0]), to: addDays(lastDate, 1) },
   );
   const made = occurrences.map((occurrence) => occurrence.originalStart);
   return (
@@ -109,19 +121,16 @@ function fitCandidate(
   timing: Timing,
   candidate: string,
   originalStarts: OriginalStart[],
-  feedHorizon: LocalDate,
+  openEnded: boolean,
 ): { rrule: string; exdates: OriginalStart[]; until: LocalDate | null } | null {
   const first = originalStarts[0];
   const last = originalStarts[originalStarts.length - 1];
-  const horizonEnd = timing.kind === "timed" ? `${feedHorizon}T23:59` : feedHorizon;
-  const made = ruleStartsBetween(timing, candidate, first, horizonEnd);
+  const made = ruleStartsBetween(timing, candidate, first, last);
   const madeSet = new Set(made);
   if (!originalStarts.every((start) => madeSet.has(start))) return null;
 
-  const next = nextRuleStart(timing, candidate, last);
-  const openEnded = next === null || dateOf(next) > feedHorizon;
   const originals = new Set(originalStarts);
-  const exdates = made.filter((start) => start <= last && !originals.has(start));
+  const exdates = made.filter((start) => !originals.has(start));
   if (openEnded) return { rrule: candidate, exdates, until: null };
 
   const until = dateOf(last);

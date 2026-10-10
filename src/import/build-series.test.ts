@@ -3,7 +3,7 @@ import { addDays } from "@/engine";
 import { buildEvent } from "./build-series";
 import type { TockifyOccurrence } from "./types";
 
-const HORIZON = "2029-07-04";
+const IMPORT_DATE = "2026-10-09";
 
 /** A Tuesday 6–9 pm Occurrence of Tockify Event "52" on `date`. */
 function occurrence(date: string, changes: Partial<TockifyOccurrence> = {}): TockifyOccurrence {
@@ -28,7 +28,7 @@ const tuesdays = (count: number) =>
 
 describe("Series build", () => {
   it("a single Occurrence becomes a one-time Event with its own Schedule status", () => {
-    const built = buildEvent([occurrence("2026-09-08", { scheduleStatus: "cancelled" })], HORIZON);
+    const built = buildEvent([occurrence("2026-09-08", { scheduleStatus: "cancelled" })], IMPORT_DATE);
     expect(built.report).toBeNull();
     expect(built.overrides).toEqual([]);
     expect(built.events).toHaveLength(1);
@@ -49,7 +49,7 @@ describe("Series build", () => {
   });
 
   it("a weekly Series becomes one Event with a rule", () => {
-    const built = buildEvent(tuesdays(8).map((date) => occurrence(date)), HORIZON);
+    const built = buildEvent(tuesdays(8).map((date) => occurrence(date)), IMPORT_DATE);
     expect(built.events).toHaveLength(1);
     expect(built.events[0].rule).toEqual({
       eventId: "52",
@@ -73,7 +73,7 @@ describe("Series build", () => {
   });
 
   it("the Event uses the earliest Occurrence, even if the feed is not sorted", () => {
-    const built = buildEvent(tuesdays(4).reverse().map((date) => occurrence(date)), HORIZON);
+    const built = buildEvent(tuesdays(4).reverse().map((date) => occurrence(date)), IMPORT_DATE);
     expect(built.events[0].rule.timing).toMatchObject({ start: "2026-09-08T18:00" });
   });
 
@@ -81,7 +81,7 @@ describe("Series build", () => {
     const occurrences = tuesdays(8).map((date) =>
       occurrence(date, date === "2026-09-29" ? { scheduleStatus: "cancelled" } : {}),
     );
-    const built = buildEvent(occurrences, HORIZON);
+    const built = buildEvent(occurrences, IMPORT_DATE);
     expect(built.events[0].rule.exdates).toEqual([]);
     expect(built.overrides).toEqual([
       { eventId: "52", originalStart: "2026-09-29T18:00", scheduleStatus: "cancelled" },
@@ -93,7 +93,7 @@ describe("Series build", () => {
     const occurrences = tuesdays(3).map((date, i) =>
       occurrence(date, i === 1 ? { scheduleStatus: "cancelled" } : {}),
     );
-    const [only] = buildEvent(occurrences, HORIZON).overrides;
+    const [only] = buildEvent(occurrences, IMPORT_DATE).overrides;
     expect(only).not.toHaveProperty("title");
   });
 
@@ -103,7 +103,7 @@ describe("Series build", () => {
         ? occurrence(date, { title: "VBF Fall Kickoff", location: "Millennium Park" })
         : occurrence(date),
     );
-    const built = buildEvent(occurrences, HORIZON);
+    const built = buildEvent(occurrences, IMPORT_DATE);
     expect(built.events[0].title).toBe("VBF Tuesday Night Road Ride");
     expect(built.overrides).toEqual([
       {
@@ -123,7 +123,7 @@ describe("Series build", () => {
           })
         : occurrence(date),
     );
-    const built = buildEvent(occurrences, HORIZON);
+    const built = buildEvent(occurrences, IMPORT_DATE);
     expect(built.events[0].rule.rrule).toBe("FREQ=WEEKLY;BYDAY=TU;UNTIL=20261006T235959");
     expect(built.overrides).toEqual([
       {
@@ -141,7 +141,7 @@ describe("Series build", () => {
     ["Tags", { categories: ["Race"] }],
   ])("different %s flags contentDiffers", (field, change) => {
     const occurrences = tuesdays(4).map((date, i) => occurrence(date, i === 2 ? change : {}));
-    const built = buildEvent(occurrences, HORIZON);
+    const built = buildEvent(occurrences, IMPORT_DATE);
     expect(built.flags).toEqual([
       expect.objectContaining({ sourceId: "52", reason: "contentDiffers" }),
     ]);
@@ -153,7 +153,7 @@ describe("Series build", () => {
   it("an unknown title prefix flags unknownTitlePrefix once for the Event", () => {
     const prefixed = { title: "**Sold out** VBF Tuesday Night Road Ride", unknownTitlePrefix: "**Sold out**" };
     const occurrences = tuesdays(4).map((date, i) => occurrence(date, i >= 2 ? prefixed : {}));
-    const built = buildEvent(occurrences, HORIZON);
+    const built = buildEvent(occurrences, IMPORT_DATE);
     expect(built.flags).toEqual([
       {
         sourceId: "52",
@@ -167,7 +167,7 @@ describe("Series build", () => {
   it("an unknown title prefix on a one-time Event is flagged", () => {
     const built = buildEvent(
       [occurrence("2026-09-08", { title: "**Sold out** Ride", unknownTitlePrefix: "**Sold out**" })],
-      HORIZON,
+      IMPORT_DATE,
     );
     expect(built.flags.map((flag) => flag.reason)).toEqual(["unknownTitlePrefix"]);
   });
@@ -176,14 +176,14 @@ describe("Series build", () => {
     const occurrences = tuesdays(4).map((date, i) =>
       occurrence(date, i === 2 ? { categories: ["Tuesday", "Non-Drop", "Group-Ride"] } : {}),
     );
-    expect(buildEvent(occurrences, HORIZON).flags).toEqual([]);
+    expect(buildEvent(occurrences, IMPORT_DATE).flags).toEqual([]);
   });
 
   it("a Series with no rule is flagged and imported as one-time Events", () => {
     const dates = ["2026-09-01", "2026-09-03", "2026-09-12", "2026-10-02", "2026-11-20"];
     const built = buildEvent(
       dates.map((date) => occurrence(date)),
-      HORIZON,
+      IMPORT_DATE,
     );
     expect(built.flags).toEqual([
       expect.objectContaining({ sourceId: "52", reason: "ruleNotInferred" }),
@@ -200,7 +200,7 @@ describe("Series build", () => {
     const dates = ["2026-09-01", "2026-09-03", "2026-09-12", "2026-10-02", "2026-11-20"];
     const built = buildEvent(
       dates.map((date, i) => occurrence(date, i === 0 ? { scheduleStatus: "tentative" } : {})),
-      HORIZON,
+      IMPORT_DATE,
     );
     expect(built.events[0].rule.scheduleStatus).toBe("tentative");
     expect(built.events[1].rule.scheduleStatus).toBe("scheduled");
@@ -210,7 +210,7 @@ describe("Series build", () => {
     const occurrences = tuesdays(3).map((date) =>
       occurrence(date, { title: "ENTF Transportation Subcommittee", categories: ["Advocacy"] }),
     );
-    const [event] = buildEvent(occurrences, HORIZON).events;
+    const [event] = buildEvent(occurrences, IMPORT_DATE).events;
     expect(event.calendar).toBe("advocacy");
     expect(event.tagSlugs).toEqual([]);
   });

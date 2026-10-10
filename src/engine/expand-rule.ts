@@ -148,16 +148,6 @@ export function ruleStartsBetween(
     .map((date) => format(timing, date));
 }
 
-/** The first original start that the rule makes after `after`, or `null` if the rule ends. */
-export function nextRuleStart(
-  timing: Timing,
-  rrule: string,
-  after: OriginalStart,
-): OriginalStart | null {
-  const next = buildRule(timing, rrule).after(toFloating(after), false);
-  return next ? format(timing, next) : null;
-}
-
 /** True if the rule makes exactly this original start. */
 export function isRuleStart(timing: Timing, rrule: string, start: OriginalStart): boolean {
   return ruleStartsBetween(timing, rrule, start, start).includes(start);
