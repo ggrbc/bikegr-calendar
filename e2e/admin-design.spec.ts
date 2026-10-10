@@ -62,8 +62,10 @@ test("the dashboard counts match the Review queue and the public week", async ({
   await expect(page.getByRole("link", { name: "New Event" })).toHaveAttribute("href", "/admin/events/new");
 });
 
-test("no admin page scrolls sideways at 375 px", async ({ page }) => {
-  await page.setViewportSize({ width: 375, height: 800 });
+const WIDTHS = [320, 375, 640, 768, 1024];
+
+test("no admin page scrolls sideways at 320, 375, 640, 768, and 1024 px", async ({ page }) => {
+  test.setTimeout(180_000); // 12 pages at 5 widths
   await page.goto(`/admin/events/${IDS.tuesday}`);
   const occurrence = await page.getByRole("link", { name: "Change this date" }).first().getAttribute("href");
   const paths = [
@@ -80,22 +82,62 @@ test("no admin page scrolls sideways at 375 px", async ({ page }) => {
     "/admin/tags",
     "/admin/editors",
   ];
-  for (const path of paths) {
-    await page.goto(path);
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-    expect(overflow, `${path} scrolls sideways`).toBeLessThanOrEqual(0);
+  const scrolls: string[] = [];
+  for (const width of WIDTHS) {
+    await page.setViewportSize({ width, height: 800 });
+    for (const path of paths) {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      // The lists stream in after the shell: measure only when every Suspense fallback is gone.
+      // (The router can keep an earlier page hidden in the DOM: count only visible fallbacks.)
+      await expect(page.getByText("Loading…").filter({ visible: true })).toHaveCount(0);
+      await page.waitForLoadState("networkidle");
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      if (overflow > 0) scrolls.push(`${path} at ${width} px: ${overflow} px`);
+    }
   }
+  expect(scrolls).toEqual([]);
 });
 
-test("after a click in the nav and a key press, no header link shows the focus ring", async ({ page }) => {
+test("a stacked row on a phone: the label is read once, not in the cell name", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto("/admin/tags");
+  // The visible "Slug" label is CSS text with an empty alternative, so the cell name is the slug only.
+  await expect(page.getByRole("cell", { name: "non-drop", exact: true })).toBeVisible();
+  await expect(page.getByRole("cell", { name: /^Slug/ })).toHaveCount(0);
+  await expect(page.getByRole("row", { name: /^Non-Drop/ })).toMatchAriaSnapshot(`
+    - row:
+      - cell "Non-Drop"
+      - cell "non-drop"
+      - cell "1"
+  `);
+});
+
+test("after a click in the nav and a key press, focus is on the h1 and no ring shows", async ({ page }) => {
   await page.goto("/admin/events");
   await adminNav(page).getByRole("link", { name: /^Tags$/ }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Tags" })).toBeVisible();
+  const h1 = page.getByRole("heading", { level: 1, name: "Tags" });
+  await expect(h1).toBeFocused();
   await page.keyboard.press("Shift");
-  await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe("admin-main");
   const ringInHeader = await page.evaluate(() => document.querySelector("header :focus-visible") !== null);
   expect(ringInHeader).toBe(false);
+  expect(await h1.evaluate((el) => getComputedStyle(el).outlineStyle)).toBe("none");
+});
+
+test("a page that streams its h1 (an Event) also gets the focus on it", async ({ page }) => {
+  await page.goto("/admin/events");
+  await page.getByRole("link", { name: "E2E Tuesday Ride" }).last().click();
+  await expect(page.getByRole("heading", { level: 1, name: "E2E Tuesday Ride" })).toBeFocused();
+});
+
+test("a query change (a Calendar tab) does not move the focus", async ({ page }) => {
+  await page.goto("/admin/events");
+  const tab = page.getByRole("navigation", { name: "Calendars" }).getByRole("link", { name: "Advocacy" });
+  await tab.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/calendar=advocacy/);
+  await expect(page.getByRole("heading", { level: 1, name: "Events" })).not.toBeFocused();
+  await expect(tab).toBeFocused();
 });
 
 // "After" screenshots for the review, only when E2E_SCREENSHOT_DIR is set (outside the repository).

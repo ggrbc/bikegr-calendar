@@ -55,7 +55,7 @@ async function EditorList() {
               const isMe = editor.id === admin.id;
               return (
                 <tr role="row" key={editor.id} className={stackRowClass}>
-                  <td role="cell" className={`${stackTdClass} max-sm:before:content-none`}>
+                  <td role="cell" className={`${stackTdClass} max-lg:before:content-none`}>
                     {editor.name && <div className="font-semibold">{editor.name}</div>}
                     <div className="break-all">{editor.email}</div>
                   </td>
@@ -64,10 +64,14 @@ async function EditorList() {
                   </td>
                   <td role="cell" data-label="Account" className={stackTdClass}>
                     {editor.deactivatedAt ? (
-                      <Badge tone="deleted">
-                        Deactivated {day(editor.deactivatedAt)}
-                        {editor.deactivatedByName ? ` by ${editor.deactivatedByName}` : ""}
-                      </Badge>
+                      // Only the word is a badge (no wrap); the date and the name wrap as text.
+                      <>
+                        <Badge tone="deleted">Deactivated</Badge>{" "}
+                        <span className="text-sm">
+                          {day(editor.deactivatedAt)}
+                          {editor.deactivatedByName ? ` by ${editor.deactivatedByName}` : ""}
+                        </span>
+                      </>
                     ) : (
                       <Badge tone="approved">Active</Badge>
                     )}
@@ -83,7 +87,7 @@ async function EditorList() {
                   <td role="cell" data-label="Last active (about)" className={stackTdClass}>
                     {day(editor.lastActive)}
                   </td>
-                  <td role="cell" className={`${stackTdClass} max-sm:pt-1 max-sm:before:content-none`}>
+                  <td role="cell" className={`${stackTdClass} max-lg:pt-1 max-lg:before:content-none`}>
                     {isMe ? (
                       <span className={mutedClass}>You</span>
                     ) : (

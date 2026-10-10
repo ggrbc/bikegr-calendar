@@ -179,7 +179,9 @@ async function EventPage({ params, searchParams }: { params: Promise<{ id: strin
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-2">
-        <h1 className="font-chivo text-[28px] font-normal leading-tight">{row.title}</h1>
+        <h1 tabIndex={-1} className="font-chivo text-[28px] font-normal leading-tight">
+          {row.title}
+        </h1>
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
           {CALENDAR_LABELS[row.calendar]} · {row.rrule ? describeRrule(row.rrule) : "One time"} · Review status:{" "}
           <ReviewBadge status={row.reviewStatus} />

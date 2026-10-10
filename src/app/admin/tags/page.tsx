@@ -46,7 +46,7 @@ async function CalendarTags({ calendar }: { calendar: CalendarSlug }) {
           <tbody role="rowgroup" className={stackTbodyClass}>
             {list.map((tag) => (
               <tr role="row" key={tag.id} className={stackRowClass}>
-                <td role="cell" className={`${stackTdClass} font-semibold max-sm:before:content-none`}>
+                <td role="cell" className={`${stackTdClass} font-semibold max-lg:before:content-none`}>
                   {tag.name}
                 </td>
                 <td role="cell" data-label="Slug" className={stackTdClass}>
@@ -55,10 +55,10 @@ async function CalendarTags({ calendar }: { calendar: CalendarSlug }) {
                 <td role="cell" data-label="Events" className={stackTdClass}>
                   {tag.eventCount}
                 </td>
-                <td role="cell" className={`${stackTdClass} max-sm:before:content-none`}>
+                <td role="cell" className={`${stackTdClass} max-lg:before:content-none`}>
                   {tag.retiredAt ? <Badge tone="deleted">Retired</Badge> : <Badge tone="approved">Active</Badge>}
                 </td>
-                <td role="cell" className={`${stackTdClass} max-sm:pt-1 max-sm:before:content-none`}>
+                <td role="cell" className={`${stackTdClass} max-lg:pt-1 max-lg:before:content-none`}>
                   <TagActions
                     tag={{
                       id: tag.id,

@@ -118,7 +118,7 @@ export function PageHeader({
     <div className="mb-6 flex flex-col gap-2">
       {back && <p className="text-sm">{back}</p>}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-chivo text-[28px] font-normal leading-tight text-brand-gray">{title}</h1>
+        <h1 tabIndex={-1} className="font-chivo text-[28px] font-normal leading-tight text-brand-gray">{title}</h1>
         {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
       </div>
       {children}
@@ -208,14 +208,20 @@ export const thClass = "px-3 py-2 text-sm font-semibold text-brand-gray first:pl
 export const rowClass = "border-b border-brand-divider align-top last:border-b-0";
 export const tdClass = "px-3 py-3 first:pl-0 last:pr-0";
 
-/** A table that becomes stacked blocks below `sm`. Put `data-label` on each cell. */
-export const stackTableClass = `${tableClass} max-sm:block`;
-export const stackTheadClass = "max-sm:sr-only";
-export const stackTbodyClass = "max-sm:block";
-export const stackRowClass = `${rowClass} max-sm:flex max-sm:flex-col max-sm:gap-1 max-sm:py-3`;
+/**
+ * A table that becomes stacked blocks below `lg` (1024 px). Put `data-label` on each cell. Tags and
+ * Editors use it: their Actions column has forms, so a sideways-scroll box would hide the buttons
+ * at the far right on a tablet; stacked rows show every control. The label is CSS text with an
+ * empty alternative (`content: attr(data-label) / ""`), so a screen reader reads it only once, from
+ * the column header.
+ */
+export const stackTableClass = `${tableClass} max-lg:block`;
+export const stackTheadClass = "max-lg:sr-only";
+export const stackTbodyClass = "max-lg:block";
+export const stackRowClass = `${rowClass} max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:py-3`;
 export const stackTdClass =
-  `${tdClass} max-sm:block max-sm:p-0 max-sm:before:mr-2 max-sm:before:text-sm max-sm:before:font-semibold ` +
-  "max-sm:before:text-[#5f5e5f] max-sm:before:content-[attr(data-label)]";
+  `${tdClass} max-lg:block max-lg:p-0 max-lg:before:mr-2 max-lg:before:text-sm max-lg:before:font-semibold ` +
+  "max-lg:before:text-[#5f5e5f] max-lg:before:content-[attr(data-label)_/_'']";
 
 /** Calendar tabs (All, Rides & Events, Advocacy) as links; the current one has `aria-current`. */
 export function CalendarTabs({ tabs }: { tabs: { href: string; label: string; current: boolean }[] }) {

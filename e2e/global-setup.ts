@@ -48,6 +48,16 @@ export default async function globalSetup() {
       { id: E2E_EDITOR.id, email: E2E_EDITOR.email, name: E2E_EDITOR.name, role: "editor", emailVerified: new Date() },
       { id: E2E_ADMIN.id, email: E2E_ADMIN.email, name: E2E_ADMIN.name, role: "admin", emailVerified: new Date() },
     ]);
+    // A deactivated Editor with long text, for the Editors page layout (no sideways scroll).
+    await db.insert(schema.editors).values({
+      email: "deactivated.editor.with.a.long.address@example.org",
+      name: "Deactivated Editor With A Long Name",
+      role: "editor",
+      invitedBy: E2E_ADMIN.id,
+      invitedAt: new Date(),
+      deactivatedAt: new Date(),
+      deactivatedBy: E2E_ADMIN.id,
+    });
     const expires = new Date(Date.now() + 24 * 3600 * 1000);
     await db.insert(schema.authSessions).values([
       { sessionToken: E2E_EDITOR.sessionToken, userId: E2E_EDITOR.id, expires },
@@ -105,6 +115,8 @@ export default async function globalSetup() {
       .values([
         { calendar: "rides", name: "Non-Drop", slug: "non-drop" },
         { calendar: "advocacy", name: "Meeting", slug: "meeting" },
+        // A long Tag name, for the Tags page layout (the import allows 40 characters).
+        { calendar: "rides", name: "Family Friendly Neighborhood Social Ride", slug: "family-friendly-neighborhood-social-ride" },
       ])
       .returning();
     await db.insert(schema.eventTags).values([
