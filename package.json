@@ -16,7 +16,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/db/seed.ts",
     "db:smoke": "tsx src/db/smoke.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "import:tockify": "tsx src/import/cli.ts"
   },
   "dependencies": {
     "@auth/core": "0.41.3",
