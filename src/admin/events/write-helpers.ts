@@ -57,12 +57,29 @@ export async function runWrite<T extends object>(
     return { ok: true, ...value };
   } catch (error) {
     if (error instanceof WriteError) return error.failure;
-    // Only names and the Postgres code: a driver message can contain values from the row.
-    const cause = error instanceof Error && error.cause instanceof Error ? error.cause : null;
-    const code = cause && "code" in cause ? String((cause as { code: unknown }).code) : "";
-    console.error("[admin] Event write failed:", error instanceof Error ? error.name : "error", cause?.name ?? "", code);
+    console.error(failureLog(error));
     return { ok: false, reason: "failed", message: FAILED_MESSAGE };
   }
+}
+
+/**
+ * The log line for an unexpected error: the error classes, the Postgres code, and the stack frames.
+ * No message text: a driver message (and the first stack line) can contain values from the input.
+ */
+export function failureLog(error: unknown): string {
+  const parts = ["[admin] Event write failed:"];
+  const frames: string[] = [];
+  let current: unknown = error;
+  for (let depth = 0; current instanceof Error && depth < 3; depth++) {
+    const code = "code" in current ? ` code=${String((current as { code: unknown }).code)}` : "";
+    parts.push(`${depth === 0 ? "" : "cause "}${current.constructor.name}${code}`);
+    for (const line of (current.stack ?? "").split("\n")) {
+      if (/^\s+at /.test(line) && frames.length < 12) frames.push(line);
+    }
+    current = current.cause;
+  }
+  if (!(error instanceof Error)) parts.push(typeof error);
+  return [parts.join(" "), ...frames].join("\n");
 }
 
 /** The failure for an Event that the claim did not update. */

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestDb } from "@/db/test-db";
 import type { Db } from "@/db/types";
 import { createEvent } from "./create-event";
@@ -67,5 +67,24 @@ describe("create an Event", () => {
       message: "The save failed. Nothing was changed. Try again.",
     });
     expect(await rowCounts(db)).toEqual({ events: 0, overrides: 0, eventTags: 0, history: 0 });
+  });
+
+  it("the log of an unexpected error has the error class, the code, and stack frames, but no input value", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const bad = draft({
+        title: "SECRET-TITLE-4711",
+        rule: { ...draft().rule, timing: { kind: "timed", start: "2026-10-06T20:00", end: "2026-10-06T18:00" } },
+      });
+      expect((await createEvent(db, editor, bad)).ok).toBe(false);
+      const text = log.mock.calls.flat().map(String).join("\n");
+      expect(text).toMatch(/\[admin\] Event write failed/);
+      expect(text).toMatch(/23514/); // Postgres: check_violation
+      expect(text).toMatch(/^\s+at /m);
+      expect(text).not.toContain("SECRET-TITLE-4711");
+      expect(text).not.toContain("2026-10-06");
+    } finally {
+      log.mockRestore();
+    }
   });
 });
