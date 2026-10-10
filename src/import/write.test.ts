@@ -333,6 +333,26 @@ describe("import writer", () => {
       expect(row.imageUrl).toBe(blobUrl);
     });
 
+    it("Stored null, feed adds an image, copy fails → Tockify URL is written", async () => {
+      await writeImport(db, small([oneTime("903", { imageUrl: null })]));
+      const report = await writeImport(db, small([oneTime("903", { imageUrl: tockifyUrl })]), {
+        uncopiedImages: new Set(["903"]),
+      });
+      expect(report.updated.map((e) => e.sourceId)).toEqual(["903"]);
+      expect((await eventBySource(db, "903")).imageUrl).toBe(tockifyUrl);
+    });
+
+    it("stored Tockify URL, feed has another one, copy fails → the new Tockify URL is written", async () => {
+      const other = "https://d3fd4e4oyqldw5.cloudfront.net/b.jpg";
+      await writeImport(db, small([oneTime("904", { imageUrl: tockifyUrl })]), {
+        uncopiedImages: new Set(["904"]),
+      });
+      await writeImport(db, small([oneTime("904", { imageUrl: other })]), {
+        uncopiedImages: new Set(["904"]),
+      });
+      expect((await eventBySource(db, "904")).imageUrl).toBe(other);
+    });
+
     it("a new Event with no copy gets the Tockify URL", async () => {
       await writeImport(db, small([oneTime("902", { imageUrl: tockifyUrl })]), {
         uncopiedImages: new Set(["902"]),

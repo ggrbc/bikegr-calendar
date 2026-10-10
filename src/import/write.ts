@@ -9,6 +9,7 @@ import { eventHistory, eventTags, events, overrides, tags } from "@/db/schema";
 import type { Db } from "@/db/types";
 import type { OverrideInput } from "@/engine";
 import { sameState, stateFromImport, stateFromRows } from "./event-state";
+import { isBlobUrl } from "./images";
 import type { ImportResult, ImportedEvent } from "./types";
 
 export interface EventRef {
@@ -29,8 +30,9 @@ export interface WriteReport {
 
 export interface WriteOptions {
   /**
-   * Source IDs of Events whose image was not copied in this run. Their `image_url` is not compared
-   * and not updated, so a Blob URL from an earlier run stays. A new Event gets the feed URL.
+   * Source IDs of Events whose image was not copied in this run. If such an Event already has a
+   * Blob URL, its `image_url` is not compared and not updated, so the Blob URL stays. Otherwise
+   * (new Event, stored null or Tockify URL) the feed URL is written as usual.
    */
   uncopiedImages?: ReadonlySet<string>;
 }
@@ -62,7 +64,7 @@ export async function writeImport(
     try {
       const { outcome, editorChanged } = await db.transaction((tx) =>
         writeEvent(tx, event, overridesBySource.get(event.sourceId) ?? [], {
-          includeImage: !uncopiedImages.has(event.sourceId),
+          imageCopied: !uncopiedImages.has(event.sourceId),
           tagNames,
         }),
       );
@@ -88,7 +90,7 @@ async function writeEvent(
   tx: Tx,
   event: ImportedEvent,
   eventOverrides: OverrideInput[],
-  { includeImage, tagNames }: { includeImage: boolean; tagNames: Map<string, string> },
+  { imageCopied, tagNames }: { imageCopied: boolean; tagNames: Map<string, string> },
 ): Promise<{ outcome: Outcome; editorChanged: boolean }> {
   const tagIds = await upsertTags(tx, event, tagNames);
   const [existing] = await tx.select().from(events).where(eq(events.sourceId, event.sourceId));
@@ -125,6 +127,9 @@ async function writeEvent(
     .innerJoin(tags, eq(tags.id, eventTags.tagId))
     .where(eq(eventTags.eventId, existing.id));
 
+  // Never replace a stored Blob URL with a feed (Tockify) URL. A stored null or Tockify URL is
+  // not a copy, so the feed value is compared and written as usual.
+  const includeImage = imageCopied || !isBlobUrl(existing.imageUrl);
   const options = { includeImage };
   const wanted = stateFromImport(event, eventOverrides, options);
   const current = stateFromRows(
