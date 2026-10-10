@@ -212,6 +212,19 @@ GR's own logo files (`public/brand/`; the icon is also the app icon and the card
 Event with no image; every link goes to www.bikegr.org); the Embed has no header and uses the page gray, the color of the
 Squarespace section around it.
 
+**Admin look** (decided 2026-10-10, Q53 = A, Jeremy; plan:
+[plans/admin-design.md](plans/admin-design.md)): a white header with the GGRBC logo and "Calendar
+admin", the nav with the current section marked (`aria-current`, orange underline) and the Review
+queue count as a badge; the page gray body with white cards. The shared parts are in
+`src/app/admin/_components/ui.tsx`. Buttons are pills in Chivo: primary white on `brand-orange-text`
+(5.10:1), Approve white on `brand-green-text` (5.05:1), danger a red-700 outline (6.47:1), secondary
+a gray outline (border `#8A898A`, 3.48:1). Badges: Pending `#78350F` on `#FEF3C7` (8.15:1), Approved
+`#4D5822` on `#E9EED3` (6.45:1), Rejected `#991B1B` on `#FEE2E2` (6.80:1), Deleted and Retired
+`#424142` on `#E5E5E5` (8.07:1); Schedule status badges use the public badge. Muted text `#5F5E5F`
+(6.46:1 on white). After a client-side navigation to a new path, focus moves to `<main>`, so a
+header link that was clicked does not keep focus (Chrome shows the focus ring on it after the next
+key press).
+
 ## Embed
 
 A script tag in a Squarespace code block injects an iframe. The script takes the Calendar as an
