@@ -58,6 +58,13 @@ describe("delete and restore", () => {
     ]);
   });
 
+  it("restore of an Event that is not deleted says This Event is not deleted.", async () => {
+    expect(await restoreEvent(db, ada, { id, version: 1 })).toMatchObject({
+      ok: false,
+      message: "This Event is not deleted.",
+    });
+  });
+
   it("an Editor cannot restore", async () => {
     await deleteEvent(db, erin, { id, version: 1 });
     expect(await restoreEvent(db, erin, { id, version: 2 })).toMatchObject({ ok: false, reason: "invalid" });

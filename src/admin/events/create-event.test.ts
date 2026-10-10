@@ -54,4 +54,18 @@ describe("create an Event", () => {
     });
     expect(await rowCounts(db)).toEqual({ events: 0, overrides: 0, eventTags: 0, history: 0 });
   });
+
+  it("a database error becomes a failed result, not an exception", async () => {
+    // The parser refuses this; the database CHECK (events_timing_shape) refuses it too.
+    const bad = draft({
+      rule: { ...draft().rule, timing: { kind: "timed", start: "2026-10-06T20:00", end: "2026-10-06T18:00" } },
+    });
+    const result = await createEvent(db, editor, bad);
+    expect(result).toEqual({
+      ok: false,
+      reason: "failed",
+      message: "The save failed. Nothing was changed. Try again.",
+    });
+    expect(await rowCounts(db)).toEqual({ events: 0, overrides: 0, eventTags: 0, history: 0 });
+  });
 });

@@ -26,7 +26,12 @@ export interface Actor {
 export type WriteFailure =
   | { ok: false; reason: "conflict"; changedAt: Date; message: string }
   | { ok: false; reason: "deleted" | "not-found"; message: string }
-  | { ok: false; reason: "invalid"; message: string; errors: FieldErrors };
+  | { ok: false; reason: "invalid"; message: string; errors: FieldErrors }
+  /** An unexpected error (for example a database error). Nothing was written. */
+  | { ok: false; reason: "failed"; message: string };
+
+export const FAILED_MESSAGE = "The save failed. Nothing was changed. Try again.";
+export const NOT_DELETED_MESSAGE = "This Event is not deleted.";
 
 export type WriteResult<T extends object = object> = ({ ok: true } & T) | WriteFailure;
 
@@ -52,7 +57,11 @@ export async function runWrite<T extends object>(
     return { ok: true, ...value };
   } catch (error) {
     if (error instanceof WriteError) return error.failure;
-    throw error;
+    // Only names and the Postgres code: a driver message can contain values from the row.
+    const cause = error instanceof Error && error.cause instanceof Error ? error.cause : null;
+    const code = cause && "code" in cause ? String((cause as { code: unknown }).code) : "";
+    console.error("[admin] Event write failed:", error instanceof Error ? error.name : "error", cause?.name ?? "", code);
+    return { ok: false, reason: "failed", message: FAILED_MESSAGE };
   }
 }
 
@@ -65,6 +74,9 @@ async function claimFailure(tx: Tx, id: string, deleted: boolean): Promise<Write
   if (!row) return { ok: false, reason: "not-found", message: NOT_FOUND_MESSAGE };
   if (!deleted && row.deletedAt !== null) {
     return { ok: false, reason: "deleted", message: DELETED_MESSAGE };
+  }
+  if (deleted && row.deletedAt === null) {
+    return { ok: false, reason: "invalid", message: NOT_DELETED_MESSAGE, errors: {} };
   }
   return conflictFailure(row.updatedAt);
 }
@@ -86,7 +98,7 @@ export async function readForWrite(
   const [row] = await tx.select().from(events).where(eq(events.id, id));
   if (!row) throw new WriteError({ ok: false, reason: "not-found", message: NOT_FOUND_MESSAGE });
   if ((row.deletedAt !== null) !== deleted) {
-    if (deleted) throw new WriteError(conflictFailure(row.updatedAt));
+    if (deleted) throw invalid({}, NOT_DELETED_MESSAGE);
     throw new WriteError({ ok: false, reason: "deleted", message: DELETED_MESSAGE });
   }
   if (row.version !== version) throw new WriteError(conflictFailure(row.updatedAt));
@@ -182,11 +194,7 @@ export async function tagsAfterSave(tx: Tx, row: EventRow, content: ContentDraft
   const existing = await tagIdsOf(tx, row.id);
   const sameCalendar = row.calendar === content.calendar;
   await checkTagIds(tx, content.calendar, content.tagIds, sameCalendar ? existing : []);
-  if (!sameCalendar) {
-    // Before the Calendar update: the composite foreign key refuses a Calendar change with Tags.
-    await tx.delete(eventTags).where(inArray(eventTags.eventId, [row.id]));
-    return content.tagIds;
-  }
+  if (!sameCalendar) return content.tagIds;
   const retired =
     existing.length === 0
       ? []
@@ -195,6 +203,15 @@ export async function tagsAfterSave(tx: Tx, row: EventRow, content: ContentDraft
           .from(tags)
           .where(and(inArray(tags.id, existing), isNotNull(tags.retiredAt)));
   return [...new Set([...content.tagIds, ...retired.map((t) => t.id)])];
+}
+
+/**
+ * Moves the Event to another Calendar, after the version claim. Its Tags go first: the composite
+ * foreign key refuses a Calendar change while the Event has Tags of the old Calendar.
+ */
+export async function moveCalendar(tx: Tx, eventId: string, calendar: CalendarSlug): Promise<void> {
+  await tx.delete(eventTags).where(eq(eventTags.eventId, eventId));
+  await tx.update(events).set({ calendar }).where(eq(events.id, eventId));
 }
 
 /** The last write: one history row with the state after the change (the import's shape). */

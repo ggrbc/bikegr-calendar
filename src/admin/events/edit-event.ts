@@ -10,6 +10,7 @@ import {
   type Actor,
   claimVersion,
   invalid,
+  moveCalendar,
   readForWrite,
   runWrite,
   setEventTags,
@@ -34,14 +35,13 @@ export async function editSeriesContent(
     if (row.rrule === null) throw invalid({}, "This Event does not repeat.");
     const timing = eventRowToRuleInput(row).timing;
     const tagIds = await tagsAfterSave(tx, row, draft);
+    const { calendar, ...content } = contentColumns(draft);
     await claimVersion(tx, {
       ...target,
       actor,
-      set: {
-        ...contentColumns(draft),
-        exdates: draft.exdateDates.map((date) => exdateFromDate(timing, date)),
-      },
+      set: { ...content, exdates: draft.exdateDates.map((date) => exdateFromDate(timing, date)) },
     });
+    if (calendar !== row.calendar) await moveCalendar(tx, row.id, calendar);
     await setEventTags(tx, row.id, draft.calendar, tagIds);
     await writeHistory(tx, row.id, "edit", actor);
     return {};
@@ -60,11 +60,13 @@ export async function editOneTimeEvent(
       throw invalid({}, "This Event is a Series. Use All dates or This date and later.");
     }
     const tagIds = await tagsAfterSave(tx, row, draft);
+    const { calendar, ...content } = contentColumns(draft);
     await claimVersion(tx, {
       ...target,
       actor,
-      set: { ...contentColumns(draft), ...ruleInputToColumns({ eventId: row.id, ...draft.rule }) },
+      set: { ...content, ...ruleInputToColumns({ eventId: row.id, ...draft.rule }) },
     });
+    if (calendar !== row.calendar) await moveCalendar(tx, row.id, calendar);
     await setEventTags(tx, row.id, draft.calendar, tagIds);
     await writeHistory(tx, row.id, "edit", actor);
     return {};

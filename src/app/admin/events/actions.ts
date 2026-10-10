@@ -60,6 +60,8 @@ function fromFailure(failure: WriteFailure): SaveState {
       return { status: "conflict", message: failure.message };
     case "invalid":
       return { status: "invalid", message: failure.message, errors: failure.errors };
+    case "failed":
+      return { status: "invalid", message: failure.message, errors: {} };
     default:
       return { status: "gone", message: failure.message };
   }
