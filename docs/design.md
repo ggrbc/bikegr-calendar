@@ -249,12 +249,15 @@ Rejected for v1: a web component with Shadow DOM (Squarespace CSS and JS can lea
   Submitter on approve or reject.
 - **Decided 2026-10-10 (Q50 = A, Jeremy; plan:
   [plans/submissions-and-review-queue.md](plans/submissions-and-review-queue.md)):**
-  - **Order of the checks:** field check → honeypot (filled: the thank-you page, nothing written) →
-    rate limits → Turnstile on the server → image (sharp) → write. A field error spends no Turnstile
-    token and no rate limit.
-  - **Rate limits:** per IP 3 an hour and 10 a day; all Submissions together 20 a day (the
-    new-Submission email and the magic link share the Resend quota). A failed rate-limit check
-    refuses the Submission (fail closed) with "try again later".
+  - **Order of the checks (Q51 = A):** field check → honeypot (filled: the thank-you page, nothing
+    written) → per-IP limits → Turnstile on the server → the limit of all Submissions → image
+    (sharp) → write → emails. A field error spends no Turnstile token and no rate limit. The per-IP
+    limits come before Turnstile because they protect the siteverify calls. The limit of all
+    Submissions counts only Turnstile passes: bots with no pass must not use up the day and close
+    the form for real Submitters (a review found that 21 sends with no token from 7 IPs did).
+  - **Rate limits:** per IP 3 an hour and 10 a day; all Submissions together 20 a day (it protects
+    the Resend quota, which the new-Submission emails and the magic links share). A failed
+    rate-limit check refuses the Submission (fail closed) with "try again later".
   - **Turnstile:** `TURNSTILE_SITE_KEY` (a server prop, no `NEXT_PUBLIC_`) and
     `TURNSTILE_SECRET_KEY`. No keys: the form is closed. Cloudflare's always-pass test keys only
     with the opt-in `TURNSTILE_TEST_KEYS=1`, never on Vercel (local `pnpm dev`, e2e). A pass counts

@@ -34,10 +34,14 @@ Delete for spam (no email).
    timing, CTA with `isHttpUrl`, Tags, image URL), with a public wrapper that adds the Submitter
    fields, length limits, the simple repeat, and refuses Advanced rules.
 2. **Spam checks run in a fixed order, in one Server Action:** parse (pure; a field error costs
-   nothing) → honeypot (filled: show the thank-you page, write nothing) → per-IP and global rate
-   limit (`hitRateLimit`) → Turnstile `siteverify` on the server → image (sharp, Blob) → write →
-   emails after the response (`after()`). The domain module gets the checks as injected functions,
-   so Vitest runs it on PGlite with stubs.
+   nothing) → honeypot (filled: show the thank-you page, write nothing) → per-IP rate limits
+   (`hitRateLimit`; they protect the siteverify calls) → Turnstile `siteverify` on the server → the
+   rate limit of all Submissions → image (sharp, Blob) → write → emails after the response
+   (`after()`). **Changed by Q51 = A (review finding 1):** the limit of all Submissions first came
+   before Turnstile, so 21 sends with no token from 7 IPs used up the day and closed the form for
+   real Submitters. Now it counts only Turnstile passes; it still protects the Resend quota. The
+   domain module gets the checks as injected functions, so Vitest runs it on PGlite with stubs (and
+   with the real rate limit).
 3. **Review queue** at `/admin/review`: pending Events of both Calendars, oldest first, with a
    Calendar column and filter, and a link with the count in the admin nav. Each row opens the
    existing `/admin/events/[id]` page, which shows a Review panel for a pending Event: Submitter

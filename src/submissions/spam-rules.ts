@@ -26,7 +26,8 @@ export const SUBMISSION_IP_RULES: RateLimitRule[] = [
 
 /**
  * All Submissions together: 20 a day. Each one sends an email to the Editors, and the magic-link
- * login uses the same Resend quota, so a flood must never use it up.
+ * login uses the same Resend quota, so a flood must never use it up. Counted only after a Turnstile
+ * pass (Q51 = A), so bots with no pass cannot close the form for real Submitters.
  */
 export const SUBMISSION_GLOBAL_RULE: RateLimitRule = { bucket: "submission-all-day", limit: 20, windowSeconds: DAY };
 export const GLOBAL_KEY = "all";

@@ -3,6 +3,7 @@ import { addTag, eventRow, historyOf, rowCounts, tagIdsOfEvent } from "@/admin/e
 import { loadSnapshot } from "@/agenda/snapshot";
 import { findOccurrence } from "@/agenda/find-occurrence";
 import { createTestDb } from "@/db/test-db";
+import { hitRateLimit } from "@/rate-limit";
 import type { Db } from "@/db/types";
 import type { RateLimitRule } from "./spam-rules";
 import { limitedMessage, MESSAGES, type SubmitDeps, submitEvent, type SubmitInput } from "./submit-event";
@@ -103,13 +104,78 @@ describe("submitEvent", () => {
     expect((await findOccurrence(db, result.event.id, "2026-10-13T1800", { today: TODAY })).kind).toBe("missing");
   });
 
-  it("counts per IP (an hour, a day), then all Submissions, in that order", async () => {
+  it("counts per IP (an hour, a day) before Turnstile, and all Submissions only after a Turnstile pass", async () => {
+    const order: string[] = [];
+    deps.hitRateLimit.mockImplementation(async (rule: RateLimitRule, key: string) => {
+      hits.push([rule, key]);
+      order.push(rule.bucket);
+      return { allowed: true, retryAfterSeconds: 0 };
+    });
+    deps.verifyTurnstile.mockImplementation(async () => (order.push("turnstile"), "passed"));
     await submitEvent(db, input(), deps);
     expect(hits.map(([rule, key]) => [rule.bucket, rule.limit, rule.windowSeconds, key])).toEqual([
       ["submission-ip-hour", 3, 3600, "203.0.113.9"],
       ["submission-ip-day", 10, 86400, "203.0.113.9"],
       ["submission-all-day", 20, 86400, "all"],
     ]);
+    expect(order).toEqual(["submission-ip-hour", "submission-ip-day", "turnstile", "submission-all-day"]);
+  });
+
+  it("a failed Turnstile check does not count against all Submissions", async () => {
+    deps.verifyTurnstile.mockResolvedValue("refused");
+    await submitEvent(db, input(), deps);
+    expect(hits.map(([rule]) => rule.bucket)).toEqual(["submission-ip-hour", "submission-ip-day"]);
+  });
+
+  describe("with the real Postgres rate limit", () => {
+    const realLimit = () => (rule: RateLimitRule, key: string) => hitRateLimit(db, rule, key);
+
+    it("21 sends with no valid token from 7 IPs do not lock out a real Submitter", async () => {
+      deps.hitRateLimit.mockImplementation(realLimit());
+      deps.verifyTurnstile.mockImplementation(async (token: string) => (token === "valid" ? "passed" : "refused"));
+      for (let i = 0; i < 21; i++) {
+        const bot = await submitEvent(db, input({ ip: `198.51.100.${(i % 7) + 1}`, turnstileToken: "" }), deps);
+        expect(bot).toMatchObject({ ok: false, reason: "turnstile" });
+      }
+      const real = await submitEvent(db, input({ ip: "203.0.113.50", turnstileToken: "valid" }), deps);
+      expect(real.ok && real.event).toBeTruthy();
+      expect((await rowCounts(db)).events).toBe(1);
+    });
+
+    it("20 Turnstile passes in one day are saved; the 21st is refused with Too many Submissions", async () => {
+      deps.hitRateLimit.mockImplementation(realLimit());
+      for (let i = 0; i < 20; i++) {
+        const ok = await submitEvent(db, input({ ip: `192.0.2.${i + 1}` }), deps);
+        expect(ok.ok && ok.event).toBeTruthy();
+      }
+      const refused = await submitEvent(db, input({ ip: "192.0.2.100" }), deps);
+      expect(refused).toMatchObject({ ok: false, reason: "limited", message: expect.stringMatching(/^Too many Submissions/) });
+      expect((await rowCounts(db)).events).toBe(20);
+    });
+  });
+
+  it("a refused global limit writes nothing and runs no image work", async () => {
+    deps.hitRateLimit.mockImplementation(async (rule: RateLimitRule) => ({
+      allowed: rule.bucket !== "submission-all-day",
+      retryAfterSeconds: 3600,
+    }));
+    const result = await submitEvent(db, input({ image: new Uint8Array([1, 2, 3]) }), deps);
+    expect(result).toMatchObject({ ok: false, reason: "limited" });
+    expect(deps.verifyTurnstile).toHaveBeenCalledOnce();
+    expect(deps.storeImage).not.toHaveBeenCalled();
+    expect((await rowCounts(db)).events).toBe(0);
+  });
+
+  it("a global-limit check that throws refuses the Submission (fail closed) and runs no image work", async () => {
+    deps.hitRateLimit.mockImplementation(async (rule: RateLimitRule) => {
+      if (rule.bucket === "submission-all-day") throw Object.assign(new Error("db down"), { code: "57P01" });
+      return { allowed: true, retryAfterSeconds: 0 };
+    });
+    const result = await submitEvent(db, input({ image: new Uint8Array([1]) }), deps);
+    expect(result).toEqual({ ok: false, reason: "unavailable", message: MESSAGES.unavailable });
+    expect(deps.log).toHaveBeenCalledWith("[submissions] Rate limit check failed: Error code=57P01");
+    expect(deps.storeImage).not.toHaveBeenCalled();
+    expect((await rowCounts(db)).events).toBe(0);
   });
 
   it("a request with no IP uses the shared unknown key", async () => {
@@ -170,7 +236,7 @@ describe("submitEvent", () => {
     deps.verifyTurnstile.mockImplementation(async () => (order.push("turnstile"), "passed"));
     deps.storeImage.mockImplementation(async () => (order.push("image"), { ok: true, url: IMAGE_URL, width: 1, height: 1 }));
     const result = await submitEvent(db, input({ image: new Uint8Array([1, 2, 3]) }), deps);
-    expect(order).toEqual(["limit", "limit", "limit", "turnstile", "image"]);
+    expect(order).toEqual(["limit", "limit", "turnstile", "limit", "image"]);
     if (!result.ok || !result.event) throw new Error("not saved");
     expect((await eventRow(db, result.event.id)).imageUrl).toBe(IMAGE_URL);
   });

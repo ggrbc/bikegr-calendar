@@ -4,11 +4,13 @@
  *
  * 1. Parse (pure). A field error returns at once: it spends no Turnstile token and no rate limit.
  * 2. Honeypot. Filled: the caller shows the thank-you page; nothing is counted or written.
- * 3. Rate limits: per IP (an hour, a day), then all Submissions (a day). A check that throws refuses
- *    the Submission (fail closed).
+ * 3. Rate limits per IP (an hour, a day). They protect the siteverify calls.
  * 4. Turnstile on the server.
- * 5. The image (sharp, Blob), only now: no image work for a request that failed a check.
- * 6. One transaction: the Event (`pending`, no `created_by`, the Submitter fields), its Tags, and a
+ * 5. The rate limit of all Submissions (a day), only for a Turnstile pass (Q51 = A): bots with no
+ *    pass must not close the form for real Submitters; the limit protects the Resend quota.
+ *    A rate-limit check that throws refuses the Submission (fail closed), in step 3 and here.
+ * 6. The image (sharp, Blob), only now: no image work for a request that failed a check.
+ * 7. One transaction: the Event (`pending`, no `created_by`, the Submitter fields), its Tags, and a
  *    `submit` history row with no Editor.
  *
  * The checks come in as functions, so the tests run this on PGlite with stubs.
@@ -90,14 +92,11 @@ function errorLine(error: unknown): string {
   return `${error.constructor.name}${code}`;
 }
 
+/** Hits each rule in order; the first refusal or error stops. A thrown check refuses (fail closed). */
 async function checkRateLimits(
   deps: SubmitDeps,
-  ip: string | null,
+  checks: [RateLimitRule, string][],
 ): Promise<{ ok: true } | { ok: false; result: SubmitResult }> {
-  const checks: [RateLimitRule, string][] = [
-    ...SUBMISSION_IP_RULES.map((rule): [RateLimitRule, string] => [rule, ip ?? UNKNOWN_IP_KEY]),
-    [SUBMISSION_GLOBAL_RULE, GLOBAL_KEY],
-  ];
   for (const [rule, key] of checks) {
     let hit: RateLimitResult;
     try {
@@ -130,12 +129,19 @@ export async function submitEvent(db: Db, input: SubmitInput, deps: SubmitDeps):
 
   if (input.honeypot.trim() !== "") return { ok: true, event: null };
 
-  const limits = await checkRateLimits(deps, input.ip);
-  if (!limits.ok) return limits.result;
+  // Per IP before Turnstile: they protect the siteverify calls.
+  const ipKey = input.ip ?? UNKNOWN_IP_KEY;
+  const perIp = await checkRateLimits(deps, SUBMISSION_IP_RULES.map((rule): [RateLimitRule, string] => [rule, ipKey]));
+  if (!perIp.ok) return perIp.result;
 
   const verdict = await deps.verifyTurnstile(input.turnstileToken, input.ip);
   if (verdict === "error") return { ok: false, reason: "unavailable", message: MESSAGES.unavailable };
   if (verdict === "refused") return { ok: false, reason: "turnstile", message: MESSAGES.turnstile };
+
+  // All Submissions together, only after a Turnstile pass (Q51 = A): bots with no pass must not use
+  // up the day's budget and close the form for real Submitters. It protects the Resend quota.
+  const global = await checkRateLimits(deps, [[SUBMISSION_GLOBAL_RULE, GLOBAL_KEY]]);
+  if (!global.ok) return global.result;
 
   let draft = parsed.value.event;
   if (input.image && deps.storeImage) {
