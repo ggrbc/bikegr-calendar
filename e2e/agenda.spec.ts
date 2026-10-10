@@ -2,7 +2,8 @@ import { expect, test } from "@playwright/test";
 import { todayInDetroit } from "@/agenda/dates";
 import { fixtureDates, IDS, segment } from "./fixture";
 
-const dates = fixtureDates(todayInDetroit(new Date()));
+const today = todayInDetroit(new Date());
+const dates = fixtureDates(today);
 
 test("agenda for Rides shows days, and a Day filter changes the list and the URL", async ({ page }) => {
   await page.goto("/rides");
@@ -27,6 +28,81 @@ test("no Calendar switcher on the public pages; the routes stay", async ({ page 
     expect(response?.status()).toBe(200);
     await expect(page.getByRole("navigation", { name: "Calendars" })).toHaveCount(0);
   }
+});
+
+test("typing a date with the keyboard navigates once, with the right from", async ({ page }) => {
+  await page.goto("/rides");
+  const year = Number(today.slice(0, 4));
+  const target = `${year}-11-20` > today ? `${year}-11-20` : `${year + 1}-11-20`;
+  const navigations: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (request.headers()["rsc"] === "1" && url.pathname === "/rides" && url.searchParams.has("from")) {
+      navigations.push(url.search);
+    }
+  });
+  await page.getByText("Filter", { exact: true }).click();
+  const from = page.getByLabel("From");
+  // focus() puts the caret on the first part (the month), as Tab does for a rider.
+  await from.focus();
+  await page.keyboard.type(`${target.slice(5, 7)}${target.slice(8, 10)}${target.slice(0, 4)}`);
+  await expect(page).toHaveURL(new RegExp(`from=${target}`));
+  await page.waitForTimeout(500);
+  expect(navigations).toHaveLength(1);
+  await expect(from).toHaveValue(target);
+});
+
+test("Back keeps the day boxes in step with the URL", async ({ page }) => {
+  await page.goto("/rides");
+  await page.getByText("Filter", { exact: true }).click();
+  const tue = page.getByRole("checkbox", { name: "Tue", exact: true });
+  const thu = page.getByRole("checkbox", { name: "Thu", exact: true });
+  await tue.check();
+  await expect(page).toHaveURL(/\?day=tue$/);
+  await thu.check();
+  await expect(page).toHaveURL(/\?day=tue,thu$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\?day=tue$/);
+  await expect(tue).toBeChecked();
+  await expect(thu).not.toBeChecked();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/rides$/);
+  await expect(tue).not.toBeChecked();
+  await expect(thu).not.toBeChecked();
+});
+
+test("the list is marked busy while a filter click loads", async ({ page }) => {
+  await page.goto("/rides");
+  await page.route("**/rides?*", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    await route.continue();
+  });
+  await page.getByText("Filter", { exact: true }).click();
+  await page.getByRole("checkbox", { name: "Thu", exact: true }).check();
+  await expect(page.locator("#agenda-results")).toHaveAttribute("aria-busy", "true");
+  await expect(page).toHaveURL(/\?day=thu$/);
+  await expect(page.locator("#agenda-results")).not.toHaveAttribute("aria-busy", "true");
+});
+
+test("Escape closes the phone menu and puts the focus back on its button", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/rides");
+  const menu = page.locator("#site-menu");
+  await menu.locator("summary").click();
+  await expect(menu).toHaveAttribute("open", "");
+  await page.keyboard.press("Escape");
+  await expect(menu).not.toHaveAttribute("open", "");
+  await expect(menu.locator("summary")).toBeFocused();
+});
+
+test("the search box placeholder and border meet AA contrast", async ({ page }) => {
+  await page.goto("/rides");
+  const search = page.getByRole("searchbox", { name: "Search" });
+  const style = await search.evaluate((el) => {
+    const s = getComputedStyle(el);
+    return { border: s.borderTopColor, width: s.borderTopWidth };
+  });
+  expect(style).toEqual({ border: "rgb(133, 132, 134)", width: "1px" });
 });
 
 test("the search applies on Enter, and Clear removes every filter", async ({ page }) => {

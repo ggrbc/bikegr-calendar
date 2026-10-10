@@ -8,6 +8,7 @@ import { calendarPath } from "@/agenda/site";
 import type { CalendarSlug } from "@/engine";
 import { feedPath, webcalUrl } from "@/feeds/feed";
 import { ResizeReporter } from "../embed/_components/resize-reporter";
+import { RESULTS_ID } from "./auto-apply";
 import { CanonicalQuery } from "./canonical-query";
 import { FilterForm } from "./filter-form";
 import { OccurrenceCard } from "./occurrence-card";
@@ -68,6 +69,7 @@ export async function AgendaList({
         {eventsFromHeading(filters.from)}
       </Heading>
 
+      <div id={RESULTS_ID} className="transition-opacity aria-busy:opacity-50">
       {entries.length === 0 ? (
         <p className="py-6 font-light text-brand-gray">
           No events match. Change the filters or the dates.
@@ -85,6 +87,7 @@ export async function AgendaList({
           ))}
         </ol>
       )}
+      </div>
 
       <p className="mt-10 text-[15px] font-light text-brand-gray">
         <a href={webcalUrl(feed)} className="font-normal text-brand-green-text underline underline-offset-4" {...external}>

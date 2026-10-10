@@ -2,6 +2,7 @@ import { type AgendaFilters, defaultTo, WEEKDAYS, type Weekday } from "@/agenda/
 import { CALENDAR_NAMES } from "@/agenda/site";
 import type { CalendarTag } from "@/agenda/snapshot";
 import type { CalendarSlug, LocalDate } from "@/engine";
+import { serializeFilters } from "@/agenda/filters";
 import { AutoApply } from "./auto-apply";
 
 const DAY_LABELS: Record<Weekday, string> = {
@@ -16,8 +17,10 @@ const DAY_LABELS: Record<Weekday, string> = {
 
 const FORM_ID = "agenda-filters";
 
+// The border #858486 has 3.33:1 on the page gray (WCAG 1.4.11); the placeholder (the only visible
+// label of the search box) is the gray at 80%, 5.63:1 on white.
 const input =
-  "rounded-[300px] border-0 bg-white px-4 py-2 text-[15px] font-light text-brand-gray placeholder:text-brand-gray/60";
+  "rounded-[300px] border border-[#858486] bg-white px-4 py-2 text-[15px] font-light text-brand-gray placeholder:text-brand-gray/80";
 
 /** bikegr.org buttons: Chivo, white text on orange, pill. The background is the AA variant. */
 export const pillButton =
@@ -61,7 +64,7 @@ export function FilterForm({
       aria-label="Filter events"
       className="mb-8 text-[15px] text-brand-gray"
     >
-      <AutoApply formId={FORM_ID} action={action} today={today} />
+      <AutoApply formId={FORM_ID} action={action} today={today} query={serializeFilters(filters, today)} />
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex min-w-0 flex-1 basis-56">
           <span className="sr-only">Search</span>
