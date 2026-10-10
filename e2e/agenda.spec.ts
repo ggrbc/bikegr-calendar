@@ -185,6 +185,12 @@ test("detail page shows the Occurrence and has JSON-LD", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1, name: "E2E Tuesday Ride" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Register" })).toHaveAttribute("href", "https://example.org/register");
   await expect(page.getByRole("link", { name: "Google Calendar" })).toBeVisible();
+  const note = page.getByText("Plans can change! Please check with the organizers on the day of the event");
+  await expect(note).toBeVisible();
+  // The note comes after the details and before "Add to calendar".
+  const noteTop = (await note.boundingBox())?.y ?? Infinity;
+  const addTop = (await page.getByRole("heading", { name: "Add to calendar" }).boundingBox())?.y ?? -Infinity;
+  expect(noteTop).toBeLessThan(addTop);
   const jsonLd = JSON.parse((await page.locator('script[type="application/ld+json"]').textContent()) ?? "{}");
   expect(jsonLd).toMatchObject({
     "@type": "Event",

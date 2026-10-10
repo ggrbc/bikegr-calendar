@@ -158,6 +158,12 @@ export default async function OccurrencePage({ params }: PageProps<"/events/[eve
                 ))}
               </div>
 
+              <p className="mt-8 border-l-4 border-brand-green pl-4 text-[15.84px] font-light leading-[1.92]">
+                <strong className="font-semibold">Note:</strong> Plans can change! Please check with the
+                organizers on the day of the event in case there are any updates, weather issues, or
+                last-minute changes.
+              </p>
+
               <section aria-labelledby="add-to-calendar" className="mt-10">
                 <h2 id="add-to-calendar" className="mb-3 font-chivo text-[22px] font-normal">
                   Add to calendar
