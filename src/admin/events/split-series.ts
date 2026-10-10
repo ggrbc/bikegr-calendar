@@ -16,6 +16,7 @@ import {
   claimVersion,
   invalid,
   readForWrite,
+  refusePending,
   runWrite,
   setEventTags,
   tagsAfterSave,
@@ -86,6 +87,7 @@ export async function splitSeries(
 ): Promise<WriteResult<SplitOutcome>> {
   return runWrite(db, async (tx) => {
     const row = await readForWrite(tx, target.id, target.version);
+    refusePending(row);
     const overrideRows = await tx.select().from(overrides).where(eq(overrides.eventId, row.id));
     const { timing } = eventRowToRuleInput(row);
     const plan = planSplit(
