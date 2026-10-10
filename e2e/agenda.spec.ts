@@ -21,14 +21,12 @@ test("agenda for Rides shows days, and a Day filter changes the list and the URL
   await expect(page.getByRole("link", { name: "E2E Tuesday Ride" })).toHaveCount(0);
 });
 
-test("Calendar switcher keeps the Day filter and drops a Tag that the target does not have", async ({ page }) => {
-  await page.goto("/rides?day=thu&tag=non-drop");
-  const nav = page.getByRole("navigation", { name: "Calendars" });
-  await expect(nav.getByRole("link", { name: "Rides & Events" })).toHaveAttribute("aria-current", "page");
-  await expect(nav.getByRole("link", { name: "Advocacy" })).toHaveAttribute("href", "/advocacy?day=thu");
-  await expect(nav.getByRole("link", { name: "All" })).toHaveAttribute("href", "/?tag=non-drop&day=thu");
-  await nav.getByRole("link", { name: "Advocacy" }).click();
-  await expect(page).toHaveURL(/\/advocacy\?day=thu$/);
+test("no Calendar switcher on the public pages; the routes stay", async ({ page }) => {
+  for (const path of ["/rides", "/advocacy", "/"]) {
+    const response = await page.goto(path);
+    expect(response?.status()).toBe(200);
+    await expect(page.getByRole("navigation", { name: "Calendars" })).toHaveCount(0);
+  }
 });
 
 test("a far-future from is clamped: the page renders, with no error", async ({ page }) => {

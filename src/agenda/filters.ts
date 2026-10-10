@@ -9,7 +9,6 @@
  */
 import {
   addDays,
-  type CalendarSlug,
   checkLocalDate,
   dayOfWeek,
   type LocalDate,
@@ -17,7 +16,6 @@ import {
   type Timing,
 } from "@/engine";
 import type { AgendaRow } from "./occurrence-rows";
-import type { CalendarTag } from "./snapshot";
 
 export const WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
@@ -197,19 +195,4 @@ export function matchesFilters(row: AgendaRow, filters: AgendaFilters): boolean 
     matchesContent(row, filters) &&
     matchesDaysOf(row.timing, filters.days)
   );
-}
-
-/**
- * The filters to keep when the rider switches to `target` (null = All): day, text, and dates stay;
- * a Tag slug stays only if the target has an active Tag with that slug.
- */
-export function switcherFilters(
-  filters: AgendaFilters,
-  target: CalendarSlug | null,
-  activeTags: readonly CalendarTag[],
-): AgendaFilters {
-  const slugs = new Set(
-    activeTags.filter((tag) => target === null || tag.calendar === target).map((tag) => tag.slug),
-  );
-  return { ...filters, tags: filters.tags.filter((slug) => slugs.has(slug)) };
 }

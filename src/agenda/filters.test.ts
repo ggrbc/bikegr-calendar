@@ -7,7 +7,6 @@ import {
   matchesFilters,
   parseFilters,
   serializeFilters,
-  switcherFilters,
 } from "./filters";
 import { allDay, row, timed } from "./test-fixtures";
 
@@ -194,22 +193,5 @@ describe("matchesFilters", () => {
   it("knows when Tag, Day, or text filters are set", () => {
     expect(hasContentFilters(parse("from=2026-11-01"))).toBe(false);
     expect(hasContentFilters(parse("day=tue"))).toBe(true);
-  });
-});
-
-describe("switcherFilters", () => {
-  it("keeps day, search, and dates, and keeps only the Tags that the target Calendar has", () => {
-    const filters = parse("tag=non-drop,meeting&day=tue&q=park&from=2026-11-01");
-    const target = [{ calendar: "advocacy" as const, name: "Meeting", slug: "meeting" }];
-    expect(switcherFilters(filters, "advocacy", target)).toEqual({ ...filters, tags: ["meeting"] });
-  });
-
-  it("switcher to All keeps every Tag that either Calendar has", () => {
-    const filters = parse("tag=non-drop,meeting,gone");
-    const all = [
-      { calendar: "rides" as const, name: "Non-Drop", slug: "non-drop" },
-      { calendar: "advocacy" as const, name: "Meeting", slug: "meeting" },
-    ];
-    expect(switcherFilters(filters, null, all).tags).toEqual(["meeting", "non-drop"]);
   });
 });

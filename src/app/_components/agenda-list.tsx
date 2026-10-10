@@ -8,7 +8,6 @@ import { calendarPath } from "@/agenda/site";
 import type { CalendarSlug } from "@/engine";
 import { feedPath, webcalUrl } from "@/feeds/feed";
 import { ResizeReporter } from "../embed/_components/resize-reporter";
-import { CalendarSwitcher } from "./calendar-switcher";
 import { CanonicalQuery } from "./canonical-query";
 import { FilterForm } from "./filter-form";
 import { OccurrenceCard } from "./occurrence-card";
@@ -63,7 +62,6 @@ export async function AgendaList({
     <>
       <CanonicalQuery query={query} />
       {embed && <ResizeReporter search={query} />}
-      {!embed && <CalendarSwitcher current={calendar} filters={filters} allTags={tags} today={today} />}
       <FilterForm action={path} calendar={calendar} filters={filters} tags={calendarTags} today={today} />
 
       <Heading className="mb-2 font-chivo text-2xl text-brand-gray sm:text-[34px] sm:leading-tight">
