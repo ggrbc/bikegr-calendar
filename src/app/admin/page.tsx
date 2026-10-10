@@ -12,6 +12,7 @@ import { getDb } from "@/db";
 import { addDays } from "@/engine";
 import { listReviewQueue } from "@/submissions/queue";
 import {
+  Badge,
   buttonClass,
   Card,
   EmptyState,
@@ -134,6 +135,12 @@ async function AdminHome() {
                   <Link href={`/admin/events/${change.eventId}`} className={linkClass}>
                     {change.title}
                   </Link>
+                  {change.deleted && (
+                    <>
+                      {" "}
+                      <Badge tone="deleted">Deleted</Badge>
+                    </>
+                  )}
                   {" — "}
                   {change.what} <span className={mutedClass}>({change.who})</span>
                 </span>

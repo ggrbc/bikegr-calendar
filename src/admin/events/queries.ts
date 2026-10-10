@@ -153,6 +153,8 @@ export interface RecentChange extends HistoryEntry {
   eventId: string;
   /** The Event's title now. */
   title: string;
+  /** True when the Event is deleted now (the dashboard shows a badge). */
+  deleted: boolean;
 }
 
 /**
@@ -170,6 +172,7 @@ export async function listRecentChanges(db: Db, limit: number): Promise<RecentCh
       action: eventHistory.action,
       detail: sql<HistoryDetail | null>`${eventHistory.snapshot} -> 'detail'`,
       title: events.title,
+      deletedAt: events.deletedAt,
       name: editors.name,
       email: editors.email,
     })
@@ -182,6 +185,7 @@ export async function listRecentChanges(db: Db, limit: number): Promise<RecentCh
     id: r.id,
     eventId: r.eventId,
     title: r.title,
+    deleted: r.deletedAt !== null,
     changedAt: r.changedAt,
     who: r.name ?? r.email ?? (r.action === "submit" ? "Submitter" : "Import"),
     what: historyActionLabel(r.action, r.detail ?? {}),

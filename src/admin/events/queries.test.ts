@@ -113,5 +113,16 @@ describe("admin reads", () => {
       [ride, "Tuesday Ride", "Erin Editor", "Changed one date (Tue, Oct 13)"],
       [meeting, "Commission Meeting", "Erin Editor", "Created"],
     ]);
+    expect(recent.map((r) => r.deleted)).toEqual([false, false]);
+  });
+
+  it("recent changes mark a deleted Event", async () => {
+    const gone = await add({ title: "Duplicate Ride" });
+    await deleteEvent(db, erin, { id: gone, version: 1 });
+    const recent = await listRecentChanges(db, 5);
+    expect(recent.map((r) => [r.title, r.what, r.deleted])).toEqual([
+      ["Duplicate Ride", "Deleted", true],
+      ["Duplicate Ride", "Created", true],
+    ]);
   });
 });
