@@ -212,7 +212,8 @@ A type test also checks that the `calendar` enum values equal `CalendarSlug` and
   a refusal returns the verify-request path, not `false` (no token, no email). At the link click,
   a refusal stays `false` (AccessDenied), because the person has proved the address. The server log
   records the refusal. Deferred: a rate limit on link requests (with the Submissions rate-limit
-  table), and the timing difference between refused and sent (accepted risk).
+  table) — done in [magic-link-rate-limit.md](magic-link-rate-limit.md); and the timing difference
+  between refused and sent (accepted risk).
 - **Every request** reads the session in the Data Access Layer (`src/auth/dal.ts`, `server-only`):
   `requireEditor()` loads the session and the Editor, checks `deactivated_at` again, and redirects to
   `/login` if any check fails. `requireAdmin()` also checks `role = 'admin'`. Every server action

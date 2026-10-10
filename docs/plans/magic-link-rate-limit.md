@@ -204,7 +204,7 @@ Test first (Vitest), small commits. Run with `--hookTimeout=120000 --testTimeout
   and no log line has the email or the IP"; "a link click is not counted"; "a request with no IP
   header uses only the email limit". The existing five cases still pass.
 - **Concurrency on a real server (optional):** PGlite runs one query at a time, so it proves the
-  logic, not the row lock. One extra test runs the 25-hit case on Docker Postgres with 10
+  logic, not the row lock. One extra test runs 50 hits (limit 10) and 20 pairs of first hits on Docker Postgres with 10
   connections. It runs only when `TEST_DATABASE_URL` is set and its host is `localhost` or
   `127.0.0.1`; else it is skipped. It never reads `DATABASE_URL`, so it cannot reach Neon.
 - `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build` with no `DATABASE_URL` and no
