@@ -2,7 +2,8 @@
 
 import { statusLabel } from "@/admin/events/format";
 import type { PreviewResult } from "@/admin/events/preview";
-import { shortSlot, timeText } from "@/agenda/dates";
+import { shortDate, timeText } from "@/agenda/dates";
+import { timingStart } from "@/engine";
 
 /** The next dates of the Event, from the Occurrence engine. */
 export function OccurrencePreview({ title, result }: { title: string; result: PreviewResult }) {
@@ -19,7 +20,7 @@ export function OccurrencePreview({ title, result }: { title: string; result: Pr
             const label = statusLabel(o.scheduleStatus);
             return (
               <li key={o.originalStart}>
-                {shortSlot(o.timing)}, {timeText(o.timing)}
+                {shortDate(timingStart(o.timing).slice(0, 10))}, {o.originalStart.slice(0, 4)} · {timeText(o.timing)}
                 {label && <span className="ml-2 rounded bg-gray-200 px-1 text-sm">{label}</span>}
               </li>
             );

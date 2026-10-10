@@ -13,11 +13,11 @@ import { nextOccurrences } from "@/admin/events/preview";
 import { type EventForEdit, loadEventForEdit, loadHistory } from "@/admin/events/queries";
 // Stand-in until the `admin-people-tags-images` stream merges: then `@/admin/tags/tags`.
 import { listPickerTags } from "@/admin/events/seams";
-import { shortDate, shortSlot, timeText, todayInDetroit } from "@/agenda/dates";
+import { shortDate, timeText, todayInDetroit } from "@/agenda/dates";
 import { requireEditor } from "@/auth/dal";
 import { getDb } from "@/db";
 import { eventRowToRuleInput } from "@/db/mappers";
-import { addDays, isLocalDate } from "@/engine";
+import { addDays, isLocalDate, timingStart } from "@/engine";
 import { DeleteRestore } from "../_components/delete-restore";
 import { EventForm } from "../_components/event-form";
 import { SeriesEditor } from "../_components/series-editor";
@@ -61,7 +61,7 @@ function DateList({ event, from }: { event: EventForEdit; from: string }) {
             return (
               <li key={o.originalStart} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <span>
-                  {shortSlot(o.timing)}, {o.originalStart.slice(0, 4)} · {timeText(o.timing)}
+                  {shortDate(timingStart(o.timing).slice(0, 10))}, {timingStart(o.timing).slice(0, 4)} · {timeText(o.timing)}
                   {o.title && <span className="ml-2 italic">“{o.title}”</span>}
                   {badge && <span className="ml-2 rounded bg-gray-200 px-1 text-sm">{badge}</span>}
                   {changed.has(o.originalStart) && <span className="ml-2 text-sm text-gray-700">(changed)</span>}

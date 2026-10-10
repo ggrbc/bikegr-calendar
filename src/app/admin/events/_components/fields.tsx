@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { cloneElement, type ReactElement, useId } from "react";
 import type { ContentValues, FieldErrors } from "@/admin/events/event-input";
 import { CALENDAR_LABELS } from "@/admin/events/format";
 import type { PickerTag } from "@/admin/events/seams";
@@ -18,6 +18,10 @@ export function FieldError({ id, message }: { id: string; message?: string }) {
   );
 }
 
+/**
+ * A label, an optional hint, one input, and its error. The input gets a unique id: the router keeps
+ * an earlier page in the DOM (hidden), so a fixed id could point the label at the wrong input.
+ */
 export function Field({
   id,
   label,
@@ -29,16 +33,22 @@ export function Field({
   label: string;
   error?: string;
   hint?: string;
-  children: ReactNode;
+  children: ReactElement<{ id?: string; "aria-describedby"?: string; "aria-invalid"?: boolean }>;
 }) {
+  const inputId = `${id}-${useId()}`;
+  const errorId = `${inputId}-error`;
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="font-medium">
+      <label htmlFor={inputId} className="font-medium">
         {label}
       </label>
       {hint && <p className="text-sm text-gray-700">{hint}</p>}
-      {children}
-      <FieldError id={`${id}-error`} message={error} />
+      {cloneElement(children, {
+        id: inputId,
+        "aria-describedby": error ? errorId : undefined,
+        "aria-invalid": error ? true : undefined,
+      })}
+      <FieldError id={errorId} message={error} />
     </div>
   );
 }

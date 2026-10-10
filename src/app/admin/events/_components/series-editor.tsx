@@ -7,8 +7,8 @@ import { rruleFromChoice } from "@/admin/events/form-values";
 import { planSplit, type SplitPlan, type SplitSeries } from "@/admin/events/plan-split";
 import { nextOccurrences } from "@/admin/events/preview";
 import type { PickerTag } from "@/admin/events/seams";
-import { shortDate, shortSlot, timeText } from "@/agenda/dates";
-import { addDays, type CalendarSlug, isLocalDate, type OverrideInput } from "@/engine";
+import { shortDate, timeText } from "@/agenda/dates";
+import { addDays, type CalendarSlug, isLocalDate, type OverrideInput, type Timing, timingStart } from "@/engine";
 import { saveEventAction, type SaveState, splitSeriesAction } from "../actions";
 import { ContentFields, Field, inputClass } from "./fields";
 import { OccurrencePreview } from "./occurrence-preview";
@@ -187,6 +187,10 @@ function planFor(values: SplitFormValues, series: SplitSeries, overrides: Overri
   });
 }
 
+function firstDay(timing: Timing): string {
+  return shortDate(timingStart(timing).slice(0, 10));
+}
+
 function changesText(n: number): string {
   return `${n} change${n === 1 ? "" : "s"} to one date`;
 }
@@ -210,14 +214,16 @@ function PlanSummary({ plan }: { plan: SplitPlan }) {
         `Dates before ${shortDate(plan.splitDate)} stay as they are. The old Event ends on ${shortDate(addDays(plan.splitDate, -1))}.`,
       );
       lines.push(
-        `From ${shortSlot(plan.next.timing)}: ${timeText(plan.next.timing)}, ${describeRrule(plan.next.rrule)}. This is a new Event.`,
+        `From ${firstDay(plan.next.timing)}: ${timeText(plan.next.timing)}, ${describeRrule(plan.next.rrule)}. This is a new Event.`,
       );
     } else {
       lines.push(
-        `No date is before ${shortDate(plan.splitDate)}, so this Event changes. First date: ${shortSlot(plan.next.timing)}, ${timeText(plan.next.timing)}, ${describeRrule(plan.next.rrule)}.`,
+        `No date is before ${shortDate(plan.splitDate)}, so this Event changes. First date: ${firstDay(plan.next.timing)}, ${timeText(plan.next.timing)}, ${describeRrule(plan.next.rrule)}.`,
       );
     }
-    if (plan.moved.length > 0) lines.push(`${changesText(plan.moved.length)} move to the new time.`);
+    if (plan.moved.length > 0) {
+      lines.push(`${changesText(plan.moved.length)} ${plan.moved.length === 1 ? "moves" : "move"} to the new time.`);
+    }
   }
   return (
     <div role="status" className="rounded border border-blue-700 bg-blue-50 p-3">

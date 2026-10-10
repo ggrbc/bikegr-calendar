@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import type { OverrideFormValues } from "@/admin/events/event-input";
 import { loadEventForEdit } from "@/admin/events/queries";
-import { shortDate, shortSlot, timeText } from "@/agenda/dates";
+import { shortDate, timeText } from "@/agenda/dates";
 import { requireEditor } from "@/auth/dal";
 import { getDb } from "@/db";
 import { eventRowToRuleInput } from "@/db/mappers";
@@ -93,7 +93,7 @@ async function OccurrencePage({ params, searchParams }: { params: Promise<{ id: 
     <>
       {back}
       <h1 className="mb-1 text-2xl font-semibold">
-        One date: {shortSlot(occurrence.originalTiming)}, {start.slice(0, 4)}
+        One date: {shortDate(day)}, {start.slice(0, 4)}
       </h1>
       <p className="mb-4 text-gray-800">
         Series time: {timeText(occurrence.originalTiming)}. This change is for this date only.
