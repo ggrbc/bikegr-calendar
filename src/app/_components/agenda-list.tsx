@@ -89,15 +89,18 @@ export async function AgendaList({
       )}
       </div>
 
-      <p className="mt-10 text-[15px] font-light text-brand-gray">
-        <a href={webcalUrl(feed)} className="font-normal text-brand-green-text underline underline-offset-4" {...external}>
-          Subscribe in your calendar app
-        </a>
-        {hasContentFilters(filters) ? " (with these filters)" : ""} · Feed URL:{" "}
-        <a href={feed} className="break-all text-brand-green-text underline underline-offset-4" {...external}>
-          {`calendar.bikegr.org${feed}`}
-        </a>
-      </p>
+      {/* The Feed line is for the site pages only; the Embed on bikegr.org leaves it out. */}
+      {!embed && (
+        <p className="mt-10 text-[15px] font-light text-brand-gray">
+          <a href={webcalUrl(feed)} className="font-normal text-brand-green-text underline underline-offset-4" {...external}>
+            Subscribe in your calendar app
+          </a>
+          {hasContentFilters(filters) ? " (with these filters)" : ""} · Feed URL:{" "}
+          <a href={feed} className="break-all text-brand-green-text underline underline-offset-4" {...external}>
+            {`calendar.bikegr.org${feed}`}
+          </a>
+        </p>
+      )}
     </>
   );
 }
