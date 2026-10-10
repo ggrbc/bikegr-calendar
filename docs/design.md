@@ -149,7 +149,11 @@ The admin offers three scopes when an Editor changes a Series. See
   - Between filters: AND (`?day=tue&tag=non-drop` = non-drop rides on Tuesday).
   - Within Tags: AND (both Tags must match).
   - Within days: OR (`?day=tue,thu` = Tuesday or Thursday).
-  - The Day filter uses the Occurrence's wall-clock date; a rescheduled Occurrence uses its new date.
+  - The Day filter matches every wall-clock date that an Occurrence covers (decided 2026-10-10): an
+    all-day Event from Friday to Sunday shows for Fri, Sat, and Sun. **06:00 rule:** a timed
+    Occurrence counts for a later day only if it still runs after 06:00 on that day, so a 6 pm to
+    1 am ride is a Tuesday ride only, and a ride to 7 am also counts for the next day. A rescheduled
+    Occurrence uses its new dates. The agenda still lists each Occurrence under its start date.
     The agenda also shows the short "Rescheduled to …" entry on the old date when the old date
     matches the Day filter, so a rider who looks for that weekday sees that it moved (decided
     2026-10-10). Feeds have no short entries.

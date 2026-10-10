@@ -158,6 +158,12 @@ describe("groupAgendaDays", () => {
     expect(kinds(["mon"])).toEqual([]);
   });
 
+  it("under a Day filter, a Fri–Sun Occurrence shows for sat, still under its start date", () => {
+    const weekend = row({ timing: { kind: "allDay", startDate: "2026-10-16", endDate: "2026-10-18" } });
+    expect(groupAgendaDays([weekend], WINDOW, ["sat"]).map((d) => d.date)).toEqual(["2026-10-16"]);
+    expect(groupAgendaDays([weekend], WINDOW, ["mon"])).toEqual([]);
+  });
+
   it("under a Day filter, an Occurrence that starts on another day is not listed", () => {
     const days = groupAgendaDays([row({ timing: timed("2026-10-14") })], WINDOW, ["tue"]);
     expect(days).toEqual([]);

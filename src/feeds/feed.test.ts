@@ -175,6 +175,21 @@ describe("Feed", () => {
     expect(new Set(thursday)).toEqual(new Set(["Thursday Ride"]));
   });
 
+  it("a Feed with day=sat includes a Fri–Sun all-day Event", () => {
+    const weekend: CalendarSnapshot = {
+      events: [snapshotEvent({ title: "Weekend Tour", timing: allDay("2026-10-16", "2026-10-18") })],
+      tags: [],
+    };
+    const text = buildFeed({
+      snapshot: weekend,
+      calendar: "rides",
+      filters: parseFilters(new URLSearchParams("day=sat"), TODAY),
+      today: TODAY,
+      now: NOW,
+    });
+    expect(vevents(text).map((e) => e.getFirstPropertyValue("summary"))).toEqual(["Weekend Tour"]);
+  });
+
   it("a retired Tag slug gives a valid, empty calendar", () => {
     const text = feed("tag=retired-tag");
     expect(vevents(text)).toHaveLength(0);

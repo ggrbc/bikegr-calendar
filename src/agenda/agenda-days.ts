@@ -11,7 +11,7 @@
  */
 import { type LocalDate, type QueryWindow, timingStart, touchesWindow } from "@/engine";
 import { dayHeading, shortSlot, timeText } from "./dates";
-import { matchesDays, type Weekday } from "./filters";
+import { matchesDaysOf, type Weekday } from "./filters";
 import type { AgendaRow } from "./load-occurrences";
 
 export interface AgendaEntry {
@@ -59,7 +59,7 @@ export function groupAgendaDays(
     // Only when the actual slot touches the window: a rescheduled Occurrence can be in the rows
     // because of its old slot alone. A multi-day Occurrence that started before the window and is
     // still running shows on the first day.
-    if (touchesWindow(row.timing, window) && matchesDays(dateOf(start), days)) {
+    if (touchesWindow(row.timing, window) && matchesDaysOf(row.timing, days)) {
       const date = dateOf(start) < window.from ? window.from : dateOf(start);
       placed.push({
         date,
@@ -71,7 +71,7 @@ export function groupAgendaDays(
     if (row.scheduleStatus === "rescheduled") {
       const originalStart = timingStart(row.originalTiming);
       const oldDate = dateOf(originalStart);
-      if (oldDate !== dateOf(start) && inWindow(oldDate) && matchesDays(oldDate, days)) {
+      if (oldDate !== dateOf(start) && inWindow(oldDate) && matchesDaysOf(row.originalTiming, days)) {
         placed.push({
           date: oldDate,
           sortKey: originalStart,
