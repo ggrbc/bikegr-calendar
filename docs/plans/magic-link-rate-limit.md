@@ -1,8 +1,24 @@
 # Plan — Magic-link rate limit
 
 Stream: `magic-link-rate-limit`. Terms follow [CONTEXT.md](../../CONTEXT.md). Branch
-`magic-link-rate-limit`, from `origin/main` (48889ed). Status: **waiting for Jeremy's "go"** and for
-the answers to the open decisions below.
+`magic-link-rate-limit`, from `origin/main` (48889ed). Approved by Jeremy ("go", Q49 = A),
+2026-10-10, with the decisions in "Decided" below.
+
+## Decided (Q49 = A)
+
+1. `magic-link-limits`: 5 per hour per email (active Editors only), 20 per hour per IP.
+2. `invite-and-ip-limit`: A, no exemption for Admin invites.
+3. `ipv6-prefix-key`: A, `clientIp` gives an IPv6 address as its /64 prefix.
+4. `rate-limit-secret`: A, a sub-key derived from `AUTH_SECRET`; no new env var.
+5. `migration-number-coordination`: A, this stream takes `0002`; Submissions takes `0003`.
+6. `docker-concurrency-test`: A, gated on a localhost `TEST_DATABASE_URL`; never reads
+   `DATABASE_URL`.
+7. **New — `magic-link-fail-open`:** if `hitRateLimit` throws in the login path (the table is
+   missing because the migration did not run yet, or a connection error), the sign-in request is
+   **allowed**. One log line with the error class and code only (no email, no IP, no message text).
+   So the deploy order does not matter, and the limiter can never lock out all Editors.
+   `hitRateLimit` itself stays strict (it throws); each caller decides. Submissions fails closed.
+   This replaces "fail closed" and the "Deploy order" warning below.
 
 ## Context
 
@@ -134,8 +150,8 @@ client can set the header; that is only local development.) See open decision `i
 - `/login` and its server action do not change: the action already returns "sent" for this redirect.
 - **The log line**, one per limited request, with no email and no IP:
   `[auth] Magic link not sent: rate limit (email).` or `… (ip).`
-- If the rate-limit query fails (database down), the callback throws, as `findEditorByEmail` does
-  today. No email is sent (fail closed).
+- If the rate-limit query fails, the request is allowed (fail open, decision 7) and one line logs the
+  error class and code.
 
 **Is a limit for non-Editor emails also needed? No per-email limit; yes per-IP.** I checked
 `send-token.js`: for a non-Editor, the callback returns before Auth.js creates a token, and
@@ -196,8 +212,9 @@ Test first (Vitest), small commits. Run with `--hookTimeout=120000 --testTimeout
 - **Manual, local only (Docker Postgres, console mailer):** request a link 6 times for a seeded Admin
   on `/login`: 5 links print, the 6th prints none, the page shows the same "sent" message each time,
   and the server log shows one rate-limit line with no email and no IP.
-- **Deploy order (Jeremy):** run `pnpm db:migrate` on production **before** this deploys. Without
-  the table, the callback throws, and no Editor can get a link.
+- **Fail open:** "with no `rate_limits` table, an Editor still gets the link, and the log line has
+  no email and no IP". Deploy order: run `pnpm db:migrate` on production when convenient; until
+  then, the limit is off and logs one line for each request.
 
 ## Items
 
