@@ -2,13 +2,14 @@
  * "This date and later" for a Series: a Series split (ADR 0001), a change in place when no date is
  * left before the split date, or a stop. One transaction. The plan comes from `planSplit`.
  */
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { eventRowToRuleInput, overrideRowToInput, ruleInputToColumns } from "@/db/mappers";
 import { events, type EventRow, overrides, type OverrideRow } from "@/db/schema";
 import type { Db } from "@/db/types";
 import { contentColumns } from "./create-event";
 import type { SplitDraft } from "./event-input";
-import { type MovedOverride, type NextSeries, planSplit } from "./plan-split";
+import { timingStart } from "@/engine";
+import { lastStartDate, type MovedOverride, type NextSeries, planSplit, type SplitBounds } from "./plan-split";
 import {
   type Actor,
   claimVersion,
@@ -48,8 +49,10 @@ async function insertMoved(
   actor: Actor,
 ): Promise<void> {
   const byStart = new Map(rows.map((r) => [r.originalStart, r]));
-  const values = moved.map(({ from, to }) => ({
+  const noTiming = { allDay: null, startLocal: null, endLocal: null, startDate: null, endDate: null };
+  const values = moved.map(({ from, to, dropTiming }) => ({
     ...byStart.get(from)!,
+    ...(dropTiming ? noTiming : {}),
     eventId,
     originalStart: to,
     updatedBy: actor.id,
@@ -63,6 +66,36 @@ async function deleteOverrides(tx: Tx, eventId: string, starts: string[]): Promi
   await tx
     .delete(overrides)
     .where(and(eq(overrides.eventId, eventId), inArray(overrides.originalStart, starts)));
+}
+
+/**
+ * The neighbors of an Event in a chain of splits: the last date of its predecessor and the first
+ * date of its successor (deleted Events do not count).
+ */
+export async function loadSplitBounds(
+  db: Pick<Db, "select">,
+  row: Pick<EventRow, "id" | "predecessorId">,
+): Promise<SplitBounds> {
+  const bounds: SplitBounds = {};
+  if (row.predecessorId) {
+    const [before] = await db
+      .select()
+      .from(events)
+      .where(and(eq(events.id, row.predecessorId), isNull(events.deletedAt)));
+    if (before) {
+      const rule = eventRowToRuleInput(before);
+      bounds.predecessorLastDate = rule.rrule
+        ? lastStartDate(rule.timing, rule.rrule)
+        : timingStart(rule.timing).slice(0, 10);
+    }
+  }
+  const after = await db
+    .select()
+    .from(events)
+    .where(and(eq(events.predecessorId, row.id), isNull(events.deletedAt)));
+  const firsts = after.map((e) => timingStart(eventRowToRuleInput(e).timing).slice(0, 10)).sort();
+  if (firsts.length > 0) bounds.successorFirstDate = firsts[0];
+  return bounds;
 }
 
 export async function splitSeries(
@@ -79,6 +112,7 @@ export async function splitSeries(
       { timing, rrule: row.rrule, exdates: row.exdates },
       overrideRows.map(overrideRowToInput),
       draft,
+      await loadSplitBounds(tx, row),
     );
     if (plan.kind === "refused") {
       throw invalid({ [plan.field ?? "splitDate"]: plan.message }, plan.message);

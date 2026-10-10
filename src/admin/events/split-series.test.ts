@@ -171,4 +171,85 @@ describe("Series split", () => {
     });
     expect(await rowCounts(db)).toMatchObject({ events: 1 });
   });
+
+  /** Dates (YYYY-MM-DD) that the agenda shows more than once. */
+  async function datesTwice(): Promise<string[]> {
+    const rows = await loadOccurrences(db, { from: "2026-10-01", to: "2027-01-01" }, "rides");
+    const dates = rows.map((r) => (r.timing.kind === "timed" ? r.timing.start.slice(0, 10) : r.timing.startDate));
+    return [...new Set(dates.filter((d, i) => dates.indexOf(d) !== i))];
+  }
+
+  it("an in-place change on a continued Event does not run over its predecessor", async () => {
+    const a = await newSeries();
+    const first = await splitSeries(db, sam, { id: a, version: 1 }, splitDraft("2026-11-03"));
+    if (!first.ok) throw new Error(first.message);
+    // The page goes to B; the split date defaults to today (before B's first date).
+    const second = await splitSeries(db, sam, { id: first.id, version: 1 }, splitDraft("2026-10-10", {
+      rule: { kind: "rrule", rrule: "FREQ=WEEKLY;BYDAY=TU" },
+    }));
+    expect(second).toMatchObject({ ok: true, kind: "in-place", id: first.id });
+    expect((await eventRow(db, first.id)).startLocal).toBe("2026-11-03T18:30");
+    expect(await datesTwice()).toEqual([]);
+  });
+
+  it("Split A again before its end: the same repeat keeps A's end; an open new repeat is refused", async () => {
+    const a = await newSeries();
+    const toB = await splitSeries(db, sam, { id: a, version: 1 }, splitDraft("2026-11-03"));
+    if (!toB.ok) throw new Error(toB.message);
+
+    const open = await splitSeries(db, sam, { id: a, version: 2 }, splitDraft("2026-10-20", {
+      rule: { kind: "rrule", rrule: "FREQ=WEEKLY;BYDAY=TU" },
+    }));
+    expect(open).toMatchObject({
+      ok: false,
+      reason: "invalid",
+      errors: { rule: "This would overlap the later part of this Series (from Tue, Nov 3). End it before Tue, Nov 3." },
+    });
+
+    const same = await splitSeries(db, sam, { id: a, version: 2 }, splitDraft("2026-10-20", {
+      time: { kind: "timed", startTime: "17:00", endTime: "19:00" },
+    }));
+    expect(same.ok).toBe(true);
+    if (!same.ok) return;
+    expect((await eventRow(db, same.id)).rrule).toBe("FREQ=WEEKLY;BYDAY=TU;UNTIL=20261027T235959");
+    expect(await datesTwice()).toEqual([]);
+  });
+
+  it("two Overrides on one date do not crash the split; the one the rule does not make is removed", async () => {
+    const id = await newSeries();
+    await db.insert(overrides).values([
+      { eventId: id, originalStart: "2026-11-10T18:00", title: "real", createdBy: erin.id },
+      { eventId: id, originalStart: "2026-11-10T17:00", title: "orphan", createdBy: erin.id },
+    ]);
+    const result = await splitSeries(db, sam, { id, version: 1 }, splitDraft("2026-11-03"));
+    expect(result).toMatchObject({ ok: true, kind: "split" });
+    if (!result.ok) return;
+    expect((await overridesOf(db, result.id)).map((o) => [o.originalStart, o.title])).toEqual([
+      ["2026-11-03T18:30", null],
+      ["2026-11-10T18:30", "real"],
+    ]);
+    expect((await historyOf(db, result.id))[0].snapshot).toMatchObject({
+      detail: { removedOverrides: ["2026-11-10T17:00"] },
+    });
+  });
+
+  it("a change to all day drops the moved time of an Override and keeps its other changes", async () => {
+    const id = await newSeries();
+    await db.insert(overrides).values([
+      { eventId: id, originalStart: "2026-11-10T18:00", allDay: false, startLocal: "2026-11-11T18:00", endLocal: "2026-11-11T20:00", createdBy: erin.id },
+      { eventId: id, originalStart: "2026-11-17T18:00", allDay: false, startLocal: "2026-11-18T18:00", endLocal: "2026-11-18T20:00", scheduleNote: "Moved", createdBy: erin.id },
+    ]);
+    const result = await splitSeries(db, sam, { id, version: 1 }, splitDraft("2026-11-03", { time: { kind: "allDay", days: 1 } }));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(await overridesOf(db, result.id)).toMatchObject([
+      { originalStart: "2026-11-03", allDay: null, scheduleNote: "Bring lights" },
+      { originalStart: "2026-11-17", allDay: null, startLocal: null, startDate: null, scheduleNote: "Moved" },
+    ]);
+    const rows = await loadOccurrences(db, { from: "2026-11-09", to: "2026-11-19" }, "rides");
+    expect(rows.map((r) => [r.originalStart, r.scheduleStatus])).toEqual([
+      ["2026-11-10", "scheduled"],
+      ["2026-11-17", "scheduled"],
+    ]);
+  });
 });

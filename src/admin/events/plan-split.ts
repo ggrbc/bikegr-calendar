@@ -6,6 +6,8 @@
 import { shortDate } from "@/agenda/dates";
 import {
   addDays,
+  addMinutes,
+  isRuleStart,
   type LocalDate,
   type OriginalStart,
   type OverrideInput,
@@ -37,6 +39,16 @@ export interface NextSeries extends RuleState {
 export interface MovedOverride {
   from: OriginalStart;
   to: OriginalStart;
+  /** The new Series has the other kind of time slot (timed or all day): the Override's own slot goes. */
+  dropTiming?: true;
+}
+
+/** The neighbors in a chain of splits, so a change cannot run over their dates. */
+export interface SplitBounds {
+  /** The last date of the Event this one continues (its predecessor). */
+  predecessorLastDate?: LocalDate | null;
+  /** The first date of the Event that continues this one (its successor). */
+  successorFirstDate?: LocalDate | null;
 }
 
 export type SplitPlan =
@@ -104,20 +116,57 @@ function anchorTiming(date: LocalDate, time: SplitDraft["time"]): Timing {
   return { kind: "timed", start: `${date}T${time.startTime}`, end: `${endDate}T${time.endTime}` };
 }
 
+/** The first rule start on or after `from` that is not skipped, or null. */
+function firstKeptStart(series: SplitSeries & { rrule: string }, from: OriginalStart): OriginalStart | null {
+  const skipped = new Set(series.exdates);
+  let start = firstStartOnOrAfter(series.timing, series.rrule, from);
+  // Each skipped start moves the search one minute (or one day) on.
+  while (start !== null && skipped.has(start)) {
+    const next = series.timing.kind === "timed" ? addMinutes(start, 1) : addDays(start, 1);
+    start = firstStartOnOrAfter(series.timing, series.rrule, next);
+  }
+  return start;
+}
+
+/** The date of the last start of a rule that ends (`UNTIL` or `COUNT`), within 10 years. */
+export function lastStartDate(timing: Timing, rrule: string): LocalDate | null {
+  const from = timingStart(timing);
+  const to = addDays(from.slice(0, 10), 3660);
+  const starts = ruleStartsBetween(timing, rrule, from, timing.kind === "timed" ? `${to}T00:00` : to);
+  return starts.length > 0 ? dateOf(starts[starts.length - 1]) : null;
+}
+
+/** True if the Override changes more than its time slot. */
+function hasMoreThanTiming(o: OverrideInput): boolean {
+  return (
+    o.title !== undefined ||
+    o.location !== undefined ||
+    o.scheduleStatus !== undefined ||
+    o.scheduleNote !== undefined
+  );
+}
+
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function planSplit(series: SplitSeries, overrides: OverrideInput[], input: SplitInput): SplitPlan {
+export function planSplit(
+  series: SplitSeries,
+  overrides: OverrideInput[],
+  input: SplitInput,
+  bounds: SplitBounds = {},
+): SplitPlan {
   const { rrule } = series;
   if (rrule === null) return { kind: "refused", message: "This Event does not repeat." };
+  const ruled = { ...series, rrule };
   const day = input.splitDate;
   const exdates = new Set(series.exdates);
 
   const rawBefore = startsBefore(series.timing, rrule, day);
   const before = rawBefore.filter((start) => !exdates.has(start));
   const dayStart = series.timing.kind === "timed" ? `${day}T00:00` : day;
-  const following = firstStartOnOrAfter(series.timing, rrule, dayStart);
+  // The first date of the new Series is never a skipped date.
+  const following = firstKeptStart(ruled, dayStart);
   if (following === null) {
     return {
       kind: "refused",
@@ -140,20 +189,30 @@ export function planSplit(series: SplitSeries, overrides: OverrideInput[], input
   }
 
   // The new rule and its first time slot.
+  const inPlace = before.length === 0;
   let nextRule: string;
   let anchor: LocalDate;
   if (input.rule.kind === "same") {
+    // The first old date on or after the split date, so an every-2-weeks Series keeps its weeks.
+    anchor = dateOf(following);
     const parts = withoutEnd(rrule);
     const until = endPart(rrule, "UNTIL");
     const count = endPart(rrule, "COUNT");
-    if (until !== undefined) parts.push(`UNTIL=${until}`);
-    if (count !== undefined) parts.push(`COUNT=${Number(count) - rawBefore.length}`);
+    if (until !== undefined) {
+      // The whole last old date, also when the new time is later than the old end time.
+      const last = lastStartDate(series.timing, rrule);
+      parts.push(last ? `UNTIL=${last.replace(/-/g, "")}T235959` : `UNTIL=${until}`);
+    }
+    if (count !== undefined) {
+      parts.push(`COUNT=${Number(count) - startsBefore(series.timing, rrule, anchor).length}`);
+    }
     nextRule = parts.join(";");
-    // The first old date on or after the split date, so an every-2-weeks Series keeps its weeks.
-    anchor = dateOf(following);
   } else {
     nextRule = input.rule.rrule;
-    anchor = day;
+    // In place, the Event keeps no date before its own first date (a continued Event must not
+    // run over its predecessor).
+    const ownFirst = dateOf(timingStart(series.timing));
+    anchor = inPlace && ownFirst > day ? ownFirst : day;
   }
   const anchored = anchorTiming(anchor, input.time);
   let first: OriginalStart | null;
@@ -171,18 +230,28 @@ export function planSplit(series: SplitSeries, overrides: OverrideInput[], input
   }
   const nextTiming = shiftTiming(anchored, first);
 
+  const overlap = checkBounds(nextTiming, nextRule, bounds);
+  if (overlap) return { kind: "refused", message: overlap, field: "rule" };
+
   // In place, every Override and skipped date is keyed again; in a split, those from the date on.
-  const inPlace = before.length === 0;
   const movingOverrides = inPlace ? overrides : laterOverrides;
   const movingExdates = inPlace ? series.exdates : series.exdates.filter((s) => dateOf(s) >= day);
   const newKey = (start: OriginalStart) => startsOn(nextTiming, nextRule, dateOf(start))[0];
+  const kindChanged = nextTiming.kind !== series.timing.kind;
 
   const moved: MovedOverride[] = [];
   const removedOverrides: OriginalStart[] = [];
+  const usedKeys = new Set<OriginalStart>();
   for (const o of [...movingOverrides].sort((a, b) => a.originalStart.localeCompare(b.originalStart))) {
-    const to = newKey(o.originalStart);
-    if (to === undefined) removedOverrides.push(o.originalStart);
-    else moved.push({ from: o.originalStart, to });
+    // Only an Override of a real old date moves; one key takes one Override.
+    const to = isRuleStart(series.timing, rrule, o.originalStart) ? newKey(o.originalStart) : undefined;
+    const dropTiming = kindChanged && o.timing !== undefined;
+    if (to === undefined || usedKeys.has(to) || (dropTiming && !hasMoreThanTiming(o))) {
+      removedOverrides.push(o.originalStart);
+      continue;
+    }
+    usedKeys.add(to);
+    moved.push(dropTiming ? { from: o.originalStart, to, dropTiming: true } : { from: o.originalStart, to });
   }
   const next: NextSeries = {
     timing: nextTiming,
@@ -190,6 +259,7 @@ export function planSplit(series: SplitSeries, overrides: OverrideInput[], input
     exdates: [...new Set(movingExdates.map(newKey).filter((s): s is string => s !== undefined))].sort(),
   };
 
+  removedOverrides.sort();
   if (inPlace) return { kind: "in-place", splitDate: day, next, moved, removedOverrides };
   return {
     kind: "split",
@@ -199,4 +269,20 @@ export function planSplit(series: SplitSeries, overrides: OverrideInput[], input
     moved,
     removedOverrides,
   };
+}
+
+/** A message if the new Series would run over a neighbor in the chain, else null. */
+function checkBounds(timing: Timing, rrule: string, bounds: SplitBounds): string | null {
+  const firstDate = dateOf(timingStart(timing));
+  const { predecessorLastDate: last, successorFirstDate: next } = bounds;
+  if (last && firstDate <= last) {
+    return `This would overlap the earlier part of this Series (to ${shortDate(last)}). Start it after ${shortDate(last)}.`;
+  }
+  if (next) {
+    const from = timing.kind === "timed" ? `${next}T00:00` : next;
+    if (firstStartOnOrAfter(timing, rrule, from) !== null) {
+      return `This would overlap the later part of this Series (from ${shortDate(next)}). End it before ${shortDate(next)}.`;
+    }
+  }
+  return null;
 }

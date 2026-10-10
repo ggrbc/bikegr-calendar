@@ -205,3 +205,108 @@ describe("Series split plan", () => {
     expect(planSplit(series({ rrule: null }), [], change("2026-10-06"))).toMatchObject({ kind: "refused" });
   });
 });
+
+describe("Series split plan: chains, kinds, and edge keys", () => {
+  // B continues A from Tue 2026-11-03; A's last date is Tue 2026-10-27.
+  const b = series({ timing: { kind: "timed", start: "2026-11-03T18:00", end: "2026-11-03T20:00" } });
+
+  it("an in-place change of a continued Event starts on or after its own first date", () => {
+    const plan = planSplit(
+      b,
+      [],
+      change("2026-10-10", { rule: { kind: "rrule", rrule: "FREQ=WEEKLY;BYDAY=TU" } }),
+      { predecessorLastDate: "2026-10-27" },
+    );
+    expect(plan).toMatchObject({ kind: "in-place", next: { timing: { start: "2026-11-03T18:30" } } });
+  });
+
+  it("a change that gives a date on or before the predecessor's last date is refused", () => {
+    const plan = planSplit(b, [], change("2026-10-10"), { predecessorLastDate: "2026-11-10" });
+    expect(plan).toEqual({
+      kind: "refused",
+      message:
+        "This would overlap the earlier part of this Series (to Tue, Nov 10). Start it after Tue, Nov 10.",
+      field: "rule",
+    });
+  });
+
+  it("a new repeat that runs into the successor is refused", () => {
+    const plan = planSplit(
+      series(),
+      [],
+      change("2026-10-20", { rule: { kind: "rrule", rrule: "FREQ=WEEKLY;BYDAY=TU" } }),
+      { successorFirstDate: "2026-11-03" },
+    );
+    expect(plan).toEqual({
+      kind: "refused",
+      message: "This would overlap the later part of this Series (from Tue, Nov 3). End it before Tue, Nov 3.",
+      field: "rule",
+    });
+  });
+
+  it("a new repeat that ends before the successor is accepted", () => {
+    const plan = planSplit(
+      series(),
+      [],
+      change("2026-10-20", { rule: { kind: "rrule", rrule: "FREQ=WEEKLY;BYDAY=TU;UNTIL=20261102T235959" } }),
+      { successorFirstDate: "2026-11-03" },
+    );
+    expect(plan.kind).toBe("split");
+  });
+
+  it("a time-kind change drops the Override's own time slot; an Override with only a time is removed", () => {
+    const moved = override("2026-11-10T18:00", {
+      timing: { kind: "timed", start: "2026-11-11T18:00", end: "2026-11-11T20:00" },
+      scheduleStatus: undefined,
+    });
+    const movedWithNote = override("2026-11-17T18:00", {
+      timing: { kind: "timed", start: "2026-11-18T18:00", end: "2026-11-18T20:00" },
+      scheduleStatus: undefined,
+      scheduleNote: "Moved",
+    });
+    const plan = planSplit(series(), [moved, movedWithNote], change("2026-11-03", { time: { kind: "allDay", days: 1 } }));
+    expect(plan.kind === "split" && [plan.moved, plan.removedOverrides]).toEqual([
+      [{ from: "2026-11-17T18:00", to: "2026-11-17", dropTiming: true }],
+      ["2026-11-10T18:00"],
+    ]);
+  });
+
+  it("Overrides that the old rule does not make are removed, not moved", () => {
+    const plan = planSplit(
+      series(),
+      [override("2026-11-10T18:00", { title: "real" }), override("2026-11-10T17:00", { title: "orphan" })],
+      change("2026-11-03"),
+    );
+    expect(plan.kind === "split" && [plan.moved, plan.removedOverrides]).toEqual([
+      [{ from: "2026-11-10T18:00", to: "2026-11-10T18:30" }],
+      ["2026-11-10T17:00"],
+    ]);
+  });
+
+  it("the kept end keeps the last old date when the new time is later than the old end time", () => {
+    const plan = planSplit(
+      series({ rrule: "FREQ=WEEKLY;BYDAY=TU;UNTIL=20261124T180000" }),
+      [],
+      change("2026-11-03"),
+    );
+    expect(plan.kind === "split" && plan.next.rrule).toBe("FREQ=WEEKLY;BYDAY=TU;UNTIL=20261124T235959");
+  });
+
+  it("the new Series does not start on a skipped date", () => {
+    const plan = planSplit(series({ exdates: ["2026-11-03T18:00"] }), [], change("2026-11-03"));
+    expect(plan.kind === "split" && plan.next.timing).toMatchObject({ start: "2026-11-10T18:30" });
+  });
+
+  it("a COUNT Series that starts after a skipped date counts from its new first date", () => {
+    // 6 dates: Oct 6 … Nov 10. Nov 3 is skipped. Split on Nov 3: Oct 6–27 (4) stay, Nov 10 is left.
+    const plan = planSplit(
+      series({ rrule: "FREQ=WEEKLY;BYDAY=TU;COUNT=6", exdates: ["2026-11-03T18:00"] }),
+      [],
+      change("2026-11-03"),
+    );
+    expect(plan.kind === "split" && [plan.next.timing, plan.next.rrule]).toEqual([
+      { kind: "timed", start: "2026-11-10T18:30", end: "2026-11-10T20:30" },
+      "FREQ=WEEKLY;BYDAY=TU;COUNT=1",
+    ]);
+  });
+});
