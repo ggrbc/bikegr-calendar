@@ -1,12 +1,12 @@
 /**
  * Event-image processing with `sharp`, on the server only. The decoded type decides, not the
- * browser's MIME type. Output: WebP, at most 1600 px wide, EXIF orientation applied, no metadata
+ * browser's MIME type. Output: WebP, at most 1600 px wide (and 16383 px high), EXIF orientation applied, no metadata
  * (no GPS). An animated GIF or WebP keeps its first frame only.
  */
 import sharp, { type Metadata } from "sharp";
 import { MAX_WIDTH } from "./limits";
 
-// A function instance must not keep image memory between requests.
+// A function process must not keep image memory between requests.
 sharp.cache(false);
 
 /** An image that we refuse. The message is for the Editor. */
@@ -17,13 +17,14 @@ export class ImageRejected extends Error {
 /** Larger images are refused before decode (a small file can decode to a huge bitmap). */
 const MAX_INPUT_PIXELS = 40_000_000;
 const WEBP_QUALITY = 82;
+/** WebP cannot be taller than this; a very tall image is scaled to fit. */
+const WEBP_MAX_HEIGHT = 16383;
 
 export interface EventWebp {
   bytes: Uint8Array;
   width: number;
   height: number;
 }
-
 
 /** JPEG, PNG, GIF, WebP, or AVIF (`heif` with AV1). Refuses SVG, HEIC, TIFF, and the rest. */
 function isAllowedFormat(meta: Metadata): boolean {
@@ -59,7 +60,7 @@ export async function toEventWebp(
   try {
     const { data, info } = await sharp(bytes, { limitInputPixels: maxInputPixels, failOn: "error" })
       .rotate()
-      .resize({ width: MAX_WIDTH, withoutEnlargement: true })
+      .resize({ width: MAX_WIDTH, height: WEBP_MAX_HEIGHT, fit: "inside", withoutEnlargement: true })
       .webp({ quality: WEBP_QUALITY })
       .toBuffer({ resolveWithObject: true });
     return { bytes: new Uint8Array(data), width: info.width, height: info.height };

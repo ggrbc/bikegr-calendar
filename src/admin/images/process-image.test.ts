@@ -20,6 +20,13 @@ describe("toEventWebp (real sharp)", () => {
     expect(meta).toMatchObject({ format: "webp", width: 1600, height: 500 });
   });
 
+  it("Very tall image is made to fit the WebP height limit of 16383 px", async () => {
+    const out = await toEventWebp(await image(1000, 20000, "png"));
+    expect(out.height).toBe(16383);
+    expect(out.width).toBe(Math.round((1000 * 16383) / 20000));
+    expect((await sharp(out.bytes).metadata()).format).toBe("webp");
+  });
+
   it("Small image is not upscaled", async () => {
     const out = await toEventWebp(await image(120, 80, "png"));
     expect(out).toMatchObject({ width: 120, height: 80 });
