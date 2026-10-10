@@ -45,6 +45,24 @@ describe("isValidEmail", () => {
       expect(isValidEmail(bad), bad).toBe(false);
     }
   });
+
+  it("refuses control and format characters (NUL, BEL, DEL, zero-width space, RTL override)", () => {
+    for (const bad of ["jeremy\0@bikegr.org", "a\u0007b@c.org", "a@b\u007f.org", "a​@b.org", "a@‮b.org"]) {
+      expect(isValidEmail(bad), JSON.stringify(bad)).toBe(false);
+    }
+  });
+
+  it("refuses the other RFC 5322 specials, which need quotes (and quotes are refused)", () => {
+    for (const bad of ["a(b)@c.org", "a[b]@c.org", "a:b@c.org", "a;b@c.org", "a\\b@c.org", "a@[127.0.0.1]"]) {
+      expect(isValidEmail(bad), bad).toBe(false);
+    }
+  });
+
+  it("still accepts common real addresses", () => {
+    for (const good of ["first.last@sub.example.org", "o'neil@example.org", "a_b-c+d@ex-ample.co.uk"]) {
+      expect(isValidEmail(good), good).toBe(true);
+    }
+  });
 });
 
 describe("parseInviteInput", () => {
