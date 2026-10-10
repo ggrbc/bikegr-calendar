@@ -3,7 +3,7 @@
 Stream: `submissions-and-review-queue`. Milestone: "Submissions and cutover" in
 [build-plan.md](../build-plan.md). Terms follow [CONTEXT.md](../../CONTEXT.md); the rules are in
 [design.md](../design.md) ("Submissions and Review queue"). Branch `submissions-and-review-queue`,
-made from `origin/main` (48889ed). Status: plan only, waiting for a go.
+made from `origin/main` (48889ed). Status: built; all ten Open decisions = A (Q50, 2026-10-10).
 
 ## Context
 
