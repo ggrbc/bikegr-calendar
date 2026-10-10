@@ -206,7 +206,7 @@ describe("Series build", () => {
     expect(built.events[1].rule.scheduleStatus).toBe("scheduled");
   });
 
-  it("an advocacy Series goes to the advocacy Calendar and loses the Advocacy Tag", () => {
+  it("an advocacy Series goes to the advocacy Calendar and loses the Advocacy category", () => {
     const occurrences = tuesdays(3).map((date) =>
       occurrence(date, { title: "ENTF Transportation Subcommittee", categories: ["Advocacy"] }),
     );

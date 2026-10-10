@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { assignCalendar, cleanTags, tagSlug } from "./calendar-and-tags";
 
 describe("Calendar assignment", () => {
-  it("Advocacy Tag puts the Event in the advocacy Calendar", () => {
+  it("Advocacy category puts the Event in the advocacy Calendar", () => {
     expect(assignCalendar("Kent County Road Commission Meeting", ["Advocacy"])).toBe("advocacy");
     expect(assignCalendar("Mobile GR Commission Meeting", ["advocacy"])).toBe("advocacy");
   });

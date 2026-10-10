@@ -9,7 +9,8 @@
  * - The Event's Schedule status and Schedule note are the default for every Occurrence; an Override
  *   wins. (For a Series the import writes `scheduled` and `null`.)
  * - An Occurrence is `rescheduled` when an Override gives it a time slot that differs from the
- *   original. A stored status that is not `scheduled` (for example `cancelled`) wins over it.
+ *   original. A stored Schedule status that is not `scheduled` (for example `cancelled`) wins
+ *   over it.
  * - An Override whose original start the Event does not make (not in the rule, or an `EXDATE`) is
  *   ignored.
  */
@@ -94,7 +95,7 @@ function buildOccurrence(
   const originalTiming = shiftTiming(event.timing, originalStart);
   const change = overridesByStart.get(originalStart);
   const timing = change?.timing ?? originalTiming;
-  const storedStatus = change?.scheduleStatus ?? event.scheduleStatus;
+  const storedScheduleStatus = change?.scheduleStatus ?? event.scheduleStatus;
   const moved = !sameTiming(timing, originalTiming);
 
   const occurrence: Occurrence = {
@@ -102,7 +103,8 @@ function buildOccurrence(
     originalStart,
     originalTiming,
     timing,
-    scheduleStatus: moved && storedStatus === "scheduled" ? "rescheduled" : storedStatus,
+    scheduleStatus:
+      moved && storedScheduleStatus === "scheduled" ? "rescheduled" : storedScheduleStatus,
     scheduleNote: change?.scheduleNote !== undefined ? change.scheduleNote : event.scheduleNote,
   };
   if (change?.title !== undefined) occurrence.title = change.title;

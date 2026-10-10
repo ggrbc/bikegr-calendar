@@ -101,8 +101,9 @@ New dependency: `pnpm add rrule`. Nothing else.
 - **Event-level Schedule status and Schedule note** apply to every Occurrence as the default; an
   Override wins. For a one-time Event this is the contract. For a Series the import always writes
   `scheduled` / `null`, so nothing changes in practice.
-- **Moved and cancelled** (an Override with new timing and a stored status that is not `scheduled`):
-  the stored status wins over the derived `rescheduled`. A rider must see "Cancelled".
+- **Moved and cancelled** (an Override with new timing and a stored Schedule status that is not
+  `scheduled`): the stored Schedule status wins over the derived `rescheduled`. A rider must see
+  "Cancelled".
 - **"Touches the window":** a timed Occurrence touches `[from, to)` if it starts before `to 00:00`
   and ends after `from 00:00`; a zero-length Occurrence (Dawn Patrol) touches it if its start is in
   the window. An all-day Occurrence touches it if `startDate < to` and `endDate >= from`.
@@ -259,7 +260,7 @@ interface ImportResult {
 
 ### Import — Calendar and Tags
 
-- Advocacy Tag puts the Event in the advocacy Calendar and is dropped
+- Advocacy category puts the Event in the advocacy Calendar and is dropped
 - Vital Streets Oversight Commission goes to advocacy with no Tag
 - Other Events go to rides
 - Weekday Tags are dropped; an empty category gives no Tags
