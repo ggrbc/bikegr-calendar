@@ -17,6 +17,7 @@ import {
   type Timing,
   timingStart,
 } from "@/engine";
+import { isHttpUrl } from "@/agenda/safe-url";
 import { firstStartOnOrAfter } from "./preview";
 import {
   checkRuleForm,
@@ -178,14 +179,6 @@ const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 export const TITLE_MAX = 200;
 export const NOTE_MAX = 300;
 
-function isHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:";
-  } catch {
-    return false;
-  }
-}
 
 function isRealDate(value: string): boolean {
   try {
@@ -224,7 +217,7 @@ function parseContent(raw: Raw, ctx: ParseContext, errors: FieldErrors): Content
   let cta: ContentDraft["cta"] = null;
   if (ctaLabel !== "" || ctaUrl !== "") {
     if (ctaLabel === "" || ctaUrl === "") errors.cta = "Give both a button label and a URL, or neither.";
-    else if (!isHttpUrl(ctaUrl)) errors.cta = "The button URL must start with https:// or http://.";
+    else if (!isHttpUrl(ctaUrl)) errors.cta = "Use a web address that starts with http:// or https://.";
     else cta = { label: ctaLabel, url: ctaUrl };
   }
 

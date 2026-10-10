@@ -152,6 +152,14 @@ describe("Tockify Occurrence mapping", () => {
     expect(vevent({ "X-TKF-PROMOTION-BUTTON": null }).cta).toBeNull();
   });
 
+  it("a promotion button URL that is not http or https is dropped; the Event stays", () => {
+    for (const url of ["javascript:alert(1)", "data:text/html,x", "www.example.org/ride"]) {
+      const occurrence = vevent({ "X-TKF-PROMOTION-BUTTON": `X-TKF-PROMOTION-BUTTON;label=Ride Details:${url}` });
+      expect(occurrence.cta, url).toBeNull();
+      expect(occurrence.title).toBeTruthy();
+    }
+  });
+
   it("featured image URL is kept; URL and X-TKF-CUSTOM-PREVIEW are dropped", () => {
     const occurrence = vevent();
     expect(occurrence.imageUrl).toBe("https://d3flpus5evl89n.cloudfront.net/a/b.png");

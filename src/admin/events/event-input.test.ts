@@ -88,9 +88,11 @@ describe("Event input", () => {
     expect(errorsOf(parseEventInput(values({ ctaLabel: "Register" }), editor))).toEqual({
       cta: "Give both a button label and a URL, or neither.",
     });
-    expect(
-      errorsOf(parseEventInput(values({ ctaLabel: "Register", ctaUrl: "javascript:alert(1)" }), editor)),
-    ).toEqual({ cta: "The button URL must start with https:// or http://." });
+    for (const ctaUrl of ["javascript:alert(1)", "data:text/html,<script>alert(1)</script>", "example.org"]) {
+      expect(errorsOf(parseEventInput(values({ ctaLabel: "Register", ctaUrl }), editor)), ctaUrl).toEqual({
+        cta: "Use a web address that starts with http:// or https://.",
+      });
+    }
     const ok = parseEventInput(values({ ctaLabel: "Register", ctaUrl: "https://example.org/r" }), editor);
     expect(ok.ok && ok.value.cta).toEqual({ label: "Register", url: "https://example.org/r" });
   });
