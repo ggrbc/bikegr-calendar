@@ -3,6 +3,7 @@
  * (real migrations), and a mock mailer.
  */
 import { Auth } from "@auth/core";
+import { AdapterError } from "@auth/core/errors";
 import { eq, sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { authSessions, authVerificationTokens, editors, rateLimits } from "@/db/schema";
@@ -127,6 +128,52 @@ describe("Auth.js wiring", () => {
     expect(await countRows(authSessions)).toBe(0);
 
     await db.update(editors).set({ deactivatedAt: null }).where(eq(editors.email, "nate@bikegr.org"));
+  });
+
+  describe("bad input and error logs", () => {
+    let lines: string[];
+
+    beforeEach(() => {
+      lines = [];
+      for (const level of ["log", "info", "warn", "error"] as const) {
+        vi.spyOn(console, level).mockImplementation((...args: unknown[]) => {
+          lines.push(args.map((a) => (a instanceof Error ? `${a.stack} ${JSON.stringify(a.cause)}` : String(a))).join(" "));
+        });
+      }
+    });
+    afterEach(() => vi.restoreAllMocks());
+
+    it("an email with a NUL byte (jeremy%00%40bikegr.org) gets the invalid-email answer, runs no query, and logs no email", async () => {
+      const invalid = await requestLink('jeremy"@bikegr.org'); // the answer for any invalid email
+      const select = vi.spyOn(db, "select");
+      const insert = vi.spyOn(db, "insert");
+      lines.length = 0;
+
+      const res = await requestLink("jeremy\0@bikegr.org", { ip: "203.0.113.7" });
+      expect(res.status).toBe(invalid.status);
+      expect(res.headers.get("location")).toBe(invalid.headers.get("location"));
+      expect(select).not.toHaveBeenCalled();
+      expect(insert).not.toHaveBeenCalled();
+      expect(mailer.sendMagicLink).not.toHaveBeenCalled();
+      expect(lines.join("\n")).not.toContain("jeremy");
+    });
+
+    it("an AdapterError logs its classes and code only: no SQL, no params, no message text", () => {
+      const driverError = Object.assign(new Error('invalid byte sequence for encoding "UTF8": 0x00'), {
+        code: "22021",
+      });
+      const queryError = new Error('Failed query: select "id" from "editors" where "email" = $1\nparams: jeremy@bikegr.org', {
+        cause: driverError,
+      });
+      const config = buildAuthConfig({ db, mailer, getClientIp: async () => null });
+      config.logger!.error!(new AdapterError(queryError));
+
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toMatch(/^\[auth\] Auth\.js error: AdapterError cause Error cause Error code=22021/);
+      for (const secret of ["jeremy", "select", "params", "invalid byte", "Failed query"]) {
+        expect(lines[0]).not.toContain(secret);
+      }
+    });
   });
 
   describe("magic-link rate limit", () => {

@@ -9,6 +9,7 @@ import Resend from "@auth/core/providers/resend";
 import { authAccounts, authSessions, authVerificationTokens, editors } from "@/db/schema";
 import type { Db } from "@/db/types";
 import { findEditorByEmail } from "./editors";
+import { authErrorLog } from "./error-log";
 import { magicLinkKind, type Mailer } from "./mailer";
 import { magicLinkLimiter } from "./magic-link-limits";
 import { canSignIn, isValidEmail, normalizeEmail } from "./rules";
@@ -46,7 +47,8 @@ export function buildAuthConfig({ db, mailer, getClientIp }: AuthDeps): AuthConf
           console.warn(`[auth] ${error.type}`);
           return;
         }
-        console.error(error);
+        // Never the error itself: an AdapterError's message and cause hold the SQL and its params.
+        console.error(authErrorLog(error));
       },
     },
     pages: { signIn: LOGIN_PATH, verifyRequest: LOGIN_PATH, error: LOGIN_PATH },
