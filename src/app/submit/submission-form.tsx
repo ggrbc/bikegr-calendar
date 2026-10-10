@@ -13,6 +13,7 @@ import type { PickerTag } from "@/admin/tags/tags";
 import { CALENDAR_NAMES } from "@/agenda/site";
 import { addMinutes, type CalendarSlug, isLocalDateTime } from "@/engine";
 import { FIELDS } from "@/submissions/form-data";
+import { HONEYPOT_LABEL } from "@/submissions/spam-rules";
 import { LIMITS } from "@/submissions/submission-input";
 import { submitEventAction, type SubmitState } from "./actions";
 import { TurnstileWidget } from "./turnstile-widget";
@@ -348,10 +349,13 @@ export function SubmissionForm({
         </div>
       </fieldset>
 
-      {/* Honeypot: off screen and out of the tab order, so only a bot fills it. */}
+      {/*
+        Honeypot: off screen, out of the tab order, and hidden from screen readers, so only a bot
+        fills it. Its name and label have no word that autofill knows (src/submissions/spam-rules.ts).
+      */}
       <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
         <label>
-          Website
+          {HONEYPOT_LABEL}
           <input type="text" name={FIELDS.honeypot} tabIndex={-1} autoComplete="off" defaultValue="" />
         </label>
       </div>

@@ -14,7 +14,7 @@ describe("submissionFromFormData", () => {
     data.append("repeatDays", "TH");
     data.set("repeatUntil", "2026-12-31");
     data.set("submitterEmail", "sam@example.org");
-    data.set("website", "bot text");
+    data.set("bgr_hp_field", "bot text");
     data.set("turnstileToken", "token");
     data.set("image", new File([new Uint8Array([1, 2])], "ride.jpg", { type: "image/jpeg" }));
 

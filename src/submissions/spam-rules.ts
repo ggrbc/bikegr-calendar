@@ -34,5 +34,10 @@ export const GLOBAL_KEY = "all";
 /** The key for a request with no client IP. All such requests share one bucket. */
 export const UNKNOWN_IP_KEY = "unknown";
 
-/** The honeypot field: hidden from people, so only a bot fills it. */
-export const HONEYPOT_FIELD = "website";
+/**
+ * The honeypot field: hidden from people and from screen readers, so only a bot fills it. Its name
+ * and label hold no word that browser autofill knows ("website", "url", "name", …), so a real
+ * Submitter's browser never fills it by mistake.
+ */
+export const HONEYPOT_FIELD = "bgr_hp_field";
+export const HONEYPOT_LABEL = "Leave this empty";

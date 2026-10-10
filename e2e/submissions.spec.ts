@@ -121,7 +121,12 @@ test("a filled honeypot shows the thank-you page and adds nothing to the queue",
   await stubTurnstile(page, "198.51.100.2");
   await page.goto("/submit");
   await fillRide(page, "E2E Honeypot Ride");
-  await page.locator('input[name="website"]').fill("https://spam.example");
+  const honeypot = page.locator('input[name="bgr_hp_field"]');
+  // Hidden from screen readers (not in the accessibility tree) and out of the tab order.
+  await expect(page.getByRole("textbox", { name: "Leave this empty" })).toHaveCount(0);
+  await expect(honeypot).toHaveAttribute("tabindex", "-1");
+  await expect(honeypot).toHaveAttribute("autocomplete", "off");
+  await honeypot.fill("https://spam.example");
   await send(page);
   await expect(page.getByRole("heading", { level: 1, name: "Thank you" })).toBeVisible();
 
