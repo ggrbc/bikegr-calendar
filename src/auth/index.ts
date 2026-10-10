@@ -9,6 +9,7 @@ import { headers } from "next/headers";
 import { getDb } from "@/db";
 import { clientIp } from "@/rate-limit";
 import { buildAuthConfig } from "./config";
+import { googleCredentials } from "./google";
 import { createMailer } from "./mailer";
 
 export { LOGIN_PATH } from "./config";
@@ -20,5 +21,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth((req) =>
     // The route handler gives `req`. A server action's `signIn()` (login, invite) gives none, but it
     // runs in the browser's request, so `headers()` has the same headers. Read only at a link request.
     getClientIp: async () => clientIp(req ? req.headers : await headers()),
+    google: googleCredentials(process.env),
   }),
 );
+
+/** True when Google sign-in is configured. The login page shows the Google button only then. */
+export function googleSignInEnabled(): boolean {
+  return googleCredentials(process.env) !== null;
+}

@@ -35,6 +35,9 @@ export default defineConfig({
         TURNSTILE_SECRET_KEY: "",
         TURNSTILE_SITEVERIFY_URL: `${HOST}/turnstile/siteverify`,
         RESEND_API_KEY: "",
+        // No Google client: /login shows the magic link only (e2e/login.spec.ts).
+        AUTH_GOOGLE_ID: "",
+        AUTH_GOOGLE_SECRET: "",
         BLOB_READ_WRITE_TOKEN: "",
         BLOB_STORE_ID: "",
         VERCEL_OIDC_TOKEN: "",

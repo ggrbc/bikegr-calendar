@@ -25,8 +25,9 @@ Tockify is embedded today on two Squarespace pages:
 - **Cutover scope (full parity, Submissions included):** agenda view, filters, Event detail page,
   Add to calendar, both Embeds, ICS Feeds, Editors with roles, Series edit, Submissions with the
   Review queue and emails.
-- **After cutover:** month grid view, cards view, RSS, Google login, "claimed by" marker on the
-  Review queue, per-Calendar Editor access.
+- **After cutover:** month grid view, cards view, RSS, "claimed by" marker on the Review queue,
+  per-Calendar Editor access. Google login is done
+  ([plans/google-login.md](plans/google-login.md)).
 
 ## Stack
 
@@ -35,7 +36,7 @@ Tockify is embedded today on two Squarespace pages:
 | App | Next.js (App Router) — admin UI, public views, Embed, and Feeds in one deployable |
 | Database | Postgres (Neon). Production: `neon-serverless` WebSocket `Pool` at module scope with Vercel `attachDatabasePool`, so interactive transactions work (the HTTP driver cannot stop a batch when a `version` check fails). Any `*.neon.tech` URL (also the dev branch) uses this Pool; local Docker Postgres uses postgres-js. Migrations run by hand (`pnpm db:migrate`), not in the build. |
 | Data access | Drizzle (schema in TypeScript, `drizzle-kit` migrations, `sql` tag for hard queries) |
-| Auth | Auth.js — magic-link email (Google login after cutover) |
+| Auth | Auth.js — magic-link email and Google sign-in, both invite only |
 | Email | Resend, verified on the root `bikegr.org`, sending from `notifications@bikegr.org` |
 | Images | Blob storage (Vercel Blob or R2), resized on upload |
 | Spam control | Cloudflare Turnstile, honeypot, per-IP rate limit stored in Postgres (one shared module, `src/rate-limit`, also used for magic links) |
@@ -131,6 +132,21 @@ The admin offers three scopes when an Editor changes a Series. See
 ## Editors
 
 - **Invite only.** No public sign-up. An Admin enters an email; the invite sends a magic link.
+- **Google sign-in** (when `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` are set; Production only): an
+  invited, active Editor can also sign in with Google. Google must verify the email
+  (`email_verified`) and be authoritative for it: a Gmail address, or a Workspace account whose
+  `hd` equals its email domain. The first Google sign-in links the Google account (by its `sub`)
+  to the Editor with the same email; it stores no Google tokens and never makes an Editor row. An
+  Editor whose Google email differs from the invite email uses the magic link. A deactivated
+  Editor's Google link stays, and is refused. Google sign-ins have no rate limit (they send no
+  email). Details: [plans/google-login.md](plans/google-login.md).
+  - **Exact invite address:** a Google sign-in needs the exact invite address (after lowercase).
+    No dots are removed, and `googlemail.com` or a `+tag` is not merged; an Editor whose Google
+    address has another form uses the magic link.
+  - **Redeploy after a change to `AUTH_GOOGLE_*`:** `/login` is a static shell, so the Google
+    button follows the env of the build, and the provider follows the env at run time.
+  - **A future email edit** in the admin must delete that Editor's `auth_accounts` rows: the link is
+    by Google `sub`, so it would still open the account after the email changes.
 - **Roles:**
   - `admin` — invite and deactivate Editors, change settings, restore deleted Events, plus everything
     an Editor does.

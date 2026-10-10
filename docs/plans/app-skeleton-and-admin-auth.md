@@ -176,7 +176,7 @@ timestamptz. Index `(event_id, changed_at)`. The snapshot content is decided in 
 
 ### Auth.js tables
 
-`auth_accounts` (needed for Google login after cutover; the adapter expects it), `auth_sessions`
+`auth_accounts` (the Google account links; see [google-login.md](google-login.md)), `auth_sessions`
 (`session_token` PK, `user_id` → `editors.id` on delete cascade, `expires`),
 `auth_verification_tokens` (`identifier`, `token`, `expires`, PK both). The `auth_` prefix keeps
 them apart from domain tables.

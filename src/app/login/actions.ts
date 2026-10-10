@@ -1,8 +1,19 @@
 "use server";
 
 import { AuthError } from "next-auth";
-import { signIn } from "@/auth";
+import { redirect } from "next/navigation";
+import { googleSignInEnabled, LOGIN_PATH, signIn } from "@/auth";
 import { isValidEmail, normalizeEmail } from "@/auth/rules";
+
+/**
+ * "Sign in with Google": Auth.js answers with a redirect to Google (it throws Next.js's redirect, so
+ * this never returns). Google comes back to `/api/auth/callback/google`; the `signIn` callback
+ * admits only an active Editor (src/auth/config.ts). With no Google client, back to the login page.
+ */
+export async function signInWithGoogle(): Promise<void> {
+  if (!googleSignInEnabled()) redirect(LOGIN_PATH);
+  await signIn("google", { redirectTo: "/admin" });
+}
 
 export type LoginState =
   | { result: "idle" }
