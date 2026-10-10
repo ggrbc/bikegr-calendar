@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Embed test host — one Embed</title>
+    <style>
+      body { font-family: Georgia, serif; margin: 0; background: #f3efe6; }
+      header { padding: 1rem; background: #1f3b2d; color: #fff; }
+      .content { max-width: 960px; margin: 0 auto; padding: 1rem; }
+      /* Squarespace-like CSS that must not reach the calendar inside the iframe. */
+      a { color: #c0392b !important; }
+    </style>
+  </head>
+  <body>
+    <header><h1>Bike GR (test host)</h1></header>
+    <div class="content">
+      <p>Events</p>
+      <script src="http://localhost:3100/embed.js" data-calendar="rides" async></script>
+      <p id="after-embed">Text after the Embed.</p>
+    </div>
+  </body>
+</html>

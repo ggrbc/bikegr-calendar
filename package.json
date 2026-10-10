@@ -17,7 +17,8 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:smoke": "tsx src/db/smoke.ts",
     "db:studio": "drizzle-kit studio",
-    "import:tockify": "tsx src/import/cli.ts"
+    "import:tockify": "tsx src/import/cli.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@auth/core": "0.41.3",
@@ -38,6 +39,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
+    "@playwright/test": "^1.64.0",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^24.19.2",
     "@types/react": "^19",
