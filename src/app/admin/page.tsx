@@ -1,6 +1,6 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { requireEditor } from "@/auth/dal";
-import { signOutAction } from "./actions";
 import { InviteForm } from "./invite-form";
 
 async function AdminHome() {
@@ -9,17 +9,28 @@ async function AdminHome() {
 
   return (
     <>
-      <div className="mb-8 flex items-center justify-between gap-4">
-        <p>
-          Signed in as <strong>{editor.name ?? editor.email}</strong>
-          {isAdmin ? " (Admin)" : " (Editor)"}
-        </p>
-        <form action={signOutAction}>
-          <button type="submit" className="rounded border border-gray-400 px-3 py-1">
-            Sign out
-          </button>
-        </form>
-      </div>
+      <ul className="mb-8 list-disc pl-6">
+        <li>
+          <Link href="/admin/events" className="underline">
+            Events
+          </Link>{" "}
+          — create and edit Events in both Calendars.
+        </li>
+        <li>
+          <Link href="/admin/tags" className="underline">
+            Tags
+          </Link>{" "}
+          — the Tag list of each Calendar.
+        </li>
+        {isAdmin && (
+          <li>
+            <Link href="/admin/editors" className="underline">
+              Editors
+            </Link>{" "}
+            — invite, change roles, deactivate.
+          </li>
+        )}
+      </ul>
       {isAdmin && (
         <section aria-labelledby="invite-heading">
           <h2 id="invite-heading" className="mb-3 text-xl font-semibold">
