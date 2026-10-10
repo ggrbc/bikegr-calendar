@@ -422,6 +422,31 @@ describe("Auth.js wiring", () => {
         expect(location).toBe(`${ORIGIN}/login?error=OAuthCallbackError`);
         expect(lines).toEqual(["[auth] OAuthCallbackError"]);
       });
+
+      it("a callback with no PKCE cookie (InvalidCheck) logs one warn line with no stack", async () => {
+        const editor = await addEditor("no.pkce.rider@gmail.com");
+        await startGoogle();
+        const code = fakeGoogle.issueCode({ sub: sub(), email: editor.email, email_verified: true });
+        const res = await handle(new Request(`${ORIGIN}/api/auth/callback/google?code=${code}`));
+        expect(res.headers.get("location")).toBe(`${ORIGIN}/login?error=Configuration`);
+        expect(lines).toEqual(["[auth] InvalidCheck"]);
+        expect(await countFor(authSessions, editor.id)).toBe(0);
+      });
+
+      it("a replayed code logs one warn line with no stack, with the OAuth error code", async () => {
+        const editor = await addEditor("replay.rider@gmail.com");
+        const { cookies } = await startGoogle();
+        const code = fakeGoogle.issueCode({ sub: sub(), email: editor.email, email_verified: true });
+        const callback = () =>
+          handle(new Request(`${ORIGIN}/api/auth/callback/google?code=${code}`, { headers: { cookie: cookies.join("; ") } }));
+        expect((await callback()).headers.get("location")).toBe(`${ORIGIN}/admin`);
+        expect(lines).toEqual([]);
+
+        const replay = await callback();
+        expect(replay.headers.get("location")).toBe(`${ORIGIN}/login?error=Configuration`);
+        expect(lines).toEqual(["[auth] CallbackRouteError: OAUTH_RESPONSE_BODY_ERROR (invalid_grant)"]);
+        expect(await countFor(authSessions, editor.id)).toBe(1);
+      });
     });
 
     describe("google-invite-only", () => {

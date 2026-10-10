@@ -26,14 +26,32 @@ const VERIFY_REQUEST_PATH = "/api/auth/verify-request?provider=resend&type=email
 /**
  * Normal events, not errors: one warn line, no stack. `OAuthCallbackError` is Google's answer to a
  * cancel (Auth.js uses it only for an error in the authorization response); `OAuthAccountNotLinked`
- * is a Google sign-in while another Editor is signed in.
+ * is a Google sign-in while another Editor is signed in; `InvalidCheck` is a callback with no (or a
+ * bad) PKCE cookie, for example an old tab or a cleared cookie.
  */
 const EXPECTED_ERRORS = new Set<string>([
   "AccessDenied",
   "Verification",
   "OAuthCallbackError",
   "OAuthAccountNotLinked",
+  "InvalidCheck",
 ]);
+
+/** An OAuth error code (RFC 6749 §5.2) is ASCII; anything else is not printed. */
+const OAUTH_ERROR_CODE = /^[a-z_]{1,64}$/;
+
+/**
+ * The warn line for a token endpoint that refused the code (oauth4webapi's `ResponseBodyError`,
+ * wrapped in `CallbackRouteError`): for example a replayed or expired code (`invalid_grant`). Only
+ * the OAuth error code, which also shows a wrong client secret (`invalid_client`). Else null.
+ */
+function oauthTokenErrorLine(error: unknown): string | null {
+  if (!(error instanceof AuthError) || error.type !== "CallbackRouteError") return null;
+  const cause = (error.cause as { err?: unknown } | undefined)?.err;
+  if (!(cause instanceof Error) || (cause as { code?: unknown }).code !== "OAUTH_RESPONSE_BODY_ERROR") return null;
+  const code = (cause as { error?: unknown }).error;
+  return `[auth] CallbackRouteError: OAUTH_RESPONSE_BODY_ERROR (${typeof code === "string" && OAUTH_ERROR_CODE.test(code) ? code : "unknown"})`;
+}
 
 /**
  * The Google branch of the `signIn` callback (docs/plans/google-login.md). Runs after Google
@@ -109,6 +127,11 @@ export function buildAuthConfig({ db, mailer, getClientIp, google = null }: Auth
         }
         if (error instanceof AuthError && EXPECTED_ERRORS.has(error.type)) {
           console.warn(`[auth] ${error.type}`);
+          return;
+        }
+        const tokenError = oauthTokenErrorLine(error);
+        if (tokenError) {
+          console.warn(tokenError);
           return;
         }
         // Never the error itself: an AdapterError's message and cause hold the SQL and its params.
