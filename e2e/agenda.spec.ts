@@ -7,13 +7,15 @@ const dates = fixtureDates(todayInDetroit(new Date()));
 test("agenda for Rides shows days, and a Day filter changes the list and the URL", async ({ page }) => {
   await page.goto("/rides");
   await expect(page.getByRole("heading", { level: 1, name: "Rides & Events" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: /^Events from / })).toBeVisible();
   await expect(page.getByRole("link", { name: "E2E Tuesday Ride" }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "E2E Thursday Ride" }).first()).toBeVisible();
   await expect(page.getByText("E2E Deleted Ride")).toHaveCount(0);
   await expect(page.getByText("E2E Pending Ride")).toHaveCount(0);
 
+  await page.getByText("Filter", { exact: true }).click();
   await page.getByRole("checkbox", { name: "Thu", exact: true }).check();
-  await page.getByRole("button", { name: "Apply" }).click();
+  await page.getByRole("button", { name: "Apply filters" }).click();
   await expect(page).toHaveURL(/\/rides\?day=thu$/);
   await expect(page.getByRole("link", { name: "E2E Thursday Ride" }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "E2E Tuesday Ride" })).toHaveCount(0);

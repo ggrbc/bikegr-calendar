@@ -15,7 +15,7 @@ async function waitForContent(page: Page, index = 0) {
   // Chrome hydrates an off-screen cross-origin iframe only when it is in view (as a rider scrolls).
   await page.locator("iframe[data-bikegr-embed]").nth(index).scrollIntoViewIfNeeded();
   const frame = page.frameLocator("iframe[data-bikegr-embed] >> nth=" + index);
-  await expect(frame.locator("h2").first()).toBeVisible();
+  await expect(frame.getByRole("heading", { level: 1, name: /^Events from / })).toBeVisible();
   await expect.poll(async () => Math.abs((await iframeHeight(page, index)) - (await contentHeight(page, index)))).toBeLessThan(2);
 }
 
@@ -36,9 +36,9 @@ test("Embed height shrinks after a filter with fewer results, and the host URL g
   await waitForContent(page);
   const before = await iframeHeight(page);
   const frame = page.frameLocator("iframe[data-bikegr-embed]");
-  await frame.getByText("Filter events").click();
+  await frame.getByText("Filter", { exact: true }).click();
   await frame.getByRole("checkbox", { name: "Thu", exact: true }).check();
-  await frame.getByRole("button", { name: "Apply" }).click();
+  await frame.getByRole("button", { name: "Apply filters" }).click();
   await expect(frame.getByRole("link", { name: "E2E Tuesday Ride" })).toHaveCount(0);
   await expect(page).toHaveURL(`${HOST}/?day=thu`);
   await waitForContent(page);
@@ -81,9 +81,9 @@ test("two Embeds in a 360 px column: no horizontal scroll, data-filters applied,
   }
   const advocacy = page.frameLocator("iframe[data-bikegr-embed] >> nth=1");
   await expect(advocacy.getByText("E2E Commission Meeting")).toBeVisible();
-  await page.frameLocator("iframe[data-bikegr-embed] >> nth=0").getByText("Filter events").click();
+  await page.frameLocator("iframe[data-bikegr-embed] >> nth=0").getByText("Filter", { exact: true }).click();
   await page.frameLocator("iframe[data-bikegr-embed] >> nth=0").getByRole("checkbox", { name: "Thu", exact: true }).check();
-  await page.frameLocator("iframe[data-bikegr-embed] >> nth=0").getByRole("button", { name: "Apply" }).click();
+  await page.frameLocator("iframe[data-bikegr-embed] >> nth=0").getByRole("button", { name: "Apply filters" }).click();
   await expect(page.frameLocator("iframe[data-bikegr-embed] >> nth=0").getByRole("link", { name: "E2E Tuesday Ride" })).toHaveCount(0);
   await expect(page).toHaveURL(`${HOST}/two.html`);
 });

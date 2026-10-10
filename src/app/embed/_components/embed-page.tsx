@@ -27,13 +27,13 @@ export function EmbedPage({
   searchParams: Promise<FilterParams>;
 }) {
   return (
-    <main id={EMBED_ROOT_ID} className="w-full bg-white px-3 py-3 text-gray-900">
-      <p className="mb-3 text-xs text-gray-700">
+    <main id={EMBED_ROOT_ID} className="w-full bg-white px-2 py-3 text-brand-gray sm:bg-brand-page sm:px-4">
+      <p className="mb-3 font-chivo text-xs">
         <a href={`${SITE_ORIGIN}${calendarPath(calendar)}`} target="_blank" rel="noopener" className="underline">
           Bike GR Calendar · {calendarName(calendar)}
         </a>
       </p>
-      <Suspense fallback={<p className="text-gray-700">Loading events…</p>}>
+      <Suspense fallback={<p>Loading events…</p>}>
         <AgendaList calendar={calendar} searchParams={searchParams} variant="embed" />
       </Suspense>
     </main>

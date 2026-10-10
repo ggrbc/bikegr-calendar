@@ -30,8 +30,8 @@ export function CalendarSwitcher({
             aria-current={active ? "page" : undefined}
             className={
               active
-                ? "rounded bg-blue-800 px-3 py-1 font-medium text-white"
-                : "rounded border border-blue-800 px-3 py-1 font-medium text-blue-800"
+                ? "rounded-[300px] border border-brand-green-text bg-brand-green-text px-4 py-1.5 font-chivo font-bold text-white"
+                : "rounded-[300px] border border-brand-green-text bg-white px-4 py-1.5 font-chivo font-bold text-brand-green-text hover:bg-brand-page"
             }
           >
             {target === null ? "All" : calendarName(target)}

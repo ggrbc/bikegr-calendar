@@ -3,7 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { badgeText } from "@/agenda/agenda-days";
-import { dayHeading, timeText } from "@/agenda/dates";
+import { dateLine, normalizeLocation } from "@/agenda/card-text";
+import { dayHeading } from "@/agenda/dates";
 import { descriptionParagraphs, excerpt } from "@/agenda/description-text";
 import { findOccurrence } from "@/agenda/find-occurrence";
 import { eventJsonLd, jsonLdText } from "@/agenda/json-ld";
@@ -49,6 +50,9 @@ export async function generateMetadata({ params }: PageProps<"/events/[eventId]/
   };
 }
 
+const outlineButton =
+  "inline-block rounded border border-brand-green-text px-3 py-1 font-chivo text-sm font-bold text-brand-green-text hover:bg-brand-page";
+
 export default async function OccurrencePage({ params }: PageProps<"/events/[eventId]/[start]">) {
   const { eventId, start } = await params;
   const result = await load(eventId, start);
@@ -57,123 +61,129 @@ export default async function OccurrencePage({ params }: PageProps<"/events/[eve
 
   const url = occurrenceUrl(row.eventId, row.originalStart);
   const badge = badgeText(row);
-  const date = timingStart(row.timing).slice(0, 10);
   const cancelled = row.scheduleStatus === "cancelled";
+  const calendarHref = calendarPath(row.calendar);
 
   return (
-    <main className="w-full flex-1 bg-white text-gray-900">
+    <main className="w-full flex-1 bg-brand-page text-brand-gray">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdText(eventJsonLd(row, url)) }}
       />
-      <article className="mx-auto max-w-3xl px-6 py-8">
-        <p className="text-sm text-gray-700">
-          <Link href={calendarPath(row.calendar)} className="underline">
+      <article className="mx-auto max-w-3xl px-4 py-6 sm:px-8">
+        <p className="font-chivo text-sm">
+          <Link href={calendarHref} className="underline">
             {CALENDAR_NAMES[row.calendar]}
           </Link>
         </p>
-        <h1 className="mt-1 text-2xl font-semibold">
-          <span className={cancelled ? "line-through decoration-gray-500" : undefined}>{row.title}</span>
-          {badge && <Badge text={badge} />}
-        </h1>
-        {row.scheduleNote && <p className="mt-2 text-gray-900">{row.scheduleNote}</p>}
-
-        <p className="mt-4 font-medium">
-          {dayHeading(date)} · {timeText(row.timing)}
-        </p>
-        {row.location && (
-          <p className="mt-1 text-gray-800">
-            {row.location}{" "}
-            <a
-              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(row.location)}`}
-              className="text-sm text-blue-800 underline"
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              Map
-            </a>
+        <div className="mt-3 rounded border-t-4 border-brand-orange bg-white p-4 sm:p-6">
+          <h1 className="font-chivo text-[28px] leading-tight text-brand-orange sm:text-[34px]">
+            <span className={cancelled ? "line-through decoration-brand-gray/60" : undefined}>{row.title}</span>
+          </h1>
+          <p className="mt-2 font-chivo text-[17px] font-bold">
+            {dateLine(row.timing)}
+            {badge && <Badge text={badge} />}
           </p>
-        )}
+          {row.scheduleNote && <p className="mt-1 font-bold">{row.scheduleNote}</p>}
 
-        {row.tags.length > 0 && (
-          <p className="mt-3 flex flex-wrap gap-1 text-xs">
-            {row.tags.map((tag) => (
-              <Link
-                key={tag.slug}
-                href={`${calendarPath(row.calendar)}?tag=${encodeURIComponent(tag.slug)}`}
-                className="rounded bg-gray-100 px-2 py-0.5 text-gray-800 hover:underline"
+          {row.location && (
+            <p className="mt-3">
+              {normalizeLocation(row.location)}{" "}
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(row.location)}`}
+                className="text-sm font-bold text-brand-green-text underline"
+                rel="noopener noreferrer"
+                target="_blank"
               >
-                {tag.name}
-              </Link>
-            ))}
-          </p>
-        )}
+                Map
+              </a>
+            </p>
+          )}
 
-        {row.cta && (
-          <p className="mt-4">
-            <a
-              href={row.cta.url}
-              className="inline-block rounded bg-blue-800 px-4 py-2 font-medium text-white"
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              {row.cta.label}
-            </a>
-          </p>
-        )}
-
-        {row.imageUrl && (
-          // A Blob URL; next/image would need remotePatterns in next.config for little gain here.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={row.imageUrl} alt={row.title} className="mt-6 h-auto max-w-full rounded" />
-        )}
-
-        <div className="mt-6 space-y-3">
-          {descriptionParagraphs(row.description).map((lines, p) => (
-            <p key={p}>
-              {lines.map((parts, l) => (
-                <span key={l}>
-                  {l > 0 && <br />}
-                  {parts.map((part, i) =>
-                    part.kind === "link" ? (
-                      <a key={i} href={part.href} className="break-all text-blue-800 underline" rel="nofollow noopener noreferrer">
-                        {part.text}
-                      </a>
-                    ) : (
-                      <span key={i}>{part.text}</span>
-                    ),
-                  )}
+          {row.tags.length > 0 && (
+            <p className="mt-3 font-chivo text-sm font-bold text-brand-green-text">
+              {row.tags.map((tag, i) => (
+                <span key={tag.slug}>
+                  {i > 0 && <span aria-hidden="true"> • </span>}
+                  <Link href={`${calendarHref}?tag=${encodeURIComponent(tag.slug)}`} className="hover:underline">
+                    {tag.name}
+                  </Link>
                 </span>
               ))}
             </p>
-          ))}
+          )}
+
+          {row.cta && (
+            <p className="mt-4">
+              <a
+                href={row.cta.url}
+                className="inline-block rounded bg-brand-orange-text px-4 py-2 text-white hover:bg-brand-gray"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                {row.cta.label}
+              </a>
+            </p>
+          )}
+
+          {row.imageUrl && (
+            // A Blob URL; next/image would need remotePatterns in next.config for little gain here.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={row.imageUrl} alt={row.title} className="mt-6 h-auto max-h-[480px] max-w-full rounded" />
+          )}
+
+          <div className="mt-6 space-y-3 font-light leading-relaxed">
+            {descriptionParagraphs(row.description).map((lines, p) => (
+              <p key={p}>
+                {lines.map((parts, l) => (
+                  <span key={l}>
+                    {l > 0 && <br />}
+                    {parts.map((part, i) =>
+                      part.kind === "link" ? (
+                        <a
+                          key={i}
+                          href={part.href}
+                          className="break-all font-normal text-brand-orange-text underline"
+                          rel="nofollow noopener noreferrer"
+                        >
+                          {part.text}
+                        </a>
+                      ) : (
+                        <span key={i}>{part.text}</span>
+                      ),
+                    )}
+                  </span>
+                ))}
+              </p>
+            ))}
+          </div>
+
+          <section aria-labelledby="add-to-calendar" className="mt-8 border-t border-brand-divider pt-4">
+            <h2 id="add-to-calendar" className="mb-2 font-chivo font-bold">
+              Add to calendar
+            </h2>
+            <ul className="flex flex-wrap gap-2">
+              <li>
+                <a href={occurrenceIcsPath(row.eventId, row.originalStart)} className={outlineButton}>
+                  Download .ics (Apple, Outlook, other apps)
+                </a>
+              </li>
+              <li>
+                <a href={googleCalendarUrl(row)} className={outlineButton} rel="noopener noreferrer" target="_blank">
+                  Google Calendar
+                </a>
+              </li>
+              <li>
+                <a href={outlookUrl(row)} className={outlineButton} rel="noopener noreferrer" target="_blank">
+                  Outlook.com
+                </a>
+              </li>
+            </ul>
+          </section>
         </div>
 
-        <section aria-labelledby="add-to-calendar" className="mt-8 border-t border-gray-300 pt-4">
-          <h2 id="add-to-calendar" className="mb-2 font-semibold">
-            Add to calendar
-          </h2>
-          <ul className="flex flex-wrap gap-4 text-sm">
-            <li>
-              <a href={occurrenceIcsPath(row.eventId, row.originalStart)} className="text-blue-800 underline">
-                Download .ics (Apple, Outlook, other apps)
-              </a>
-            </li>
-            <li>
-              <a href={googleCalendarUrl(row)} className="text-blue-800 underline" rel="noopener noreferrer" target="_blank">
-                Google Calendar
-              </a>
-            </li>
-            <li>
-              <a href={outlookUrl(row)} className="text-blue-800 underline" rel="noopener noreferrer" target="_blank">
-                Outlook.com
-              </a>
-            </li>
-          </ul>
-        </section>
-
-        <p className="mt-8 text-sm">
-          <Link href={calendarPath(row.calendar)} className="text-blue-800 underline">
+        <p className="mt-6 font-chivo text-sm">
+          <Link href={calendarHref} className="font-bold text-brand-green-text underline">
             Back to {CALENDAR_NAMES[row.calendar]}
           </Link>
         </p>

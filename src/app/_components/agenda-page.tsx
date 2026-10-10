@@ -18,15 +18,23 @@ export function AgendaPage({
   searchParams: Promise<FilterParams>;
 }) {
   return (
-    <main className="w-full flex-1 bg-white text-gray-900">
-      <div className="mx-auto max-w-3xl px-6 py-8">
-        <p className="text-sm text-gray-700">
-          <Link href="/" className="underline">
-            Bike GR Calendar
-          </Link>
-        </p>
-        <h1 className="mb-4 text-2xl font-semibold">{title}</h1>
-        <Suspense fallback={<p className="text-gray-700">Loading events…</p>}>
+    <main className="w-full flex-1 bg-brand-page text-brand-gray">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-8">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="font-chivo text-sm">
+            <Link href="/" className="underline">
+              Bike GR Calendar
+            </Link>
+          </p>
+          <a
+            href="https://www.bikegr.org"
+            className="rounded-[300px] bg-brand-green-text px-4 py-1.5 font-chivo text-sm font-bold text-white hover:bg-brand-gray"
+          >
+            Visit bikegr.org
+          </a>
+        </div>
+        <h1 className="mb-4 font-chivo text-[28px] leading-tight sm:text-[34px]">{title}</h1>
+        <Suspense fallback={<p>Loading events…</p>}>
           <AgendaList calendar={calendar} searchParams={searchParams} variant="site" />
         </Suspense>
       </div>
