@@ -52,16 +52,14 @@ describe("loadSnapshot", () => {
     expect(Object.keys(weekly.overrideUpdatedAt)).toEqual(["2026-10-21T18:00"]);
   });
 
-  it("lists each Calendar's active Tags, also Tags with no Events, and not retired Tags", async () => {
-    expect((await loadSnapshot(db, "rides")).tags).toEqual([
+  it("lists the active Tags of both Calendars, also Tags with no Events, and not retired Tags", async () => {
+    const expected = [
       { calendar: "rides", name: "Social", slug: "social" },
       { calendar: "rides", name: "Unused", slug: "unused" },
-    ]);
-    expect((await loadSnapshot(db, null)).tags.map((t) => t.slug)).toEqual([
-      "social",
-      "unused",
-      "meeting",
-    ]);
+      { calendar: "advocacy", name: "Meeting", slug: "meeting" },
+    ];
+    expect((await loadSnapshot(db, "rides")).tags).toEqual(expected);
+    expect((await loadSnapshot(db, null)).tags).toEqual(expected);
   });
 
   it("is plain data that survives structured clone (Next.js cache serialization)", async () => {

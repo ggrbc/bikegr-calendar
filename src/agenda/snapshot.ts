@@ -1,7 +1,7 @@
 /**
  * The public data of one Calendar (or all), read from the database in three queries: approved,
- * not-deleted Events, their Overrides, and their active Tags, plus each Calendar's active Tags (for
- * the filter form and the Calendar switcher).
+ * not-deleted Events, their Overrides, and their active Tags, plus the active Tags of both Calendars
+ * (for the filter form and the Calendar switcher, which keeps the Tags that the target has).
  *
  * The snapshot does not depend on a date, so one cached copy serves every window and filter
  * (src/agenda/cache.ts). It is plain data (strings, numbers, arrays, plain objects), so the Next.js
@@ -43,7 +43,7 @@ export interface SnapshotEvent {
 
 export interface CalendarSnapshot {
   events: SnapshotEvent[];
-  /** Active Tags of the Calendar (both Calendars for All), sorted by Calendar, then name. */
+  /** Active Tags of both Calendars, sorted by Calendar, then name. */
   tags: CalendarTag[];
 }
 
@@ -62,7 +62,7 @@ export async function loadSnapshot(db: Db, calendar: CalendarSlug | null): Promi
   const calendarTags = await db
     .select({ calendar: tags.calendar, name: tags.name, slug: tags.slug })
     .from(tags)
-    .where(and(isNull(tags.retiredAt), calendar ? eq(tags.calendar, calendar) : undefined))
+    .where(isNull(tags.retiredAt))
     .orderBy(asc(tags.calendar), asc(tags.name));
 
   return { events: await snapshotEvents(db, eventRows), tags: calendarTags };
