@@ -63,6 +63,8 @@ export interface HistoryDetail {
   removedOverrides?: string[];
   /** Reject: the Editor's reason, as sent to the Submitter. */
   reason?: string;
+  /** Reject or Delete as spam: the image was cleared (no other Event used it) and its blob removed. */
+  imageRemoved?: boolean;
 }
 
 /** History actions written by the admin and the import. */

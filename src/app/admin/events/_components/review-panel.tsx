@@ -19,13 +19,18 @@ export interface ReviewPanelProps {
   dirty: boolean;
   /** True when the Event has no date today or later. */
   allPast: boolean;
+  /** True when a Reject (or Delete as spam) removed the image, and it has no image now. */
+  imageRemoved: boolean;
 }
+
+export const IMAGE_REMOVED_NOTE =
+  "The image was removed when this Event was rejected. Add a new image before you approve it, if needed.";
 
 /**
  * Approve, Reject, or Delete as spam, for a Submission that waits for review. A rejected Event
  * shows Approve only (undo a Reject).
  */
-export function ReviewPanel({ id, version, reviewStatus, dirty, allPast }: ReviewPanelProps) {
+export function ReviewPanel({ id, version, reviewStatus, dirty, allPast, imageRemoved }: ReviewPanelProps) {
   const [approveState, approve, approving] = useActionState<SaveState, unknown>(approveSubmissionAction, IDLE);
   const [rejectState, reject, rejecting] = useActionState<SaveState, unknown>(rejectSubmissionAction, IDLE);
   const [spamState, spam, deleting] = useActionState<SaveState, unknown>(deleteSubmissionAsSpamAction, IDLE);
@@ -46,6 +51,7 @@ export function ReviewPanel({ id, version, reviewStatus, dirty, allPast }: Revie
           : "It is not public. Approve it if the Reject was a mistake. The Submitter then gets the approve email."}
       </p>
       {allPast && <p className="font-medium text-amber-900">All dates of this Event are in the past.</p>}
+      {imageRemoved && <p className="font-medium text-amber-900">{IMAGE_REMOVED_NOTE}</p>}
       <SaveStatus state={approveState} />
       <SaveStatus state={rejectState} />
       <SaveStatus state={spamState} />

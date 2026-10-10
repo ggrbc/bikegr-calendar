@@ -16,7 +16,7 @@ export function PendingReview({
   const [dirty, setDirty] = useState(false);
   return (
     <div className="flex flex-col gap-8">
-      <ReviewPanel id={form.id} version={form.version} reviewStatus="pending" dirty={dirty} allPast={allPast} />
+      <ReviewPanel id={form.id} version={form.version} reviewStatus="pending" dirty={dirty} allPast={allPast} imageRemoved={false} />
       <EventForm {...form} mode="edit" scope="pending" onDirtyChange={setDirty} />
     </div>
   );

@@ -12,7 +12,13 @@ import { events } from "@/db/schema";
 import { createTestDb } from "@/db/test-db";
 import type { Db } from "@/db/types";
 import { countPending, listReviewQueue } from "./queue";
-import { approveSubmission, deleteSubmissionAsSpam, parseRejectReason, rejectSubmission } from "./review";
+import {
+  approveSubmission,
+  deleteSubmissionAsSpam,
+  imageRemovedByReview,
+  parseRejectReason,
+  rejectSubmission,
+} from "./review";
 import { submitEvent, type SubmitDeps } from "./submit-event";
 import type { SubmissionValues } from "./submission-input";
 
@@ -162,6 +168,25 @@ describe("Review queue and review writes", () => {
       const result = await rejectSubmission(db, erin, { id, version: 1 }, null);
       expect(result).toMatchObject({ ok: true, orphanImageUrl: IMAGE });
       expect((await eventRow(db, id)).imageUrl).toBeNull();
+      expect((await historyOf(db, id)).at(-1)?.snapshot).toMatchObject({ detail: { imageRemoved: true } });
+      expect(await imageRemovedByReview(db, id)).toBe(true);
+    });
+
+    it("a Reject with no image, or an image that stays, does not say that the image was removed", async () => {
+      const plain = await submit();
+      await rejectSubmission(db, erin, { id: plain, version: 1 }, null);
+      expect(await imageRemovedByReview(db, plain)).toBe(false);
+      const shared = await submit({}, true);
+      await createEvent(db, erin, draft({ imageUrl: IMAGE }));
+      await rejectSubmission(db, erin, { id: shared, version: 1 }, null);
+      expect(await imageRemovedByReview(db, shared)).toBe(false);
+    });
+
+    it("after an image is added again, the note goes away", async () => {
+      const id = await submit({}, true);
+      await rejectSubmission(db, erin, { id, version: 1 }, null);
+      await db.update(events).set({ imageUrl: IMAGE }).where(eq(events.id, id));
+      expect(await imageRemovedByReview(db, id)).toBe(false);
     });
 
     it("an image that another Event also uses stays", async () => {

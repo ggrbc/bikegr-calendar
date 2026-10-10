@@ -10,8 +10,9 @@
  * Reject and Delete as spam clear an image that no other Event uses and give its URL back, so the
  * caller removes the blob after the commit.
  */
-import { and, eq, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import type { FieldErrors } from "@/admin/events/event-input";
+import type { HistoryDetail } from "@/admin/events/format";
 import {
   type Actor,
   claimVersion,
@@ -23,7 +24,7 @@ import {
   type WriteResult,
 } from "@/admin/events/write-helpers";
 import { eventRowToRuleInput } from "@/db/mappers";
-import { events, type EventRow } from "@/db/schema";
+import { eventHistory, events, type EventRow } from "@/db/schema";
 import type { Db } from "@/db/types";
 import type { CalendarSlug, EventRuleInput } from "@/engine";
 
@@ -109,7 +110,8 @@ export async function rejectSubmission(
         ...(orphanImageUrl ? { imageUrl: null } : {}),
       },
     });
-    await writeHistory(tx, row.id, "reject", actor, reason ? { reason } : undefined);
+    const detail = { ...(reason ? { reason } : {}), ...(orphanImageUrl ? { imageRemoved: true } : {}) };
+    await writeHistory(tx, row.id, "reject", actor, Object.keys(detail).length > 0 ? detail : undefined);
     return { review: reviewed(updated), orphanImageUrl };
   });
 }
@@ -128,7 +130,24 @@ export async function deleteSubmissionAsSpam(
       actor,
       set: { deletedAt: new Date(), deletedBy: actor.id, ...(orphanImageUrl ? { imageUrl: null } : {}) },
     });
-    await writeHistory(tx, row.id, "delete", actor);
+    await writeHistory(tx, row.id, "delete", actor, orphanImageUrl ? { imageRemoved: true } : undefined);
     return { orphanImageUrl };
   });
+}
+
+/**
+ * True when the last Reject or Delete as spam removed the Event's image and it has no image now:
+ * the Review panel then asks the Editor to add one before an Approve.
+ */
+export async function imageRemovedByReview(db: Db, eventId: string): Promise<boolean> {
+  const [row] = await db.select({ imageUrl: events.imageUrl }).from(events).where(eq(events.id, eventId));
+  if (!row || row.imageUrl !== null) return false;
+  const [last] = await db
+    .select({ snapshot: eventHistory.snapshot })
+    .from(eventHistory)
+    .where(and(eq(eventHistory.eventId, eventId), inArray(eventHistory.action, ["reject", "delete"])))
+    .orderBy(desc(eventHistory.id))
+    .limit(1);
+  const detail = (last?.snapshot as { detail?: HistoryDetail } | undefined)?.detail;
+  return detail?.imageRemoved === true;
 }

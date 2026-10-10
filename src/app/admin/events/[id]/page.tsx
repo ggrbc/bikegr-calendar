@@ -23,6 +23,7 @@ import { PendingReview } from "../_components/pending-review";
 import { ReviewPanel } from "../_components/review-panel";
 import { SeriesEditor } from "../_components/series-editor";
 import { loadSplitBounds } from "@/admin/events/split-series";
+import { imageRemovedByReview } from "@/submissions/review";
 
 type Search = Record<string, string | string[] | undefined>;
 
@@ -237,7 +238,14 @@ async function EventPage({ params, searchParams }: { params: Promise<{ id: strin
         />
       )}
       {!deleted && row.reviewStatus === "rejected" && (
-        <ReviewPanel id={row.id} version={row.version} reviewStatus="rejected" dirty={false} allPast={allPast} />
+        <ReviewPanel
+          id={row.id}
+          version={row.version}
+          reviewStatus="rejected"
+          dirty={false}
+          allPast={allPast}
+          imageRemoved={await imageRemovedByReview(db, row.id)}
+        />
       )}
       {!deleted && !pending && row.rrule === null && (
         <EventForm
