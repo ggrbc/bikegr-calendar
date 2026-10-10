@@ -1,9 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { overrides } from "@/db/schema";
+import { inArray } from "drizzle-orm";
+import { events, overrides } from "@/db/schema";
 import { createTestDb } from "@/db/test-db";
 import type { Db } from "@/db/types";
 import { expandSnapshot } from "./occurrence-rows";
-import { loadSnapshot } from "./snapshot";
+import { loadSnapshot, snapshotEvents } from "./snapshot";
 import { addEvent, addTag, tagEvent, timed } from "./test-fixtures";
 
 describe("loadSnapshot", () => {
@@ -60,6 +61,27 @@ describe("loadSnapshot", () => {
     ];
     expect((await loadSnapshot(db, "rides")).tags).toEqual(expected);
     expect((await loadSnapshot(db, null)).tags).toEqual(expected);
+  });
+
+  it("a CTA whose URL is not http or https is left out; an https CTA stays", async () => {
+    const row = (title: string, ctaUrl: string) => ({
+      calendar: "rides" as const,
+      title,
+      reviewStatus: "approved" as const,
+      allDay: false,
+      startLocal: "2026-10-15T18:00",
+      endLocal: "2026-10-15T20:00",
+      ctaLabel: "Click",
+      ctaUrl,
+    });
+    const rows = await db
+      .insert(events)
+      .values([row("Unsafe CTA", "data:text/html,<script>alert(1)</script>"), row("Safe CTA", "https://example.org")])
+      .returning();
+    const [unsafe, safe] = await snapshotEvents(db, rows);
+    expect(unsafe.cta).toBeNull();
+    expect(safe.cta).toEqual({ label: "Click", url: "https://example.org" });
+    await db.delete(events).where(inArray(events.id, rows.map((r) => r.id)));
   });
 
   it("is plain data that survives structured clone (Next.js cache serialization)", async () => {

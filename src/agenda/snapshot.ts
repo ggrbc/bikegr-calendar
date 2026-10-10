@@ -12,6 +12,7 @@ import { eventRowToRuleInput, overrideRowToInput } from "@/db/mappers";
 import { type EventRow, eventTags, events, overrides, tags } from "@/db/schema";
 import type { Db } from "@/db/types";
 import type { CalendarSlug, EventRuleInput, OriginalStart, OverrideInput } from "@/engine";
+import { isHttpUrl } from "./safe-url";
 
 export interface AgendaTag {
   name: string;
@@ -93,8 +94,9 @@ export async function snapshotEvents(db: Db, eventRows: EventRow[]): Promise<Sna
       description: event.description,
       location: event.location,
       imageUrl: event.imageUrl,
+      // Only an http(s) URL goes into an href; a data: or javascript: CTA is left out.
       cta:
-        event.ctaLabel !== null && event.ctaUrl !== null
+        event.ctaLabel !== null && event.ctaUrl !== null && isHttpUrl(event.ctaUrl)
           ? { label: event.ctaLabel, url: event.ctaUrl }
           : null,
       rule: eventRowToRuleInput(event),
