@@ -21,10 +21,9 @@ import {
 import { NOT_FOUND_MESSAGE } from "@/admin/events/format";
 import { clearOverride, saveOverride } from "@/admin/events/overrides";
 import { loadEventForEdit } from "@/admin/events/queries";
-// Stand-in until the `admin-people-tags-images` stream merges: then `@/admin/images/image-url`.
-import { isEventImageUrl } from "@/admin/events/seams";
 import { splitSeries } from "@/admin/events/split-series";
 import type { WriteFailure } from "@/admin/events/write-helpers";
+import { isEventImageUrl } from "@/admin/images/image-url";
 import { getDb } from "@/db";
 
 export type SaveState =
@@ -70,7 +69,7 @@ function invalidState(errors: FieldErrors): SaveState {
 }
 
 function context(editor: CurrentEditor, storedImageUrl: string | null): ParseContext {
-  return { isAdmin: editor.role === "admin", storedImageUrl, isImageUrl: isEventImageUrl };
+  return { isAdmin: editor.role === "admin", storedImageUrl, isImageUrl: (url) => isEventImageUrl(url) };
 }
 
 const actor = (editor: CurrentEditor) => ({ id: editor.id, role: editor.role });

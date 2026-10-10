@@ -11,8 +11,7 @@ import {
 } from "@/admin/events/form-values";
 import { nextOccurrences } from "@/admin/events/preview";
 import { type EventForEdit, loadEventForEdit, loadHistory } from "@/admin/events/queries";
-// Stand-in until the `admin-people-tags-images` stream merges: then `@/admin/tags/tags`.
-import { listPickerTags } from "@/admin/events/seams";
+import { listPickerTags } from "@/admin/tags/tags";
 import { shortDate, timeText, todayInDetroit } from "@/agenda/dates";
 import { requireEditor } from "@/auth/dal";
 import { getDb } from "@/db";

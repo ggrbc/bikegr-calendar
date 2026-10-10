@@ -481,7 +481,8 @@ The import tests (`src/import/*.test.ts`) and agenda tests must pass with no cha
   no `export const instant = false`.
 - The router keeps an earlier page in the DOM (hidden), so a fixed input id can occur twice. `Field`
   gives each input a unique id (`useId`).
-- Stand-ins for the Tags and images stream: `src/admin/events/seams.ts` (`listPickerTags`,
-  `isEventImageUrl`) and `src/app/admin/events/_components/image-upload-field.tsx`. Swap them for
-  `@/admin/tags/tags`, `@/admin/images/image-url`, and `@/admin/images/image-upload-field` when PR #6
-  merges. The rule "an image URL equal to the stored URL is accepted" stays in `event-input.ts`.
+- PR #6 merged: the Event form uses the real `listPickerTags` (`@/admin/tags/tags`),
+  `ImageUploadField` (`@/admin/images/image-upload-field`), and `isEventImageUrl`
+  (`@/admin/images/image-url`); the stand-ins are deleted. The rule "an image URL equal to the
+  stored URL is accepted" stays in `event-input.ts`. Tests use `isEventImageUrlForHost` with a fixed
+  host.

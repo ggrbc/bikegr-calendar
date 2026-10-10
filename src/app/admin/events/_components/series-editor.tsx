@@ -6,7 +6,7 @@ import type { FieldErrors, SeriesContentValues, SplitDraft, SplitFormValues } fr
 import { rruleFromChoice } from "@/admin/events/form-values";
 import { planSplit, type SplitPlan, type SplitSeries } from "@/admin/events/plan-split";
 import { nextOccurrences } from "@/admin/events/preview";
-import type { PickerTag } from "@/admin/events/seams";
+import type { PickerTag } from "@/admin/tags/tags";
 import { shortDate, timeText } from "@/agenda/dates";
 import { addDays, type CalendarSlug, isLocalDate, type OverrideInput, type Timing, timingStart } from "@/engine";
 import { saveEventAction, type SaveState, splitSeriesAction } from "../actions";

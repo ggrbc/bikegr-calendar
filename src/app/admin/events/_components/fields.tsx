@@ -3,9 +3,9 @@
 import { cloneElement, type ReactElement, useId } from "react";
 import type { ContentValues, FieldErrors } from "@/admin/events/event-input";
 import { CALENDAR_LABELS } from "@/admin/events/format";
-import type { PickerTag } from "@/admin/events/seams";
+import { ImageUploadField } from "@/admin/images/image-upload-field";
+import type { PickerTag } from "@/admin/tags/tags";
 import type { CalendarSlug } from "@/engine";
-import { ImageUploadField } from "./image-upload-field";
 
 export const inputClass = "w-full rounded border border-gray-400 px-3 py-2";
 
@@ -192,7 +192,7 @@ export function ContentFields<T extends ContentValues>({
           label="Image"
           defaultValue={values.imageUrl || null}
           onUploadingChange={onUploadingChange}
-          onChange={(url) => set({ imageUrl: url })}
+          onChange={(url) => set({ imageUrl: url ?? "" })}
         />
         <FieldError id="image-error" message={errors.imageUrl} />
       </div>

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { isEventImageUrlForHost } from "@/admin/images/image-url";
 import {
   type EventFormValues,
   type ParseContext,
@@ -8,10 +9,14 @@ import {
   parseSplitInput,
 } from "./event-input";
 
+/** A fixed Blob store host for the tests. */
+const STORE_HOST = "abc123.public.blob.vercel-storage.com";
+const UPLOADED = `https://${STORE_HOST}/events/${"a".repeat(64)}.webp`;
+
 const editor: ParseContext = {
   isAdmin: false,
   storedImageUrl: null,
-  isImageUrl: (url) => url.startsWith("https://blob.example/"),
+  isImageUrl: (url) => isEventImageUrlForHost(url, STORE_HOST),
 };
 const admin: ParseContext = { ...editor, isAdmin: true };
 const TAG = "6f1c2c6e-1d1b-4c55-9a43-2b8a3f0c9e11";
@@ -91,16 +96,23 @@ describe("Event input", () => {
   });
 
   it("the image URL is accepted when the upload made it, when it is the stored URL, or when empty", () => {
-    expect(parseEventInput(values({ imageUrl: "https://blob.example/a.jpg" }), editor).ok).toBe(true);
+    expect(parseEventInput(values({ imageUrl: UPLOADED }), editor).ok).toBe(true);
     expect(
       parseEventInput(values({ imageUrl: "https://cdn.tockify/a.jpg" }), {
         ...editor,
         storedImageUrl: "https://cdn.tockify/a.jpg",
       }).ok,
     ).toBe(true);
-    expect(errorsOf(parseEventInput(values({ imageUrl: "https://evil.example/a.jpg" }), editor))).toEqual({
-      imageUrl: "This image URL is not allowed. Upload the image again.",
-    });
+    for (const bad of [
+      "https://evil.example/a.jpg",
+      `https://other.public.blob.vercel-storage.com/events/${"a".repeat(64)}.webp`,
+      `${UPLOADED}?x=1`,
+      UPLOADED.replace("https:", "http:"),
+    ]) {
+      expect(errorsOf(parseEventInput(values({ imageUrl: bad }), editor)), bad).toEqual({
+        imageUrl: "This image URL is not allowed. Upload the image again.",
+      });
+    }
   });
 
   it("Advanced rule text from an Editor is refused; an Admin's is checked by the engine", () => {

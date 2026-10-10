@@ -2,8 +2,7 @@ import { io } from "next/cache";
 import Link from "next/link";
 import { Suspense } from "react";
 import { emptyEventValues } from "@/admin/events/form-values";
-// Stand-in until the `admin-people-tags-images` stream merges: then `@/admin/tags/tags`.
-import { listPickerTags } from "@/admin/events/seams";
+import { listPickerTags } from "@/admin/tags/tags";
 import { todayInDetroit } from "@/agenda/dates";
 import { requireEditor } from "@/auth/dal";
 import { getDb } from "@/db";

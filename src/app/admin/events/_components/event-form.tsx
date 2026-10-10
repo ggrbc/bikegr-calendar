@@ -4,7 +4,7 @@ import { useActionState, useMemo, useState } from "react";
 import type { EventFormValues, FieldErrors } from "@/admin/events/event-input";
 import { previewRuleInput } from "@/admin/events/form-values";
 import { nextOccurrences } from "@/admin/events/preview";
-import type { PickerTag } from "@/admin/events/seams";
+import type { PickerTag } from "@/admin/tags/tags";
 import { addMinutes, type CalendarSlug, isLocalDateTime, minutesBetween, type OverrideInput } from "@/engine";
 import { createEventAction, saveEventAction, type SaveState } from "../actions";
 import { ContentFields, Field, inputClass } from "./fields";
