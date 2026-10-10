@@ -47,6 +47,67 @@ export type OverrideColumns = Pick<
 > &
   TimingColumns;
 
+// ---------------------------------------------------------------------------------------------
+// Write direction: engine contract -> row values. Each is the inverse of a read mapper above.
+
+type TimingColumnValues = { allDay: boolean } & {
+  startLocal: string | null;
+  endLocal: string | null;
+  startDate: string | null;
+  endDate: string | null;
+};
+
+function timingToColumns(timing: Timing): TimingColumnValues {
+  return timing.kind === "allDay"
+    ? {
+        allDay: true,
+        startLocal: null,
+        endLocal: null,
+        startDate: timing.startDate,
+        endDate: timing.endDate,
+      }
+    : { allDay: false, startLocal: timing.start, endLocal: timing.end, startDate: null, endDate: null };
+}
+
+export type RuleColumns = Omit<EventRuleColumns, "id">;
+
+/** The timing, rule, and Schedule columns of an Event. `eventId` is not a column here. */
+export function ruleInputToColumns(rule: EventRuleInput): RuleColumns {
+  return {
+    ...timingToColumns(rule.timing),
+    rrule: rule.rrule,
+    exdates: rule.exdates,
+    scheduleStatus: rule.scheduleStatus,
+    scheduleNote: rule.scheduleNote,
+  };
+}
+
+export function ctaToColumns(
+  cta: { label: string; url: string } | null,
+): Pick<EventRow, "ctaLabel" | "ctaUrl"> {
+  return { ctaLabel: cta?.label ?? null, ctaUrl: cta?.url ?? null };
+}
+
+/**
+ * Absent fields become null columns ("no change"). `eventId` is the database id of the Event, not
+ * the `eventId` in the input (the import uses the Source ID there).
+ */
+export function overrideInputToRow(override: OverrideInput, eventId: string): OverrideColumns {
+  const timing: Pick<OverrideRow, "allDay" | "startLocal" | "endLocal" | "startDate" | "endDate"> =
+    override.timing
+      ? timingToColumns(override.timing)
+      : { allDay: null, startLocal: null, endLocal: null, startDate: null, endDate: null };
+  return {
+    eventId,
+    originalStart: override.originalStart,
+    ...timing,
+    title: override.title ?? null,
+    location: override.location ?? null,
+    scheduleStatus: override.scheduleStatus ?? null,
+    scheduleNote: override.scheduleNote ?? null,
+  };
+}
+
 /** Null columns mean "no change", so they become absent fields (not `undefined` keys). */
 export function overrideRowToInput(row: OverrideColumns): OverrideInput {
   const input: OverrideInput = { eventId: row.eventId, originalStart: row.originalStart };

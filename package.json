@@ -16,12 +16,14 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/db/seed.ts",
     "db:smoke": "tsx src/db/smoke.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "import:tockify": "tsx src/import/cli.ts"
   },
   "dependencies": {
     "@auth/core": "0.41.3",
     "@auth/drizzle-adapter": "^1.11.3",
     "@neondatabase/serverless": "^1.2.0",
+    "@vercel/blob": "^2.8.1",
     "@vercel/functions": "^3.9.11",
     "drizzle-orm": "^0.45.4",
     "next": "16.4.0",

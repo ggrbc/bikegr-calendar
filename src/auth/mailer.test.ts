@@ -53,7 +53,7 @@ describe("createMailer", () => {
     const send = vi.fn().mockResolvedValue({ data: { id: "1" }, error: null });
     const resendFactory = vi.fn().mockReturnValue({ emails: { send } });
     const mailer = createMailer({
-      env: { RESEND_API_KEY: "re_test", EMAIL_FROM: "Bike GR Calendar <no-reply@calendar.bikegr.org>" },
+      env: { RESEND_API_KEY: "re_test", EMAIL_FROM: "Bike GR Calendar <notifications@bikegr.org>" },
       resendFactory,
     });
     expect(mailer.transport).toBe("resend");
@@ -63,7 +63,7 @@ describe("createMailer", () => {
     expect(resendFactory).toHaveBeenCalledWith("re_test");
     expect(send).toHaveBeenCalledWith(
       expect.objectContaining({
-        from: "Bike GR Calendar <no-reply@calendar.bikegr.org>",
+        from: "Bike GR Calendar <notifications@bikegr.org>",
         to: "a@b.org",
         subject: expect.stringMatching(/invited/i),
         text: expect.stringContaining(url),

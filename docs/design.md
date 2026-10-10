@@ -36,7 +36,7 @@ Tockify is embedded today on two Squarespace pages:
 | Database | Postgres (Neon). Production: `neon-serverless` WebSocket `Pool` at module scope with Vercel `attachDatabasePool`, so interactive transactions work (the HTTP driver cannot stop a batch when a `version` check fails). Any `*.neon.tech` URL (also the dev branch) uses this Pool; local Docker Postgres uses postgres-js. Migrations run by hand (`pnpm db:migrate`), not in the build. |
 | Data access | Drizzle (schema in TypeScript, `drizzle-kit` migrations, `sql` tag for hard queries) |
 | Auth | Auth.js — magic-link email (Google login after cutover) |
-| Email | Resend, sending from a `calendar.bikegr.org` subdomain |
+| Email | Resend, verified on the root `bikegr.org`, sending from `notifications@bikegr.org` |
 | Images | Blob storage (Vercel Blob or R2), resized on upload |
 | Spam control | Cloudflare Turnstile, honeypot, per-IP rate limit stored in Postgres |
 | Hosting | Vercel Hobby |
@@ -55,9 +55,10 @@ before committing.
 - **Repo:** public, at https://github.com/ggrbc/bikegr-calendar (Hobby can deploy public org repos).
   No secrets in code; they live in Vercel environment variables.
 - **App domain:** `calendar.bikegr.org`, a CNAME to Vercel.
-- **Mail domain:** a `calendar.bikegr.org` sending subdomain for Resend. Its SPF, DKIM, and bounce MX
-  records stay off the root domain, so they do not touch Bike GR's Google Workspace mail. The root
-  `_dmarc` is `p=none` with no `sp=`, so the subdomain has no DMARC conflict.
+- **Mail domain:** Resend is verified on the root `bikegr.org` and sends from
+  `notifications@bikegr.org`. Its records are `send.bikegr.org` (CNAME, the bounce and SPF
+  subdomain) and `resend._domainkey.bikegr.org` (DKIM). They do not touch the root SPF record of
+  Bike GR's Google Workspace mail. The root `_dmarc` is `p=none`.
 - **DNS** is managed in the Squarespace domain panel. Add the records in the first milestone:
   magic-link login cannot work until Resend verifies the domain.
 
