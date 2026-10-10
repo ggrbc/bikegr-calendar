@@ -8,7 +8,7 @@ import { hitRateLimit, type RateLimitRule } from "./index";
 
 const RULE: RateLimitRule = { bucket: "test:ip", limit: 3, windowSeconds: 60 };
 /** Exactly at the start of a 60-second window (epoch-aligned). */
-const T0 = new Date("2026-10-10T12:00:00.000Z");
+const T0 = new Date("2025-01-01T12:00:00.000Z"); // in the past, so the database clock never sees these windows as future
 const at = (seconds: number) => new Date(T0.getTime() + seconds * 1000);
 
 describe("hitRateLimit", () => {
@@ -61,18 +61,37 @@ describe("hitRateLimit", () => {
     expect(row).toMatchObject({ hits: 2, windowStart: at(60) });
   });
 
-  it("a window more than one window ahead (a far-future clock) resets to the current window", async () => {
-    for (let i = 0; i < 4; i++) await hitRateLimit(db, RULE, "k", at(3601)); // a clock 1 hour ahead
-    expect(await hitRateLimit(db, RULE, "k", at(1))).toEqual({ allowed: true, retryAfterSeconds: 0 });
-    const [row] = await rows();
-    expect(row).toMatchObject({ hits: 1, windowStart: at(0), expiresAt: at(60) });
-  });
+  describe("server clocks that differ (the database clock decides what is the future)", () => {
+    /** The start of the current real 60-second window: these cases compare with the database `now()`. */
+    let base: number;
+    const live = (seconds: number) => new Date(base + seconds * 1000);
+    beforeEach(() => {
+      base = Math.floor(Date.now() / 60_000) * 60_000;
+    });
 
-  it("a window exactly one window ahead still counts (a clock a little ahead)", async () => {
-    await hitRateLimit(db, RULE, "k", at(60));
-    await hitRateLimit(db, RULE, "k", at(59));
-    const [row] = await rows();
-    expect(row).toMatchObject({ hits: 2, windowStart: at(60) });
+    it("a window more than one window ahead (a far-future clock) resets to the current window", async () => {
+      for (let i = 0; i < 4; i++) await hitRateLimit(db, RULE, "k", live(3601)); // a clock 1 hour ahead
+      expect(await hitRateLimit(db, RULE, "k", live(1))).toEqual({ allowed: true, retryAfterSeconds: 0 });
+      const [row] = await rows();
+      expect(row).toMatchObject({ hits: 1, windowStart: live(0), expiresAt: live(60) });
+    });
+
+    it("a window exactly one window ahead still counts (a clock a little ahead)", async () => {
+      await hitRateLimit(db, RULE, "k", live(60));
+      await hitRateLimit(db, RULE, "k", live(1));
+      const [row] = await rows();
+      expect(row).toMatchObject({ hits: 2, windowStart: live(60) });
+    });
+
+    it("a far-past clock (2 windows behind) alternating with a normal one cannot reset the count", async () => {
+      const results = [];
+      for (let i = 0; i < 10; i++) {
+        results.push(await hitRateLimit(db, RULE, "k", i % 2 === 0 ? live(1) : live(-119)));
+      }
+      expect(results.filter((r) => r.allowed)).toHaveLength(RULE.limit);
+      const [row] = await rows();
+      expect(row).toMatchObject({ hits: RULE.limit + 1, windowStart: live(0) });
+    });
   });
 
   it("buckets are separate for the same key", async () => {

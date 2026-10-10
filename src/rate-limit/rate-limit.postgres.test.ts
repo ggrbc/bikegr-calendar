@@ -35,7 +35,7 @@ describe.runIf(url && !isLocal(url))("TEST_DATABASE_URL guard", () => {
 describe.runIf(url && isLocal(url))("hitRateLimit on a real Postgres server", () => {
   let client: postgres.Sql;
   let db: Db;
-  const now = new Date("2026-10-10T12:00:01.000Z");
+  const now = new Date("2025-01-01T12:00:01.000Z"); // in the past: the database clock decides the future
 
   beforeAll(async () => {
     client = postgres(url!, { max: 10, onnotice: () => {} });

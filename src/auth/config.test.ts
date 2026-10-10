@@ -200,7 +200,8 @@ describe("Auth.js wiring", () => {
 
     beforeEach(() => {
       // Mid-hour, so the requests of one test never cross a window boundary.
-      vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-10T12:20:00Z") });
+      // In the past: the rate limit compares with the database clock, which is not faked.
+      vi.useFakeTimers({ toFake: ["Date"], now: new Date("2025-01-01T12:20:00Z") });
       lines = [];
       for (const level of ["log", "info", "warn", "error"] as const) {
         vi.spyOn(console, level).mockImplementation((...args: unknown[]) => {

@@ -70,7 +70,8 @@ bucket share the same boundaries, so the window is easy to compute and to test.
 INSERT INTO rate_limits AS r (bucket, key_hash, window_start, hits, expires_at)
 VALUES ($bucket, $keyHash, $windowStart, 1, $windowEnd)
 ON CONFLICT (bucket, key_hash) DO UPDATE SET
-  -- reset = (r.window_start < EXCLUDED.window_start OR r.window_start > EXCLUDED.expires_at)
+  -- reset = (r.window_start < EXCLUDED.window_start
+  --          OR r.window_start > now() + make_interval(secs => $windowSeconds))
   hits = CASE WHEN reset THEN 1 ELSE LEAST(r.hits + 1, $limit + 1) END,
   window_start = CASE WHEN reset THEN EXCLUDED.window_start ELSE r.window_start END,
   expires_at = CASE WHEN reset THEN EXCLUDED.expires_at ELSE r.expires_at END
@@ -78,7 +79,9 @@ RETURNING hits, window_start;
 ```
 
 (Changed after review: the first draft used `GREATEST`, so a row from a far-future clock locked its
-key until that time. Now a stored window more than one window ahead resets.)
+key until that time. Now a stored window more than one window after the **database** clock
+resets. The second review found that a first fix, which compared with the hit's own window end,
+let a server clock far behind reset a live row on every hit; `now()` is the same for all servers.)
 
 - `allowed = hits <= limit`. A refused hit still counts (capped at `limit + 1`), so a client that
   keeps trying does not get a new allowance.

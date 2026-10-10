@@ -35,7 +35,8 @@ const PRUNE_GRACE_MS = 60_000;
  *   gets a different count and exactly `limit` hits in a window are allowed.
  * - A refused hit still counts (capped at `limit + 1`), so retrying does not help.
  * - Windows are aligned to the epoch. A late hit from an instance with an older clock counts in the
- *   current window. A stored window more than one window ahead (a far-future clock) is reset.
+ *   current window. A stored window more than one window after the database clock (a far-future
+ *   clock) is reset; `now` cannot cause that reset, so a far-past clock cannot reset a live row.
  * - When a key starts a new window, the call also deletes up to 500 rows that expired more than
  *   60 s ago.
  * - Strict: a database error throws. The caller decides to fail open or closed.
@@ -50,8 +51,10 @@ export async function hitRateLimit(
   const windowMs = rule.windowSeconds * 1000;
   const windowStart = new Date(Math.floor(now.getTime() / windowMs) * windowMs);
   const windowEnd = new Date(windowStart.getTime() + windowMs);
+  // The database clock decides "in the future", so a hit from a server whose clock is far behind
+  // cannot reset a live row (its `now` would make every live row look like the future).
   const reset = sql`(${rateLimits.windowStart} < excluded.window_start
-    OR ${rateLimits.windowStart} > excluded.expires_at)`;
+    OR ${rateLimits.windowStart} > now() + make_interval(secs => ${rule.windowSeconds}::int))`;
 
   const [row] = await db
     .insert(rateLimits)
@@ -64,9 +67,10 @@ export async function hitRateLimit(
     })
     .onConflictDoUpdate({
       target: [rateLimits.bucket, rateLimits.keyHash],
-      // `reset`: the stored window is older (a new window began), or it starts after this hit's
-      // window end, so more than one window ahead (it came from a far-future clock and would lock
-      // the key). A window one ahead (a clock a little ahead) is kept, and the hit counts in it.
+      // `reset`: the stored window is older than this hit's window (a new window began), or it
+      // starts more than one window after the database's `now()` (it came from a far-future clock
+      // and would lock the key). A window one ahead (a clock a little ahead) is kept, and the hit
+      // counts in it; so does a hit from a clock that is behind.
       set: {
         hits: sql`CASE WHEN ${reset} THEN 1 ELSE LEAST(${rateLimits.hits} + 1, ${rule.limit + 1}::int) END`,
         windowStart: sql`CASE WHEN ${reset} THEN excluded.window_start ELSE ${rateLimits.windowStart} END`,
