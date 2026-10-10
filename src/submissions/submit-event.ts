@@ -74,6 +74,7 @@ export const MESSAGES = {
   unavailable: "Submissions do not work right now. Try again later.",
   noImageStore: "Image upload is not set up. Remove the image, or try again later.",
   failed: "The Submission was not saved. Try again.",
+  closed: "Submissions are closed right now. Try again later.",
 } as const;
 
 export function limitedMessage(retryAfterSeconds: number): string {
