@@ -98,14 +98,14 @@ export function ImageUploadField({
 
   return (
     <div className="flex flex-col gap-2">
-      <label htmlFor={id} className="font-medium">
+      <label htmlFor={id} className="font-semibold text-brand-gray">
         {label}
       </label>
       <input type="hidden" name={name} value={url ?? ""} />
       {url && (
         // A plain <img>: the preview shows any stored URL (also an imported one) at its own size.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt="" className="max-h-64 w-auto max-w-full self-start rounded border border-gray-300" />
+        <img src={url} alt="" className="max-h-64 w-auto max-w-full self-start rounded-md border border-brand-divider" />
       )}
       <div className="flex flex-wrap items-center gap-2">
         {/* No `name`: the file never goes with the Event form. */}
@@ -120,7 +120,7 @@ export function ImageUploadField({
             event.currentTarget.value = "";
             if (file) void upload(file);
           }}
-          className="text-sm"
+          className="max-w-full text-sm file:mr-3 file:min-h-9 file:cursor-pointer file:rounded-[300px] file:border file:border-solid file:border-[#8a898a] file:bg-white file:px-4 file:py-1.5 file:font-chivo file:text-[13px] file:text-brand-gray hover:file:border-brand-gray"
         />
         {url && (
           <button
@@ -130,7 +130,7 @@ export function ImageUploadField({
               setValue(null);
               setStatus({ kind: "idle" });
             }}
-            className="rounded border border-gray-500 px-3 py-1 text-sm disabled:opacity-60"
+            className="inline-flex min-h-9 items-center rounded-[300px] border border-[#8a898a] bg-white px-4 py-1.5 font-chivo text-[13px] text-brand-gray hover:border-brand-gray disabled:opacity-60"
           >
             Remove image
           </button>
@@ -139,12 +139,12 @@ export function ImageUploadField({
       <p id={`${id}-status`} className="text-sm">
         {status.kind === "uploading" && <span role="status">Uploading…</span>}
         {status.kind === "error" && (
-          <span role="alert" className="text-red-700">
+          <span role="alert" className="font-semibold text-red-700">
             {status.message}
           </span>
         )}
         {status.kind === "idle" && (
-          <span className="text-gray-700">JPEG, PNG, GIF, WebP, or AVIF, up to 10 MB. Stored at most 1600 px wide.</span>
+          <span className="text-[#5f5e5f]">JPEG, PNG, GIF, WebP, or AVIF, up to 10 MB. Stored at most 1600 px wide.</span>
         )}
       </p>
     </div>

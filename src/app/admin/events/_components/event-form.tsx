@@ -7,6 +7,7 @@ import { nextOccurrences } from "@/admin/events/preview";
 import type { PickerTag } from "@/admin/tags/tags";
 import { addMinutes, type CalendarSlug, isLocalDateTime, minutesBetween, type OverrideInput } from "@/engine";
 import { createEventAction, saveEventAction, type SaveState } from "../actions";
+import { buttonClass, checkClass, legendClass, panelClass } from "../../_components/ui";
 import { ContentFields, Field, inputClass } from "./fields";
 import { OccurrencePreview } from "./occurrence-preview";
 import { RuleEditor, SkippedDates } from "./rule-editor";
@@ -83,9 +84,9 @@ export function TimingFields({
 
   return (
     <fieldset className="flex flex-col gap-3">
-      <legend className="font-medium">When (Detroit time)</legend>
+      <legend className={`${legendClass} mb-1`}>When (Detroit time)</legend>
       <label className="flex items-center gap-2">
-        <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
+        <input type="checkbox" className={checkClass} checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
         All day
       </label>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -181,38 +182,38 @@ function EventFormBody({
 
   return (
     <form action={() => submit(values)} className="flex flex-col gap-6">
-      <ContentFields
-        values={values}
-        onChange={setValues}
-        errors={errors}
-        tagsByCalendar={tagsByCalendar}
-        imageKey="image"
-        onUploadingChange={setUploading}
-      />
-      <TimingFields values={values} onChange={set} errors={errors} />
-      <RuleEditor
-        value={values.rule}
-        onChange={(rule) => set({ rule })}
-        startDate={values.start.slice(0, 10)}
-        isAdmin={isAdmin}
-        errors={errors}
-      />
-      {repeats && <SkippedDates dates={values.exdates} onChange={(exdates) => set({ exdates })} error={errors.exdates} />}
-      {!repeats && (
-        <ScheduleFields
-          status={values.scheduleStatus}
-          note={values.scheduleNote}
-          onChange={set}
+      <div className={panelClass}>
+        <ContentFields
+          values={values}
+          onChange={setValues}
+          errors={errors}
+          tagsByCalendar={tagsByCalendar}
+          imageKey="image"
+          onUploadingChange={setUploading}
+        />
+      </div>
+      <div className={`${panelClass} flex flex-col gap-6`}>
+        <TimingFields values={values} onChange={set} errors={errors} />
+        <RuleEditor
+          value={values.rule}
+          onChange={(rule) => set({ rule })}
+          startDate={values.start.slice(0, 10)}
+          isAdmin={isAdmin}
           errors={errors}
         />
-      )}
+        {repeats && <SkippedDates dates={values.exdates} onChange={(exdates) => set({ exdates })} error={errors.exdates} />}
+        {!repeats && (
+          <ScheduleFields
+            status={values.scheduleStatus}
+            note={values.scheduleNote}
+            onChange={set}
+            errors={errors}
+          />
+        )}
+      </div>
       <OccurrencePreview title="Next dates" result={preview} />
       <div>
-        <button
-          type="submit"
-          disabled={pending || uploading}
-          className="rounded bg-blue-700 px-4 py-2 font-medium text-white disabled:opacity-60"
-        >
+        <button type="submit" disabled={pending || uploading} className={buttonClass("primary")}>
           {pending ? "Saving…" : mode === "create" ? "Create Event" : "Save"}
         </button>
       </div>

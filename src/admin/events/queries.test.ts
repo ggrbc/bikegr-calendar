@@ -6,7 +6,14 @@ import type { Db } from "@/db/types";
 import { createEvent } from "./create-event";
 import { deleteEvent } from "./delete-event";
 import { editSeriesContent } from "./edit-event";
-import { type EventListFilter, likePattern, listEvents, loadEventForEdit, loadHistory } from "./queries";
+import {
+  type EventListFilter,
+  likePattern,
+  listEvents,
+  listRecentChanges,
+  loadEventForEdit,
+  loadHistory,
+} from "./queries";
 import { splitSeries } from "./split-series";
 import { addEditor, draft } from "./test-helpers";
 import type { Actor } from "./write-helpers";
@@ -86,6 +93,36 @@ describe("admin reads", () => {
       ["Import", "Import"],
       ["Erin Editor", "Edited"],
       ["Erin Editor", "Created"],
+    ]);
+  });
+
+  it("recent changes list the newest entries of all Events, with the title and the detail", async () => {
+    const ride = await add({ title: "Tuesday Ride" });
+    const meeting = await add({ title: "Commission Meeting", calendar: "advocacy" });
+    const later = new Date(Date.now() + 60_000);
+    await db.insert(eventHistory).values({
+      eventId: ride,
+      version: 2,
+      action: "override",
+      snapshot: { detail: { originalStart: "2026-10-13T18:00" } },
+      changedBy: erin.id,
+      changedAt: later,
+    });
+    const recent = await listRecentChanges(db, 2);
+    expect(recent.map((r) => [r.eventId, r.title, r.who, r.what])).toEqual([
+      [ride, "Tuesday Ride", "Erin Editor", "Changed one date (Tue, Oct 13)"],
+      [meeting, "Commission Meeting", "Erin Editor", "Created"],
+    ]);
+    expect(recent.map((r) => r.deleted)).toEqual([false, false]);
+  });
+
+  it("recent changes mark a deleted Event", async () => {
+    const gone = await add({ title: "Duplicate Ride" });
+    await deleteEvent(db, erin, { id: gone, version: 1 });
+    const recent = await listRecentChanges(db, 5);
+    expect(recent.map((r) => [r.title, r.what, r.deleted])).toEqual([
+      ["Duplicate Ride", "Deleted", true],
+      ["Duplicate Ride", "Created", true],
     ]);
   });
 });

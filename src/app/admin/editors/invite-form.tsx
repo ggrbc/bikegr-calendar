@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { buttonClass, inputClass, labelClass, Notice } from "../_components/ui";
 import { inviteEditorAction, type InviteState } from "./actions";
 
 const initial: InviteState = { result: "idle" };
@@ -10,7 +11,7 @@ export function InviteForm() {
 
   return (
     <form action={action} className="flex max-w-md flex-col gap-3">
-      <label htmlFor="invite-email" className="font-medium">
+      <label htmlFor="invite-email" className={labelClass}>
         Email
       </label>
       <input
@@ -18,38 +19,38 @@ export function InviteForm() {
         name="email"
         type="email"
         required
-        className="rounded border border-gray-400 px-3 py-2"
+        className={inputClass}
       />
-      <label htmlFor="invite-name" className="font-medium">
+      <label htmlFor="invite-name" className={labelClass}>
         Name (optional)
       </label>
-      <input id="invite-name" name="name" type="text" className="rounded border border-gray-400 px-3 py-2" />
-      <label htmlFor="invite-role" className="font-medium">
+      <input id="invite-name" name="name" type="text" className={inputClass} />
+      <label htmlFor="invite-role" className={labelClass}>
         Role
       </label>
       <select
         id="invite-role"
         name="role"
         defaultValue="editor"
-        className="rounded border border-gray-400 px-3 py-2"
+        className={inputClass}
       >
         <option value="editor">Editor</option>
         <option value="admin">Admin</option>
       </select>
       {state.result === "error" && (
-        <p role="alert" className="text-red-700">
+        <Notice tone="error" role="alert">
           {state.message}
-        </p>
+        </Notice>
       )}
       {state.result === "sent" && (
-        <p role="status" className="text-green-800">
+        <Notice tone="success" role="status">
           Invite sent to {state.email}.
-        </p>
+        </Notice>
       )}
       <button
         type="submit"
         disabled={pending}
-        className="rounded bg-blue-700 px-4 py-2 font-medium text-white disabled:opacity-60"
+        className={`${buttonClass("primary")} self-start`}
       >
         {pending ? "Sending…" : "Send invite"}
       </button>

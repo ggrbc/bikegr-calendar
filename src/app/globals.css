@@ -49,3 +49,15 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * The admin moves focus to the page's h1 (or to <main> until the h1 shows) after a client-side
+ * navigation (admin-nav-links.tsx). They are focus targets, not controls, so they get no ring.
+ * Unlayered, like the rule above.
+ */
+main[tabindex="-1"]:focus,
+main[tabindex="-1"]:focus-visible,
+#admin-main h1[tabindex="-1"]:focus,
+#admin-main h1[tabindex="-1"]:focus-visible {
+  outline: none;
+}

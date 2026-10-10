@@ -12,7 +12,7 @@ import { todayInDetroit } from "@/agenda/dates";
 import { ruleInputToColumns } from "@/db/mappers";
 import * as schema from "@/db/schema";
 import type { EventRuleInput, Timing } from "@/engine";
-import { E2E_DATABASE_URL, E2E_EDITOR, fixtureDates, IDS } from "./fixture";
+import { E2E_ADMIN, E2E_DATABASE_URL, E2E_EDITOR, fixtureDates, IDS } from "./fixture";
 
 const timed = (day: string, from = "18:00", to = "20:00"): Timing => ({
   kind: "timed",
@@ -44,18 +44,25 @@ export default async function globalSetup() {
     await db.execute(
       sql`truncate events, tags, event_tags, overrides, event_history, rate_limits, auth_sessions, editors cascade`,
     );
+    await db.insert(schema.editors).values([
+      { id: E2E_EDITOR.id, email: E2E_EDITOR.email, name: E2E_EDITOR.name, role: "editor", emailVerified: new Date() },
+      { id: E2E_ADMIN.id, email: E2E_ADMIN.email, name: E2E_ADMIN.name, role: "admin", emailVerified: new Date() },
+    ]);
+    // A deactivated Editor with long text, for the Editors page layout (no sideways scroll).
     await db.insert(schema.editors).values({
-      id: E2E_EDITOR.id,
-      email: E2E_EDITOR.email,
-      name: E2E_EDITOR.name,
+      email: "deactivated.editor.with.a.long.address@example.org",
+      name: "Deactivated Editor With A Long Name",
       role: "editor",
-      emailVerified: new Date(),
+      invitedBy: E2E_ADMIN.id,
+      invitedAt: new Date(),
+      deactivatedAt: new Date(),
+      deactivatedBy: E2E_ADMIN.id,
     });
-    await db.insert(schema.authSessions).values({
-      sessionToken: E2E_EDITOR.sessionToken,
-      userId: E2E_EDITOR.id,
-      expires: new Date(Date.now() + 24 * 3600 * 1000),
-    });
+    const expires = new Date(Date.now() + 24 * 3600 * 1000);
+    await db.insert(schema.authSessions).values([
+      { sessionToken: E2E_EDITOR.sessionToken, userId: E2E_EDITOR.id, expires },
+      { sessionToken: E2E_ADMIN.sessionToken, userId: E2E_ADMIN.id, expires },
+    ]);
 
     const dates = fixtureDates(todayInDetroit(new Date()));
     const description = "A no-drop ride along the river. Lights required after dark. ".repeat(6).trim();
@@ -108,6 +115,8 @@ export default async function globalSetup() {
       .values([
         { calendar: "rides", name: "Non-Drop", slug: "non-drop" },
         { calendar: "advocacy", name: "Meeting", slug: "meeting" },
+        // A long Tag name, for the Tags page layout (the import allows 40 characters).
+        { calendar: "rides", name: "Family Friendly Neighborhood Social Ride", slug: "family-friendly-neighborhood-social-ride" },
       ])
       .returning();
     await db.insert(schema.eventTags).values([

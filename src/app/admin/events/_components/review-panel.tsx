@@ -7,6 +7,7 @@ import {
   rejectSubmissionAction,
   type SaveState,
 } from "../actions";
+import { buttonClass, h2Class, hintClass, inputClass, labelClass } from "../../_components/ui";
 import { IDLE, SaveStatus } from "./save-status";
 
 const REASON_MAX = 500;
@@ -41,8 +42,11 @@ export function ReviewPanel({ id, version, reviewStatus, dirty, allPast, imageRe
   const reasonError = rejectState.status === "invalid" ? rejectState.errors.reason : undefined;
 
   return (
-    <section aria-labelledby={`${reasonId}-title`} className="flex flex-col gap-4 rounded border border-amber-600 bg-amber-50 p-4">
-      <h2 id={`${reasonId}-title`} className="text-xl font-semibold">
+    <section
+      aria-labelledby={`${reasonId}-title`}
+      className="flex flex-col gap-4 rounded-lg border border-brand-divider border-t-4 border-t-amber-500 bg-white p-4 sm:p-6"
+    >
+      <h2 id={`${reasonId}-title`} className={h2Class}>
         {pending ? "Review this Submission" : "This Submission was rejected"}
       </h2>
       <p>
@@ -50,8 +54,8 @@ export function ReviewPanel({ id, version, reviewStatus, dirty, allPast, imageRe
           ? "It is not public. Check it, change it if needed and save, then approve it. Reject it if it does not fit the Calendar. Delete it as spam if it is spam."
           : "It is not public. Approve it if the Reject was a mistake. The Submitter then gets the approve email."}
       </p>
-      {allPast && <p className="font-medium text-amber-900">All dates of this Event are in the past.</p>}
-      {imageRemoved && <p className="font-medium text-amber-900">{IMAGE_REMOVED_NOTE}</p>}
+      {allPast && <p className="font-semibold text-amber-900">All dates of this Event are in the past.</p>}
+      {imageRemoved && <p className="font-semibold text-amber-900">{IMAGE_REMOVED_NOTE}</p>}
       <SaveStatus state={approveState} />
       <SaveStatus state={rejectState} />
       <SaveStatus state={spamState} />
@@ -61,12 +65,12 @@ export function ReviewPanel({ id, version, reviewStatus, dirty, allPast, imageRe
           <button
             type="submit"
             disabled={busy || dirty}
-            className="rounded bg-green-800 px-4 py-2 font-medium text-white disabled:opacity-60"
+            className={buttonClass("approve")}
           >
             {approving ? "Approving…" : "Approve"}
           </button>
         </div>
-        {dirty && <p className="text-sm text-gray-800">Save your changes first. Then you can approve.</p>}
+        {dirty && <p className={hintClass}>Save your changes first. Then you can approve.</p>}
       </form>
 
       {pending && (
@@ -74,9 +78,9 @@ export function ReviewPanel({ id, version, reviewStatus, dirty, allPast, imageRe
           action={() => {
             if (window.confirm("Reject this Submission? The Submitter gets an email.")) reject({ id, version, reason });
           }}
-          className="flex flex-col gap-2"
+          className="flex flex-col gap-2 border-t border-brand-divider pt-4"
         >
-          <label htmlFor={reasonId} className="font-medium">
+          <label htmlFor={reasonId} className={labelClass}>
             Reason (optional; the Submitter sees it in the email)
           </label>
           <textarea
@@ -86,14 +90,14 @@ export function ReviewPanel({ id, version, reviewStatus, dirty, allPast, imageRe
             rows={3}
             onChange={(e) => setReason(e.target.value)}
             aria-invalid={reasonError ? true : undefined}
-            className="w-full rounded border border-gray-400 bg-white px-3 py-2"
+            className={inputClass}
           />
-          {reasonError && <p className="text-sm text-red-700">{reasonError}</p>}
+          {reasonError && <p className="text-sm font-semibold text-red-700">{reasonError}</p>}
           <div>
             <button
               type="submit"
               disabled={busy}
-              className="rounded border border-red-700 bg-white px-4 py-2 font-medium text-red-800 disabled:opacity-60"
+              className={buttonClass("danger")}
             >
               {rejecting ? "Rejecting…" : "Reject"}
             </button>
@@ -110,7 +114,7 @@ export function ReviewPanel({ id, version, reviewStatus, dirty, allPast, imageRe
           <button
             type="submit"
             disabled={busy}
-            className="rounded border border-gray-500 bg-white px-4 py-2 font-medium text-gray-900 disabled:opacity-60"
+            className={buttonClass("secondary")}
           >
             {deleting ? "Deleting…" : "Delete as spam"}
           </button>

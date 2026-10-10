@@ -6,8 +6,9 @@ import { addDays, dayOfWeek, type LocalDate } from "@/engine";
 
 export const E2E_DATABASE_URL =
   process.env.E2E_DATABASE_URL ?? "postgres://bikegr:bikegr@localhost:55432/bikegr";
-export const APP_PORT = 3100;
-export const HOST_PORT = 4100;
+// Other ports for a run next to another checkout: E2E_APP_PORT and E2E_HOST_PORT (defaults 3100, 4100).
+export const APP_PORT = Number(process.env.E2E_APP_PORT ?? 3100);
+export const HOST_PORT = Number(process.env.E2E_HOST_PORT ?? 4100);
 export const APP = `http://localhost:${APP_PORT}`;
 export const HOST = `http://localhost:${HOST_PORT}`;
 
@@ -28,6 +29,14 @@ export const E2E_EDITOR = {
   email: "e2e.editor@example.org",
   name: "E2E Editor",
   sessionToken: "e2e-session-token-not-a-secret",
+};
+
+/** An Admin, for the pages only Admins see (Editors). Test-only values, like E2E_EDITOR. */
+export const E2E_ADMIN = {
+  id: "20000000-0000-4000-8000-000000000002",
+  email: "e2e.admin@example.org",
+  name: "E2E Admin",
+  sessionToken: "e2e-admin-session-token-not-a-secret",
 };
 
 /** A fixed test-only `AUTH_SECRET` for the e2e web server (it also keys the rate-limit hashes). */

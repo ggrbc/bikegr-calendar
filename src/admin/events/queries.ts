@@ -1,5 +1,5 @@
-/** Reads for the admin Event pages: the list, one Event for its form, and its history. */
-import { and, asc, desc, eq, ilike, inArray, isNull, type SQL } from "drizzle-orm";
+/** Reads for the admin Event pages: the list, one Event for its form, its history, recent changes. */
+import { and, asc, desc, eq, ilike, inArray, isNull, type SQL, sql } from "drizzle-orm";
 import { eventRowToRuleInput, overrideRowToInput } from "@/db/mappers";
 import { editors, eventHistory, eventTags, events, type EventRow, overrides } from "@/db/schema";
 import type { Db } from "@/db/types";
@@ -147,4 +147,47 @@ export async function loadHistory(db: Db, eventId: string): Promise<HistoryEntry
       what: historyActionLabel(r.action, detail),
     };
   });
+}
+
+export interface RecentChange extends HistoryEntry {
+  eventId: string;
+  /** The Event's title now. */
+  title: string;
+  /** True when the Event is deleted now (the dashboard shows a badge). */
+  deleted: boolean;
+}
+
+/**
+ * The newest history entries of all Events, for the admin dashboard. One query. There is no index
+ * on `changed_at` alone, so Postgres reads `event_history` and keeps the top `limit` rows (a top-N
+ * sort). That is cheap at Bike GR's size (some thousands of rows); at about 100k rows, add an index
+ * on `changed_at`. Only the `detail` part of the snapshot is read, not the whole row copy.
+ */
+export async function listRecentChanges(db: Db, limit: number): Promise<RecentChange[]> {
+  const rows = await db
+    .select({
+      id: eventHistory.id,
+      eventId: eventHistory.eventId,
+      changedAt: eventHistory.changedAt,
+      action: eventHistory.action,
+      detail: sql<HistoryDetail | null>`${eventHistory.snapshot} -> 'detail'`,
+      title: events.title,
+      deletedAt: events.deletedAt,
+      name: editors.name,
+      email: editors.email,
+    })
+    .from(eventHistory)
+    .innerJoin(events, eq(events.id, eventHistory.eventId))
+    .leftJoin(editors, eq(editors.id, eventHistory.changedBy))
+    .orderBy(desc(eventHistory.changedAt), desc(eventHistory.id))
+    .limit(limit);
+  return rows.map((r) => ({
+    id: r.id,
+    eventId: r.eventId,
+    title: r.title,
+    deleted: r.deletedAt !== null,
+    changedAt: r.changedAt,
+    who: r.name ?? r.email ?? (r.action === "submit" ? "Submitter" : "Import"),
+    what: historyActionLabel(r.action, r.detail ?? {}),
+  }));
 }

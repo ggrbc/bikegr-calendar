@@ -3,12 +3,14 @@
 // Submission e2e tests need no network: the app uses it through TURNSTILE_SITEVERIFY_URL (off Vercel
 // only). Every token passes for the hostname "localhost", except "e2e-refused" (no success) and
 // "e2e-other-host" (another hostname).
-// Usage: node e2e/host-server.mjs <port>
+// Usage: node e2e/host-server.mjs <port> [app origin]. The pages name http://localhost:3100; another
+// app origin replaces it.
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 const port = Number(process.argv[2] ?? 4100);
+const app = process.argv[3] ?? "http://localhost:3100";
 const root = fileURLToPath(new URL("./host/", import.meta.url));
 const pages = { "/": "index.html", "/two.html": "two.html" };
 
@@ -35,5 +37,5 @@ createServer(async (request, response) => {
     return;
   }
   response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-  response.end(await readFile(`${root}${file}`));
+  response.end((await readFile(`${root}${file}`, "utf8")).replaceAll("http://localhost:3100", app));
 }).listen(port, () => console.log(`Embed test host on http://localhost:${port}`));
