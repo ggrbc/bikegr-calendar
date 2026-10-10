@@ -19,14 +19,22 @@ import {
   type OverrideInput,
   type Timing,
 } from "@/engine";
-import { assignCalendar, cleanTags, tagSlug } from "./calendar-and-tags";
+import { assignCalendar, cleanTags, type CleanTag } from "./calendar-and-tags";
 import { inferRule } from "./infer-rule";
-import type { ImportFlag, ImportedEvent, SeriesReport, TockifyOccurrence } from "./types";
+import type {
+  ImportFlag,
+  ImportedEvent,
+  ImportedTag,
+  SeriesReport,
+  TockifyOccurrence,
+} from "./types";
 
 export interface BuiltEvent {
   events: ImportedEvent[];
   overrides: OverrideInput[];
   flags: ImportFlag[];
+  /** The Tags that `events` use, one for each slug. */
+  tags: ImportedTag[];
   /** `null` for a one-time Event. */
   report: SeriesReport | null;
 }
@@ -41,7 +49,8 @@ export function buildEvent(group: TockifyOccurrence[], feedHorizon: LocalDate): 
 
   if (occurrences.length === 1) {
     const event = oneTimeEvent(occurrences[0], sourceId, calendar);
-    return { events: [event], overrides: [], flags: [], report: null };
+    const tags = importedTags(calendar, cleanTags(occurrences[0].categories));
+    return { events: [event], overrides: [], flags: [], tags, report: null };
   }
 
   const base = baseValues(occurrences);
@@ -76,6 +85,7 @@ export function buildEvent(group: TockifyOccurrence[], feedHorizon: LocalDate): 
       events: occurrences.map((o) => oneTimeEvent(o, `${sourceId}/${o.startMinutes}`, calendar)),
       overrides: [],
       flags,
+      tags: importedTags(calendar, occurrences.flatMap((o) => cleanTags(o.categories))),
       report: {
         sourceId,
         title: base.title,
@@ -100,7 +110,7 @@ export function buildEvent(group: TockifyOccurrence[], feedHorizon: LocalDate): 
     title: base.title,
     description: base.description,
     location: base.location,
-    tagSlugs: base.tags.map(tagSlug),
+    tagSlugs: base.tags.map((tag) => tag.slug),
     imageUrl: base.imageUrl,
     cta: base.cta,
     rule: {
@@ -116,6 +126,7 @@ export function buildEvent(group: TockifyOccurrence[], feedHorizon: LocalDate): 
     events: [event],
     overrides,
     flags,
+    tags: importedTags(calendar, base.tags),
     report: {
       sourceId,
       title: base.title,
@@ -140,7 +151,7 @@ function oneTimeEvent(
     title: occurrence.title,
     description: occurrence.description,
     location: occurrence.location,
-    tagSlugs: cleanTags(occurrence.categories).map(tagSlug),
+    tagSlugs: cleanTags(occurrence.categories).map((tag) => tag.slug),
     imageUrl: occurrence.imageUrl,
     cta: occurrence.cta,
     rule: {
@@ -154,13 +165,22 @@ function oneTimeEvent(
   };
 }
 
+/** One Tag record for each slug, in first-seen order. */
+function importedTags(calendar: ImportedEvent["calendar"], tags: CleanTag[]): ImportedTag[] {
+  const bySlug = new Map<string, ImportedTag>();
+  for (const { name, slug } of tags) {
+    if (!bySlug.has(slug)) bySlug.set(slug, { calendar, name, slug });
+  }
+  return [...bySlug.values()];
+}
+
 interface BaseValues {
   title: string;
   description: string;
   location: string | null;
   imageUrl: string | null;
   cta: TockifyOccurrence["cta"];
-  tags: string[];
+  tags: CleanTag[];
   /** The usual time slot, at the date of the first Occurrence. Only its time and length matter. */
   slot: Timing;
   /** Names of the fields that differ but cannot be Overrides. */

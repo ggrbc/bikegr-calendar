@@ -4,7 +4,6 @@
  */
 import { timingStart, type LocalDate } from "@/engine";
 import { buildEvent } from "./build-series";
-import { cleanTags, tagSlug } from "./calendar-and-tags";
 import { parseIcsEvents } from "./ics";
 import { toTockifyOccurrence } from "./tockify-occurrence";
 import type { ImportResult, ImportedTag, TockifyOccurrence } from "./types";
@@ -25,7 +24,7 @@ export function importTockify(ics: string | Uint8Array): ImportResult {
     feedHorizon,
     events,
     overrides: built.flatMap((b) => b.overrides),
-    tags: tagList(events, occurrences),
+    tags: tagList(built.flatMap((b) => b.tags)),
     flags: built.flatMap((b) => b.flags),
     series: built.flatMap((b) => (b.report ? [b.report] : [])),
   };
@@ -48,18 +47,15 @@ function groupByEvent(occurrences: TockifyOccurrence[]): Map<string, TockifyOccu
   return groups;
 }
 
-/** One Tag per Calendar and slug, for every Tag that an imported Event uses. */
-function tagList(events: ImportResult["events"], occurrences: TockifyOccurrence[]): ImportedTag[] {
-  const nameBySlug = new Map<string, string>();
-  for (const name of occurrences.flatMap((o) => cleanTags(o.categories))) {
-    if (!nameBySlug.has(tagSlug(name))) nameBySlug.set(tagSlug(name), name);
-  }
+/**
+ * One Tag per Calendar and slug. The Events are in Source ID order, so the first name for a slug
+ * does not depend on the order of the feed.
+ */
+function tagList(eventTags: ImportedTag[]): ImportedTag[] {
   const tags = new Map<string, ImportedTag>();
-  for (const event of events) {
-    for (const slug of event.tagSlugs) {
-      const key = `${event.calendar}/${slug}`;
-      if (!tags.has(key)) tags.set(key, { calendar: event.calendar, name: nameBySlug.get(slug)!, slug });
-    }
+  for (const tag of eventTags) {
+    const key = `${tag.calendar}/${tag.slug}`;
+    if (!tags.has(key)) tags.set(key, tag);
   }
   return [...tags.values()].sort(
     (a, b) => a.calendar.localeCompare(b.calendar) || a.slug.localeCompare(b.slug),
