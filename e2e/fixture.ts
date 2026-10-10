@@ -6,8 +6,9 @@ import { addDays, dayOfWeek, type LocalDate } from "@/engine";
 
 export const E2E_DATABASE_URL =
   process.env.E2E_DATABASE_URL ?? "postgres://bikegr:bikegr@localhost:55432/bikegr";
-export const APP_PORT = 3100;
-export const HOST_PORT = 4100;
+// Other ports for a run next to another checkout: E2E_APP_PORT and E2E_HOST_PORT (defaults 3100, 4100).
+export const APP_PORT = Number(process.env.E2E_APP_PORT ?? 3100);
+export const HOST_PORT = Number(process.env.E2E_HOST_PORT ?? 4100);
 export const APP = `http://localhost:${APP_PORT}`;
 export const HOST = `http://localhost:${HOST_PORT}`;
 

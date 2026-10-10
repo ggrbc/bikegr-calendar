@@ -1,7 +1,8 @@
 /**
  * Playwright smoke tests for the public side and the Embed. Local only: they need the local e2e
  * Postgres (see e2e/global-setup.ts). `pnpm test:e2e` builds the app, starts it on port 3100, and
- * serves the Embed test host pages on port 4100 (a second origin).
+ * serves the Embed test host pages on port 4100 (a second origin). E2E_APP_PORT and E2E_HOST_PORT
+ * change the ports.
  */
 import { defineConfig, devices } from "@playwright/test";
 import { APP, APP_PORT, E2E_AUTH_SECRET, E2E_DATABASE_URL, HOST, HOST_PORT } from "./e2e/fixture";
@@ -41,7 +42,7 @@ export default defineConfig({
       },
     },
     {
-      command: `node e2e/host-server.mjs ${HOST_PORT}`,
+      command: `node e2e/host-server.mjs ${HOST_PORT} ${APP}`,
       url: HOST,
       reuseExistingServer: false,
     },
