@@ -42,6 +42,13 @@ export function draft(patch: Partial<EventDraft> = {}): EventDraft {
   };
 }
 
+/** The content part of {@link draft} (no rule). */
+export function contentDraft(patch: Partial<EventDraft> = {}): Omit<EventDraft, "rule"> {
+  const value: Partial<EventDraft> = draft(patch);
+  delete value.rule;
+  return value as Omit<EventDraft, "rule">;
+}
+
 export async function eventRow(db: Db, id: string) {
   const [row] = await db.select().from(events).where(eq(events.id, id));
   return row;

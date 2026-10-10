@@ -1,6 +1,24 @@
 /** Text for the admin: Detroit times, the conflict message, history labels. Pure. */
 import { clockTime, dayHeading, shortDate } from "@/agenda/dates";
-import { type LocalDate, utcToWallClock } from "@/engine";
+import { type CalendarSlug, type LocalDate, type ScheduleStatus, utcToWallClock } from "@/engine";
+
+export const CALENDAR_LABELS: Record<CalendarSlug, string> = {
+  rides: "Rides & Events",
+  advocacy: "Advocacy",
+};
+
+const STATUS_LABELS: Record<ScheduleStatus, string | null> = {
+  scheduled: null,
+  tentative: "Date to be confirmed",
+  cancelled: "Cancelled",
+  postponed: "Postponed",
+  rescheduled: "Rescheduled",
+};
+
+/** The badge text of a Schedule status; `scheduled` has none. */
+export function statusLabel(status: ScheduleStatus): string | null {
+  return STATUS_LABELS[status];
+}
 
 const MONTHS = [
   "January",

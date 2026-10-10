@@ -6,7 +6,7 @@ import type { Db } from "@/db/types";
 import { createEvent } from "./create-event";
 import { deleteEvent } from "./delete-event";
 import { editSeriesContent } from "./edit-event";
-import { likePattern, listEvents, loadEventForEdit, loadHistory } from "./queries";
+import { type EventListFilter, likePattern, listEvents, loadEventForEdit, loadHistory } from "./queries";
 import { splitSeries } from "./split-series";
 import { addEditor, draft } from "./test-helpers";
 import type { Actor } from "./write-helpers";
@@ -28,7 +28,7 @@ describe("admin reads", () => {
     return result.id;
   }
 
-  const base = { calendar: null, q: "", review: null, includeDeleted: false, today: "2026-10-10" } as const;
+  const base: EventListFilter = { calendar: null, q: "", review: null, includeDeleted: false, today: "2026-10-10" };
 
   it("the list filters by Calendar, title search, and Review status; deleted only on request", async () => {
     const ride = await add({ title: "Tuesday Ride" });
@@ -38,7 +38,7 @@ describe("admin reads", () => {
     const gone = await add({ title: "Duplicate Ride" });
     await deleteEvent(db, erin, { id: gone, version: 1 });
 
-    const ids = async (filter: Partial<typeof base>) =>
+    const ids = async (filter: Partial<EventListFilter>) =>
       (await listEvents(db, { ...base, ...filter })).map((r) => r.id);
     expect(await ids({})).toEqual([percent, meeting, ride]);
     expect(await ids({ calendar: "advocacy" })).toEqual([meeting]);

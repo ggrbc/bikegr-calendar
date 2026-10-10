@@ -9,6 +9,7 @@ import { splitSeries } from "./split-series";
 import {
   addEditor,
   addTag,
+  contentDraft,
   draft,
   eventRow,
   historyOf,
@@ -19,9 +20,8 @@ import {
 import type { Actor } from "./write-helpers";
 
 function splitDraft(splitDate: string, patch: Partial<SplitDraft> = {}): SplitDraft {
-  const { rule: _rule, ...content } = draft();
   return {
-    ...content,
+    ...contentDraft(),
     splitDate,
     mode: "change",
     time: { kind: "timed", startTime: "18:30", endTime: "20:30" },

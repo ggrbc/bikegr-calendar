@@ -6,12 +6,11 @@ import type { Db } from "@/db/types";
 import { createEvent } from "./create-event";
 import { editOneTimeEvent, editSeriesContent } from "./edit-event";
 import type { SeriesContentDraft } from "./event-input";
-import { addEditor, addTag, draft, eventRow, historyOf, rowCounts, tagIdsOfEvent } from "./test-helpers";
+import { addEditor, addTag, contentDraft, draft, eventRow, historyOf, rowCounts, tagIdsOfEvent } from "./test-helpers";
 import type { Actor } from "./write-helpers";
 
 function content(patch: Partial<SeriesContentDraft> = {}): SeriesContentDraft {
-  const { rule: _rule, ...rest } = draft();
-  return { ...rest, exdateDates: [], ...patch };
+  return { ...contentDraft(), exdateDates: [], ...patch };
 }
 
 describe("edit an Event", () => {
