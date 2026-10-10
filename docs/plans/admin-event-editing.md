@@ -489,3 +489,7 @@ The import tests (`src/import/*.test.ts`) and agenda tests must pass with no cha
   (`@/admin/images/image-url`); the stand-ins are deleted. The rule "an image URL equal to the
   stored URL is accepted" stays in `event-input.ts`. Tests use `isEventImageUrlForHost` with a fixed
   host.
+- Review fixes: a split date before today (Detroit) is refused for every mode ("Pick today or a
+  later date. To change one past date, use One date."); a split or in-place change cannot run over
+  the predecessor's last date or the successor's first date (`loadSplitBounds`); re-keyed
+  Overrides drop a time slot of the other kind; a database error is a `failed` result.
