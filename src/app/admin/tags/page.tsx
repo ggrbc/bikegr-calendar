@@ -27,7 +27,7 @@ async function CalendarTags({ calendar }: { calendar: CalendarSlug }) {
               <th className="py-2 pr-4">Name</th>
               <th className="py-2 pr-4">Slug</th>
               <th className="py-2 pr-4">Events</th>
-              <th className="py-2 pr-4">Status</th>
+              <th className="py-2 pr-4">Active / retired</th>
               <th className="py-2">Actions</th>
             </tr>
           </thead>

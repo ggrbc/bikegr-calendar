@@ -36,7 +36,7 @@ async function EditorList() {
               <tr className="border-b border-gray-400">
                 <th className="py-2 pr-4">Name</th>
                 <th className="py-2 pr-4">Role</th>
-                <th className="py-2 pr-4">Status</th>
+                <th className="py-2 pr-4">Account</th>
                 <th className="py-2 pr-4">Invited</th>
                 <th className="py-2 pr-4">First sign-in</th>
                 <th className="py-2 pr-4">Last active (about)</th>
