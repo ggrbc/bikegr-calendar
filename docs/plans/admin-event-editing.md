@@ -474,3 +474,14 @@ The import tests (`src/import/*.test.ts`) and agenda tests must pass with no cha
 - If `admin-people-tags-images` merged first: rebase, import the real `listPickerTags`,
   `ImageUploadField`, and `isEventImageUrl`, delete the stand-ins, and run the checks again.
 - No push, no merge.
+
+## Built notes
+
+- The `[id]` routes read `params` and `searchParams` inside `<Suspense>`; `pnpm build` passes with
+  no `export const instant = false`.
+- The router keeps an earlier page in the DOM (hidden), so a fixed input id can occur twice. `Field`
+  gives each input a unique id (`useId`).
+- Stand-ins for the Tags and images stream: `src/admin/events/seams.ts` (`listPickerTags`,
+  `isEventImageUrl`) and `src/app/admin/events/_components/image-upload-field.tsx`. Swap them for
+  `@/admin/tags/tags`, `@/admin/images/image-url`, and `@/admin/images/image-upload-field` when PR #6
+  merges. The rule "an image URL equal to the stored URL is accepted" stays in `event-input.ts`.
