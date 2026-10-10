@@ -31,6 +31,14 @@ export const E2E_EDITOR = {
   sessionToken: "e2e-session-token-not-a-secret",
 };
 
+/** An Admin, for the pages only Admins see (Editors). Test-only values, like E2E_EDITOR. */
+export const E2E_ADMIN = {
+  id: "20000000-0000-4000-8000-000000000002",
+  email: "e2e.admin@example.org",
+  name: "E2E Admin",
+  sessionToken: "e2e-admin-session-token-not-a-secret",
+};
+
 /** A fixed test-only `AUTH_SECRET` for the e2e web server (it also keys the rate-limit hashes). */
 export const E2E_AUTH_SECRET = "e2e-only-auth-secret-not-used-anywhere-else";
 
