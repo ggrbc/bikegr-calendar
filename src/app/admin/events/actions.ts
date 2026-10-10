@@ -4,12 +4,13 @@
  * Thin server actions for the admin Event pages: check the Editor, parse the untrusted input, call
  * the write module, then revalidate. Domain rules live in src/admin/events.
  */
-import { revalidatePath } from "next/cache";
+import { del } from "@vercel/blob";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { type CurrentEditor, requireAdmin, requireEditor } from "@/auth/dal";
 import { createEvent } from "@/admin/events/create-event";
 import { deleteEvent, restoreEvent } from "@/admin/events/delete-event";
-import { editOneTimeEvent, editSeriesContent } from "@/admin/events/edit-event";
+import { editOneTimeEvent, editPendingEvent, editSeriesContent } from "@/admin/events/edit-event";
 import {
   type FieldErrors,
   type ParseContext,
@@ -24,9 +25,13 @@ import { loadEventForEdit } from "@/admin/events/queries";
 import { splitSeries } from "@/admin/events/split-series";
 import type { WriteFailure } from "@/admin/events/write-helpers";
 import { isEventImageUrl } from "@/admin/images/image-url";
-import { invalidatePublicEvents } from "@/agenda/cache";
 import { todayInDetroit } from "@/agenda/dates";
 import { getDb } from "@/db";
+import { appOrigin, notifyApproved, notifyRejected } from "@/email/notify";
+import { createEmailTransport } from "@/email/transport";
+import { removeOrphanImage } from "@/submissions/image-cleanup";
+import { approveSubmission, deleteSubmissionAsSpam, parseRejectReason, rejectSubmission } from "@/submissions/review";
+import { revalidateEvents } from "./revalidate-events";
 
 export type SaveState =
   | { status: "idle" }
@@ -78,18 +83,6 @@ function context(editor: CurrentEditor, storedImageUrl: string | null): ParseCon
 
 const actor = (editor: CurrentEditor) => ({ id: editor.id, role: editor.role });
 
-/**
- * Every admin Event page, the public agenda pages, and the public Calendar cache (the agenda, the
- * Embed, and the Feeds read the cached snapshot). Each successful Event write calls this.
- */
-function revalidateEvents(): void {
-  revalidatePath("/admin/events", "layout");
-  revalidatePath("/");
-  revalidatePath("/rides");
-  revalidatePath("/advocacy");
-  invalidatePublicEvents();
-}
-
 export async function createEventAction(_prev: SaveState, input: unknown): Promise<SaveState> {
   const editor = await requireEditor();
   const parsed = parseEventInput(record(input).values, context(editor, null));
@@ -100,7 +93,10 @@ export async function createEventAction(_prev: SaveState, input: unknown): Promi
   redirect(`/admin/events/${result.id}?saved=created`);
 }
 
-/** Edit in place: `scope` "all" (a Series: content only) or "one-time" (every field). */
+/**
+ * Edit in place: `scope` "all" (a Series: content only), "one-time" (every field), or "pending" (a
+ * Submission: every field, also the rule of a Series).
+ */
 export async function saveEventAction(_prev: SaveState, input: unknown): Promise<SaveState> {
   const editor = await requireEditor();
   const target = parseTarget(input);
@@ -116,6 +112,10 @@ export async function saveEventAction(_prev: SaveState, input: unknown): Promise
     const parsed = parseSeriesContentInput(values, ctx);
     if (!parsed.ok) return invalidState(parsed.errors);
     result = await editSeriesContent(db, actor(editor), target, parsed.value);
+  } else if (scope === "pending") {
+    const parsed = parseEventInput(values, ctx);
+    if (!parsed.ok) return invalidState(parsed.errors);
+    result = await editPendingEvent(db, actor(editor), target, parsed.value);
   } else {
     const parsed = parseEventInput(values, ctx);
     if (!parsed.ok) return invalidState(parsed.errors);
@@ -192,4 +192,55 @@ export async function restoreEventAction(_prev: SaveState, input: unknown): Prom
   if (!result.ok) return fromFailure(result);
   revalidateEvents();
   return { status: "saved", message: "Restored." };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Review. The emails and the blob removal run after the response (`after`), so a slow or failed
+// send never changes the result of the review.
+
+export async function approveSubmissionAction(_prev: SaveState, input: unknown): Promise<SaveState> {
+  const editor = await requireEditor();
+  const target = parseTarget(input);
+  if (!target) return BAD_REQUEST;
+  const result = await approveSubmission(getDb(), actor(editor), target);
+  if (!result.ok) return fromFailure(result);
+  revalidateEvents();
+  const { review } = result;
+  after(() => notifyApproved(createEmailTransport(), review, appOrigin(), todayInDetroit(new Date())));
+  return {
+    status: "saved",
+    message: review.submitterEmail
+      ? "Approved. The Event is public. The Submitter gets an email."
+      : "Approved. The Event is public.",
+  };
+}
+
+export async function rejectSubmissionAction(_prev: SaveState, input: unknown): Promise<SaveState> {
+  const editor = await requireEditor();
+  const target = parseTarget(input);
+  if (!target) return BAD_REQUEST;
+  const reason = parseRejectReason(record(input).reason);
+  if (!reason.ok) return invalidState(reason.errors);
+  const result = await rejectSubmission(getDb(), actor(editor), target, reason.value);
+  if (!result.ok) return fromFailure(result);
+  revalidateEvents();
+  const { review, orphanImageUrl } = result;
+  after(async () => {
+    await notifyRejected(createEmailTransport(), review, reason.value);
+    await removeOrphanImage(orphanImageUrl, { del: (url) => del(url) });
+  });
+  return { status: "saved", message: review.submitterEmail ? "Rejected. The Submitter gets an email." : "Rejected." };
+}
+
+/** Spam: a soft delete with no email (CONTEXT.md: Delete is for spam). */
+export async function deleteSubmissionAsSpamAction(_prev: SaveState, input: unknown): Promise<SaveState> {
+  const editor = await requireEditor();
+  const target = parseTarget(input);
+  if (!target) return BAD_REQUEST;
+  const result = await deleteSubmissionAsSpam(getDb(), actor(editor), target);
+  if (!result.ok) return fromFailure(result);
+  revalidateEvents();
+  const { orphanImageUrl } = result;
+  after(() => removeOrphanImage(orphanImageUrl, { del: (url) => del(url) }));
+  return { status: "saved", message: "Deleted as spam. No email was sent. An Admin can restore it." };
 }
