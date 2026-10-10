@@ -45,36 +45,55 @@ async function ReviewQueue({ searchParams }: { searchParams: Promise<Record<stri
       {rows.length === 0 ? (
         <p>No Submissions wait for review.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="border-b border-gray-300">
-                <th className="py-2 pr-3">Title</th>
-                <th className="py-2 pr-3">Calendar</th>
-                <th className="py-2 pr-3">First date</th>
-                <th className="py-2 pr-3">Repeat</th>
-                <th className="py-2 pr-3">Submitter</th>
-                <th className="py-2">Sent (Detroit time)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} className="border-b border-gray-200 align-top">
-                  <td className="py-2 pr-3">
-                    <Link href={`/admin/events/${row.id}`} className="underline">
-                      {row.title}
-                    </Link>
-                  </td>
-                  <td className="py-2 pr-3">{CALENDAR_LABELS[row.calendar]}</td>
-                  <td className="py-2 pr-3">{row.when}</td>
-                  <td className="py-2 pr-3">{row.repeat}</td>
-                  <td className="py-2 pr-3">{row.submitterName ?? "—"}</td>
-                  <td className="py-2 text-sm">{formatInstantDetroit(row.submittedAt)}</td>
+        <>
+          {/* A phone gets a list; the table needs about 900 px. */}
+          <ul className="divide-y divide-gray-200 border-y border-gray-200 sm:hidden">
+            {rows.map((row) => (
+              <li key={row.id} className="flex flex-col gap-1 py-3">
+                <Link href={`/admin/events/${row.id}`} className="font-medium underline">
+                  {row.title}
+                </Link>
+                <span>
+                  {CALENDAR_LABELS[row.calendar]} · {row.when}
+                </span>
+                <span>{row.repeat}</span>
+                <span className="text-sm text-gray-700">
+                  {row.submitterName ?? "No Submitter"} · sent {formatInstantDetroit(row.submittedAt)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden sm:block">
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="border-b border-gray-300">
+                  <th className="py-2 pr-3">Title</th>
+                  <th className="py-2 pr-3">Calendar</th>
+                  <th className="py-2 pr-3">First date</th>
+                  <th className="py-2 pr-3">Repeat</th>
+                  <th className="py-2 pr-3">Submitter</th>
+                  <th className="py-2">Sent (Detroit time)</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.id} className="border-b border-gray-200 align-top">
+                    <td className="py-2 pr-3">
+                      <Link href={`/admin/events/${row.id}`} className="underline">
+                        {row.title}
+                      </Link>
+                    </td>
+                    <td className="py-2 pr-3">{CALENDAR_LABELS[row.calendar]}</td>
+                    <td className="py-2 pr-3">{row.when}</td>
+                    <td className="py-2 pr-3">{row.repeat}</td>
+                    <td className="py-2 pr-3">{row.submitterName ?? "—"}</td>
+                    <td className="py-2 text-sm">{formatInstantDetroit(row.submittedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </>
   );
