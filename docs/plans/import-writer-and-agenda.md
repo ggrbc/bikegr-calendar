@@ -32,7 +32,7 @@ src/import/
   event-state.ts                EventState: the import-owned fields of one Event, in one canonical
                                 shape. stateFromImport(event, overrides), stateFromRows(row, overrides,
                                 tagSlugs), sameState(a, b)
-  write.ts                      writeImport(db, result) -> WriteReport
+  write.ts                      writeImport(db, result, { uncopiedImages }) -> WriteReport
   images.ts                     BlobStore interface; vercelBlobStore(token); copyImages(result,
                                 { store, fetch }) -> { result, report }
   report.ts                     formatImportReport(...) -> string[]; redactSecrets(text)
@@ -61,7 +61,7 @@ src/app/
 2. `importDate = todayInDetroit(new Date())` — the CLI reads the clock, the pure code does not.
 3. `importTockify(bytes, { importDate })`.
 4. `copyImages(result, …)` — network work, **before** any transaction.
-5. `writeImport(db, result)`.
+5. `writeImport(db, result, { uncopiedImages })` — the Source IDs whose image was not copied.
 6. Print the report. Exit code 1 if the feed fetch failed or any Event failed.
 
 ### How "changed" is detected
@@ -70,7 +70,8 @@ Compare **state**, not rows. `EventState` holds only the fields the import owns:
 
 calendar, title, description, location, imageUrl, cta, tag slugs (sorted), timing, rrule, exdates
 (sorted), Schedule status, Schedule note, and the Overrides (sorted by original start, without
-`eventId`, absent fields absent).
+`eventId`, absent fields absent). For an Event in `uncopiedImages`, `imageUrl` is left out of the
+state and out of the update (see "image_url is never downgraded" below).
 
 - From the import: `stateFromImport(importedEvent, itsOverrides)`.
 - From the database: load the Event row, its Overrides, and its Tag slugs; map the rows through the
@@ -125,17 +126,32 @@ old `<eventId>` row is reported, and the fallback Events are new rows with `<eve
   "open-ended", EXDATEs, Overrides.
 - Flags (reason, title, detail).
 - Images: copied, already in Blob, failed (with the Tockify URL), or "images not copied
-  (BLOB_READ_WRITE_TOKEN not set)".
+  (no Blob credentials)".
 - Write totals: inserted / updated / unchanged / failed; warning lines; "Not in the feed" lines.
 - Every error message goes through `redactSecrets`, which hides `postgres://…`, `postgresql://…`,
-  `npg_…`, and `@ep-…` text. The CLI never prints `DATABASE_URL` or the Blob token.
+  `npg_…`, `@ep-…`, `vercel_blob_rw_…`, and JWT-shaped (`eyJ…`) text. The CLI never prints
+  `DATABASE_URL`, the OIDC token, the Blob store ID, or the read-write token.
 
 ## Image copy (`image-copy-to-blob`)
 
 - `BlobStore` interface: `head(pathname) → { url } | null` and `put(pathname, bytes, contentType) →
-  { url }`. `vercelBlobStore(token)` wraps `@vercel/blob` (`head`, and `put` with
-  `access: "public"`, `addRandomSuffix: false`). The token selects the `uploads` store. Tests use an
-  in-memory fake store and a fake `fetch`.
+  { url }`. `vercelBlobStore()` wraps `@vercel/blob` (`head`, and `put` with `access: "public"`,
+  `addRandomSuffix: false`). Tests use an in-memory fake store and a fake `fetch`.
+- **Blob credentials, OIDC first** (Jeremy, 2026-10-09). `blobCredentials(env)` returns `"oidc"` when
+  `VERCEL_OIDC_TOKEN` and `BLOB_STORE_ID` are both set, else `"readWrite"` when
+  `BLOB_READ_WRITE_TOKEN` is set, else `null` → report "images not copied (no Blob credentials)".
+  `vercelBlobStore()` passes no `token` option, so the SDK resolves the same order from the
+  environment. The CLI never prints the OIDC token, the store ID, or the read-write token.
+- **What the SDK does** (read in `node_modules/@vercel/blob/dist/chunk-GPSPCQKX.js`,
+  `resolveBlobAuth`, and `dist/index.d.ts`, version 2.8.1, the latest): `put` and `head` both go
+  through `requestApi` → `resolveBlobAuth(options)`. The order is: a `token` option (read-write);
+  else an `oidcToken` option or the OIDC token from `@vercel/oidc` `getVercelOidcToken()` (the
+  `x-vercel-oidc-token` request header, else `VERCEL_OIDC_TOKEN`; it refreshes an expired token in
+  development through the linked project, and a failed refresh counts as no token), used with a
+  `storeId` option or `BLOB_STORE_ID` (a `store_` prefix is removed); else `BLOB_READ_WRITE_TOKEN`;
+  else it throws "No blob credentials found". OIDC came in 2.4.0; the refreshing token read came in
+  2.5.0 (package CHANGELOG). Only the client-upload helpers in `client.js` need a read-write token;
+  this import does not use them.
 - For each distinct image URL in the result (fetched once per run):
   1. Download. Not HTTP 2xx, a network error, or a content type that is not `image/*` → keep the
      Tockify URL, report it as failed.
@@ -145,12 +161,16 @@ old `<eventId>` row is reported, and the fallback Events are new rows with `<eve
   4. Set `imageUrl` to the Blob URL on every Event that uses that Tockify URL.
 - **Idempotence:** the path depends only on the bytes, so the same image gives the same Blob URL on
   every run, and the second run uploads nothing. The Event state is then equal, so no write.
-- No `BLOB_READ_WRITE_TOKEN` → no download, URLs unchanged, report "images not copied". The import
-  still runs.
+- No Blob credentials → no download, URLs unchanged, report "images not copied (no Blob
+  credentials)". The import still runs.
 - Trade-off: each run downloads every image again to hash it (about 20 small files). The other
   choice, a stored map from Tockify URL to Blob URL, needs a new column for little gain.
-- Known limit: a run **without** the token after a run **with** it sets the Tockify URLs again (a
-  real state change). The report says "images not copied", so the operator sees it.
+- **`image_url` is never downgraded** (Jeremy, 2026-10-09). `copyImages` marks each Event as
+  `imageCopied: true | false`. When the image was not copied (no Blob credentials, failed download,
+  not an image), the writer leaves `image_url` out of the compared state and out of the update: the
+  value in the database stays, so a Blob URL from an earlier run is kept. Only a successful copy sets
+  `image_url`. A **new** Event with no successful copy is inserted with the Tockify URL. An Event
+  with no image in the feed has nothing to copy, so its `null` is compared and written as usual.
 - Copy only. No resize.
 
 ## Agenda query (`agenda-query`)
@@ -252,6 +272,9 @@ Sort: actual start (`timingStart`), then title, then Event id. A rescheduled Occ
   history rows
 - Changed title in the feed updates only that Event: version 2, one new history row
 - Changed Override updates only that Series and its Overrides
+- A run without Blob credentials keeps the Blob URL from an earlier run
+- A failed download keeps the existing Blob URL
+- A new Event with no copy gets the Tockify URL
 - An Override that is gone from the feed is deleted
 - A changed Tag list replaces the Event's Tags
 - Fallback one-time Events keep their `<eventId>/<startMinutes>` Source IDs on the second run
@@ -273,13 +296,15 @@ Sort: actual start (`timingStart`), then title, then Event id. A rescheduled Occ
 - Failed download keeps the Tockify URL and is reported
 - Response that is not an image keeps the Tockify URL and is reported
 - Extension comes from the content type, then the URL, then `img`
-- No store (no token) keeps every URL and reports "images not copied"
+- No Blob credentials keeps every URL and reports "images not copied (no Blob credentials)"
+- Credentials: OIDC token with store ID wins; read-write token is the fallback; neither gives none
 
 ### Report and CLI helpers
 
 - Report lists each Series with its rule and "open-ended" or its `UNTIL`
 - Report lists flags, image failures, warnings, and "Not in the feed" lines
-- `redactSecrets` hides `postgres://` and `postgresql://` URLs, `npg_` passwords, and `@ep-` hosts
+- `redactSecrets` hides `postgres://` and `postgresql://` URLs, `npg_` passwords, `@ep-` hosts,
+  `vercel_blob_rw_` tokens, and JWT-shaped strings
 - `todayInDetroit` gives the Detroit date near midnight UTC (Detroit is still on the day before)
 - `agendaWindow` is today to eight weeks later, half-open
 
@@ -327,7 +352,9 @@ Sort: actual start (`timingStart`), then title, then Event id. A rescheduled Occ
 2. Check that the dev branch has the schema (a count query). If the tables are missing, run
    `pnpm db:migrate` against Neon dev (the dev branch only).
 3. `pnpm import:tockify` twice. All output goes through a filter that hides `npg_…`, `@ep-…`,
-   `postgres://…`, and `postgresql://…`. The second run must report 0 inserted, 0 updated.
+   `postgres://…`, `postgresql://…`, `vercel_blob_rw_…`, and `eyJ…`. The second run must report 0 inserted, 0 updated.
+   Images: if `BLOB_STORE_ID` (with `VERCEL_OIDC_TOKEN`) or `BLOB_READ_WRITE_TOKEN` is not in
+   `.env.local`, run the demo without images and say so.
 4. Count rows: Events, Overrides, Tags (a small script; prints numbers only).
 5. `pnpm dev`; Playwright screenshots of `/rides`, `/advocacy`, and `/` into `.playwright-mcp/`.
 6. Never touch the production database.
