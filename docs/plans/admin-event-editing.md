@@ -51,13 +51,16 @@ These are my choices where the docs do not say. Each one has a test.
 6. **An Event that an Editor creates is `approved`, with `reviewed_by` and `reviewed_at` = that
    Editor and now.**
 
-**Import split guard (approved addition, `import-split-guard`):** a new import run would rewrite
-the old Event of a split (it has the Source ID) with the full Tockify rule again, so it would
-overlap the new Event. So when the import finds an existing Event by Source ID that has a successor
-(another Event's `predecessor_id` = its id), it does not write that Event: no rule, timing,
-content, Override, or Tag change, and no history row. `WriteReport.splitInAdmin` lists it, and the
-report prints "Split in the admin, not updated: <title> (<Source ID>)". Tests: "Re-import does not
-change an Event that was split in the admin"; "Re-import still updates an Event with no successor".
+**Import guard (approved addition, `import-split-guard`, widened after the review):** the admin
+wins. When the import finds an existing Event by Source ID that has an Editor history row
+(`changed_by` not null: an edit, a split, a stop, an in-place change, an Override, a delete, a
+restore) or a successor, it does not write that Event: no rule, timing, content, image, Override,
+or Tag change, and no history row. `WriteReport.changedInAdmin` lists it, and the report prints
+"Changed in the admin, not updated: <title> (<Source ID>)". `editorOverwrites` stays only for an
+Editor mark with no Editor history row (a change outside the admin, for example by SQL). Tests:
+"Re-import does not change an Event that an Editor edited", "Re-import does not undo Stop the
+Series", "Re-import does not undo an in-place change", "Re-import still updates an Event that only
+the import changed", "Re-import does not change an Event that was split in the admin".
 
 ## Module layout
 
@@ -436,7 +439,7 @@ The import tests (`src/import/*.test.ts`) and agenda tests must pass with no cha
 
 ## Task order (test-first, one small commit per step)
 
-0. `import-split-guard` — the two import tests and the report test, then `write.ts`, `report.ts`.
+0. `import-split-guard` — the import tests and the report test, then `write.ts`, `report.ts`.
 1. `event-create-edit` (pure part) — rule form tests, then `rule-form.ts` and `describe-rule.ts`.
 2. `version-conflict-message` (pure part) — format tests, then `format.ts`.
 3. `event-create-edit` — preview tests, then `preview.ts`; input tests, then `event-input.ts`.

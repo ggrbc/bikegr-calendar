@@ -53,12 +53,12 @@ export function formatImportReport({
 
   lines.push(
     "",
-    `Database: ${write.inserted.length} inserted, ${write.updated.length} updated, ${write.unchanged.length} unchanged, ${write.failed.length} failed`,
+    `Database: ${write.inserted.length} inserted, ${write.updated.length} updated, ${write.unchanged.length} unchanged, ${write.failed.length} failed, ${write.changedInAdmin.length} changed in the admin`,
   );
   for (const e of write.editorOverwrites) lines.push(`  Warning: overwrote Editor changes: ${ref(e)}`);
   for (const e of write.failed) lines.push(`  Failed: ${ref(e)} — ${e.message}`);
   for (const e of write.notInFeed) lines.push(`  Not in the feed: ${ref(e)}`);
-  for (const e of write.splitInAdmin) lines.push(`  Split in the admin, not updated: ${ref(e)}`);
+  for (const e of write.changedInAdmin) lines.push(`  Changed in the admin, not updated: ${ref(e)}`);
 
   return lines.map(redactSecrets);
 }

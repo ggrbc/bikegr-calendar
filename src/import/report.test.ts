@@ -54,7 +54,7 @@ const write: WriteReport = {
   failed: [{ sourceId: "9", title: "Bad", message: "check failed" }],
   editorOverwrites: [{ sourceId: "52", title: "VBF Tuesday Night Road Ride" }],
   notInFeed: [{ sourceId: "29", title: "Vital Streets Oversight Commission" }],
-  splitInAdmin: [{ sourceId: "1", title: "Wednesday Evening Rides" }],
+  changedInAdmin: [{ sourceId: "1", title: "Wednesday Evening Rides" }],
 };
 
 const images: ImageReport = {
@@ -78,11 +78,11 @@ describe("import report", () => {
     expect(text).toMatch(/ruleNotInferred: Odd Ride \(70\) — no rule matches/);
     expect(text).toMatch(/Images: 1 copied, 0 already in Blob, 1 failed/);
     expect(text).toMatch(/Image not copied: https:\/\/cdn\/b.jpg — HTTP 403/);
-    expect(text).toMatch(/Database: 1 inserted, 1 updated, 0 unchanged, 1 failed/);
+    expect(text).toMatch(/Database: 1 inserted, 1 updated, 0 unchanged, 1 failed, 1 changed in the admin/);
     expect(text).toMatch(/Warning: overwrote Editor changes: VBF Tuesday Night Road Ride \(52\)/);
     expect(text).toMatch(/Failed: Bad \(9\) — check failed/);
     expect(text).toMatch(/Not in the feed: Vital Streets Oversight Commission \(29\)/);
-    expect(text).toMatch(/Split in the admin, not updated: Wednesday Evening Rides \(1\)/);
+    expect(text).toMatch(/Changed in the admin, not updated: Wednesday Evening Rides \(1\)/);
   });
 
   it("does not print Blob URLs (they contain the store)", () => {

@@ -245,7 +245,10 @@ Public ICS feed: `https://tockify.com/api/feeds/ics/bikegr` (no auth). Facts che
 ### Approach
 
 1. **Safe to run again.** Upsert by Source ID. Editors keep using Tockify during the build; the
-   import is run again by hand at cutover, and conflicts with Editor review are fixed by hand.
+   import is run again by hand at cutover. **The import never overwrites an Event that an Editor
+   changed in the admin** (an Editor history row: edit, split, stop, in-place change, Override,
+   delete, restore; or a successor from a split). The report lists each one as "Changed in the
+   admin, not updated"; an Editor applies a Tockify change there by hand if it is still needed.
    Volume is low, so there is no freeze mechanism.
 2. **Rebuild each Series.** Group Occurrences by `<eventId>`; infer the rule from the dates.
    - Candidates: weekly (with `INTERVAL` and seasonal `BYMONTH`), monthly by nth weekday or last
