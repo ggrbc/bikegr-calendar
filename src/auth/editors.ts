@@ -48,7 +48,7 @@ export async function inviteEditor(
     return {
       ok: false,
       reason: "deactivated",
-      error: `${email} is a deactivated Editor. Reactivation is not available yet.`,
+      error: `${email} is a deactivated Editor. Reactivate them in the Editors list.`,
     };
   }
   return { ok: false, reason: "already-editor", error: `${email} is already an Editor.` };

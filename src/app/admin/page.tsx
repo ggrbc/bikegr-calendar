@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { requireEditor } from "@/auth/dal";
-import { InviteForm } from "./invite-form";
 
 async function AdminHome() {
   const editor = await requireEditor();
@@ -31,14 +30,6 @@ async function AdminHome() {
           </li>
         )}
       </ul>
-      {isAdmin && (
-        <section aria-labelledby="invite-heading">
-          <h2 id="invite-heading" className="mb-3 text-xl font-semibold">
-            Invite an Editor
-          </h2>
-          <InviteForm />
-        </section>
-      )}
     </>
   );
 }
