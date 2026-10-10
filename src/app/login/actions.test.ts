@@ -2,10 +2,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const signIn = vi.fn();
-vi.mock("@/auth", () => ({ signIn }));
+const googleSignInEnabled = vi.fn(() => true);
+const redirect = vi.fn((url: string) => {
+  throw Object.assign(new Error("NEXT_REDIRECT"), { url });
+});
+vi.mock("@/auth", () => ({ signIn, googleSignInEnabled, LOGIN_PATH: "/login" }));
 vi.mock("next-auth", () => ({ AuthError: class AuthError extends Error {} }));
+vi.mock("next/navigation", () => ({ redirect }));
 
-const { requestMagicLink } = await import("./actions");
+const { requestMagicLink, signInWithGoogle } = await import("./actions");
 
 function form(email: string) {
   const data = new FormData();
@@ -33,5 +38,22 @@ describe("requestMagicLink", () => {
     const state = await requestMagicLink({ result: "idle" }, form(" Jeremy@BikeGR.org "));
     expect(state).toEqual({ result: "sent", email: "jeremy@bikegr.org" });
     expect(signIn).toHaveBeenCalledWith("resend", { email: "jeremy@bikegr.org", redirect: false, redirectTo: "/admin" });
+  });
+});
+
+describe("signInWithGoogle", () => {
+  beforeEach(() => signIn.mockReset());
+
+  it("calls signIn('google') with redirectTo /admin, and lets its redirect (to Google) through", async () => {
+    const redirect = Object.assign(new Error("NEXT_REDIRECT"), { digest: "NEXT_REDIRECT;replace;https://accounts.google.com/;307;" });
+    signIn.mockRejectedValueOnce(redirect);
+    await expect(signInWithGoogle()).rejects.toBe(redirect);
+    expect(signIn).toHaveBeenCalledWith("google", { redirectTo: "/admin" });
+  });
+
+  it("with no Google client, redirects to /login and calls no signIn", async () => {
+    googleSignInEnabled.mockReturnValueOnce(false);
+    await expect(signInWithGoogle()).rejects.toMatchObject({ url: "/login" });
+    expect(signIn).not.toHaveBeenCalled();
   });
 });
