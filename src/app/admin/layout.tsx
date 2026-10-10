@@ -16,8 +16,8 @@ export const metadata: Metadata = { title: "Admin — Bike GR Calendar" };
 export default function AdminLayout({ children }: LayoutProps<"/admin">) {
   return (
     <div className="flex min-h-full flex-1 flex-col bg-brand-page text-[15px] text-brand-gray">
-      <header className="border-b border-brand-divider bg-white">
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-2 px-4 pt-3 sm:px-8 sm:pt-4">
+      <header className="border-b border-brand-divider bg-white px-4 sm:px-8">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-2 pt-3 sm:pt-4">
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <Link href="/admin" className="flex items-center gap-3">
               <Image
