@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { TURNSTILE_TEST_KEYS, turnstileConfig, verifyTurnstile } from "./turnstile";
 
 function fakeFetch(body: unknown, status = 200) {
-  return vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => new Response(JSON.stringify(body), { status }));
+  return vi.fn<typeof fetch>(async () => new Response(JSON.stringify(body), { status }));
 }
 
 describe("turnstileConfig", () => {
@@ -49,7 +49,7 @@ describe("verifyTurnstile", () => {
   });
 
   it("a network error, a bad status, or a bad answer is an error, never a pass", async () => {
-    const throwing = vi.fn(async () => {
+    const throwing = vi.fn<typeof fetch>(async () => {
       throw new TypeError("fetch failed");
     });
     expect(await verifyTurnstile("t", null, { secret: "s", fetch: throwing })).toBe("error");

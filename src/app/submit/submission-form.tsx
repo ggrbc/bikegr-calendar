@@ -6,7 +6,7 @@
  * keeps every value on screen. The Submitter never sees the words "Series" or "rule": the repeat is
  * "Repeats every week on [days] until [date]".
  */
-import { type FormEvent, type ReactNode, startTransition, useActionState, useCallback, useEffect, useId, useState } from "react";
+import { type FormEvent, type ReactNode, startTransition, useActionState, useCallback, useId, useState } from "react";
 import { ACCEPT, MAX_SELECT_BYTES, MAX_UPLOAD_BYTES } from "@/admin/images/limits";
 import { ShrinkFailed, shrinkForUpload } from "@/admin/images/shrink-in-browser";
 import type { PickerTag } from "@/admin/tags/tags";
@@ -98,15 +98,9 @@ export function SubmissionForm({
   const [end, setEnd] = useState("");
   const [repeats, setRepeats] = useState(false);
   const [token, setToken] = useState<string | null>(null);
-  const [resetKey, setResetKey] = useState(0);
   const [clientError, setClientError] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
   const errors = state.status === "error" ? state.errors : {};
-
-  // A token works once: after each refused send, get a new one.
-  useEffect(() => {
-    if (state.status === "error") setResetKey((k) => k + 1);
-  }, [state]);
 
   const onToken = useCallback((value: string | null) => setToken(value), []);
   const onWidgetError = useCallback((message: string) => setClientError(message), []);
@@ -363,7 +357,8 @@ export function SubmissionForm({
       </div>
 
       <div className="flex flex-col gap-4">
-        <TurnstileWidget siteKey={siteKey} resetKey={resetKey} onToken={onToken} onError={onWidgetError} />
+        {/* A token works once: each refused send (a new state object) gets a new one. */}
+        <TurnstileWidget siteKey={siteKey} resetSignal={state.status === "error" ? state : null} onToken={onToken} onError={onWidgetError} />
         <div>
           <button type="submit" disabled={busy || token === null} className={pillButton}>
             {preparing ? "Preparing the image…" : sending ? "Sending…" : "Send the event"}

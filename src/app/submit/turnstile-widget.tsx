@@ -3,7 +3,7 @@
 /**
  * The Cloudflare Turnstile widget, rendered explicitly. The site key comes from the server as a
  * prop (no `NEXT_PUBLIC_` value). The token goes to the parent; the server checks it. A token works
- * once, so the parent changes `resetKey` after each refused send to get a new one.
+ * once, so the parent gives a new `resetSignal` after each refused send to get a new one.
  */
 import { useEffect, useRef } from "react";
 
@@ -41,13 +41,13 @@ function loadTurnstile(): Promise<TurnstileApi> {
 
 export function TurnstileWidget({
   siteKey,
-  resetKey,
+  resetSignal,
   onToken,
   onError,
 }: {
   siteKey: string;
-  /** A new value resets the widget. */
-  resetKey: number;
+  /** A new non-null value resets the widget. */
+  resetSignal: object | null;
   /** The token, or null when it expired or failed. */
   onToken: (token: string | null) => void;
   onError: (message: string) => void;
@@ -86,10 +86,10 @@ export function TurnstileWidget({
   }, [siteKey]);
 
   useEffect(() => {
-    if (resetKey === 0 || !widgetId.current || !window.turnstile) return;
+    if (!resetSignal || !widgetId.current || !window.turnstile) return;
     callbacks.current.onToken(null);
     window.turnstile.reset(widgetId.current);
-  }, [resetKey]);
+  }, [resetSignal]);
 
   return <div ref={container} className="min-h-[65px]" />;
 }
