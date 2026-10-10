@@ -26,9 +26,9 @@ no `VTIMEZONE`).
 
   | Series (Source ID) | Occurrences | Last date | Expected rule | Expected end |
   |---|---|---|---|---|
-  | Wednesday Evening Rides (1) | 109 | 2028-10-04 | weekly WE; 1 cancelled Override (2026-09-30) | UNTIL (see horizon note) |
-  | Switchback Community Ride (2) | 109 | 2028-10-05 | weekly TH | UNTIL (see horizon note) |
-  | Ada Park Thursday Group Ride (61) | 109 | 2028-10-05 | weekly TH | UNTIL (see horizon note) |
+  | Wednesday Evening Rides (1) | 109 | 2028-10-04 | weekly WE; 1 cancelled Override (2026-09-30) | open-ended |
+  | Switchback Community Ride (2) | 109 | 2028-10-05 | weekly TH | open-ended |
+  | Ada Park Thursday Group Ride (61) | 109 | 2028-10-05 | weekly TH | open-ended |
   | Kent County Road Commission Meeting (3) | 67 | 2029-06-26 | monthly `BYDAY=2TU,4TU` | open-ended |
   | ENTF Transportation Subcommittee (7) | 33 | 2029-06-12 | monthly `BYDAY=2TU` | open-ended |
   | Mobile GR Commission Meeting (8) | 34 | 2029-06-13 | monthly `BYDAY=2WE` | open-ended |
@@ -44,10 +44,13 @@ no `VTIMEZONE`).
 
   So I expect all 15 to rebuild with an exact-match rule and 0 flagged. The fixture test proves it.
 
-  **Feed horizon:** 2029-07-04 (the latest Occurrence start in the whole feed: 11th Annual CDR).
-  **Horizon note:** the three weekly 109-Occurrence rides stop on 2028-10-04/05, nine months before
-  the feed horizon. Tockify seems to stop weekly expansions before monthly and yearly ones. With the
-  approved rule, these rides get an `UNTIL` in 2028-10. Editors must check them (see the report).
+  The "Expected end" column is for the import date 2026-10-09 (open-ended after 2027-10-09): 9
+  open-ended Series and 6 with `UNTIL`.
+
+  **Why not a feed horizon:** the feed stops at 2029-07-04, but the three weekly 109-Occurrence rides
+  stop on 2028-10-04/05. Tockify stops weekly expansions before monthly and yearly ones. So a
+  "latest start in the feed" horizon gave these rides a false `UNTIL`. Jeremy replaced that rule
+  (see "Open-ended Series" below).
 - Schedule status in the feed: 1 `**Cancelled**` (with `STATUS:CANCELLED`), 3
   `**Provisional (date to be confirmed)**`. 547 of 551 `SUMMARY` values start with a space.
 - `LOCATION` and `DESCRIPTION` use ICS escapes (`\,` `\;` `\n`). No HTML.
@@ -124,17 +127,20 @@ New dependency: `pnpm add rrule`. Nothing else.
 - **Tag names** stay as Tockify writes them (`Group-Ride`); slugs are lowercase kebab-case
   (`group-ride`). Editors rename later (the slug stays). Tags belong to one Calendar, so a name used
   in both Calendars gives two Tags.
-- **Open-ended Series at the feed horizon** (Jeremy's change, 2026-10-09). The **feed horizon** is
-  the latest Occurrence start date in the whole feed. The **next rule date** of a Series is the first
-  date that its rule (with no `UNTIL`) makes after its last feed Occurrence. Precise definition: a
-  Series is **open-ended** (no `UNTIL`) if its next rule date is after the feed horizon, because the
-  feed would show that date if it existed. If not, the Series ends clearly before the horizon and
-  gets `UNTIL=<last date>T235959`. This is "within one repeat period of the horizon", but it is exact
-  for weekly, every-other-week, nth-weekday monthly, and yearly rules.
-- **Exact-match check is bounded by the horizon.** For every rebuilt Series (open-ended or not), the
-  check expands the final rule through the engine for the window `[first date, horizon + 1 day)` and
-  compares the result with the feed Occurrences. A rule with `UNTIL` must also make no date after its
-  last Occurrence in that window.
+- **Open-ended Series** (Jeremy's decision, 2026-10-09; it replaces the feed-horizon rule). A
+  Series is **open-ended** (no `UNTIL`) if its last Occurrence in the feed starts more than 12 months
+  after the **import date**. "More than 12 months" means strictly after the same calendar date one
+  year later (`openEndedAfter`). For 2026-10-09 that is 2027-10-09: a last date of 2027-10-09 gets
+  `UNTIL`; 2027-10-10 is open-ended. For 29 February, the date one year later is 28 February. All
+  other Series get `UNTIL=<last date>T235959`.
+- **The import date is an explicit input:** `importTockify(bytes, { importDate: "2026-10-09" })`, a
+  `LocalDate` in Detroit. The pure function never reads the clock, so tests and reruns give the same
+  result. The fixture tests use 2026-10-09.
+- **Exact-match check is bounded by the Series' own last Occurrence.** For every rebuilt Series
+  (open-ended or not), the check expands the final rule through the engine for the window
+  `[first date, last date + 1 day)` and compares the result with the feed Occurrences.
+- The feed horizon and the "next rule date" logic are removed. `ImportResult` has `importDate` and
+  `openEndedAfter` instead, so Editors can see the cut-off date.
 - The `series` report entry has `until: string | null` (`null` = open-ended), so Editors can check
   the end of each Series.
 
@@ -159,7 +165,7 @@ src/import/
   calendar-and-tags.ts        Calendar assignment, Tag cleanup, slugs
   infer-rule.ts               candidate rules, EXDATEs, guard, exact-match check via the engine
   build-series.ts             base values, Overrides, flags, one-time fallback
-  import-tockify.ts           importTockify(ics) -> ImportResult (the only entry point)
+  import-tockify.ts           importTockify(ics, { importDate }) -> ImportResult (the only entry point)
   __fixtures__/tockify-bikegr-2026-10-09.ics
   *.test.ts
 ```
@@ -179,6 +185,8 @@ interface ImportedEvent {
   rule: EventRuleInput;          // eventId === sourceId
 }
 interface ImportResult {
+  importDate: LocalDate;
+  openEndedAfter: LocalDate;     // same date one year after importDate
   events: ImportedEvent[];
   overrides: OverrideInput[];    // eventId === the Series' sourceId
   tags: { calendar: CalendarSlug; name: string; slug: string }[];
@@ -278,10 +286,12 @@ interface ImportResult {
 - Irregular dates are flagged and imported as one-time Events
 - Exact-match check rejects a rule that expands to one extra date
 - Too many EXDATEs are flagged
-- Open-ended weekly Series at the horizon has no UNTIL
-- Series that ends before the horizon keeps its UNTIL
-- Exact-match check is bounded by the horizon
-- Next rule date is exact for monthly nth-weekday and yearly rules
+- Series that ends 13 months after the import date is open-ended
+- Series that ends 11 months after the import date keeps its UNTIL
+- Series that ends on the same date one year after the import date keeps its UNTIL; one day later
+  is open-ended
+- One year after 29 February is 28 February
+- Exact-match check is bounded by the Series' own last Occurrence
 
 ### Import — Series build
 
@@ -297,13 +307,14 @@ interface ImportResult {
 - Fixture has 551 Occurrences, 28 Events, and 15 Series
 - Every Series is rebuilt by an exact-match rule or flagged, and the report matches the expected table
   (rule, and open-ended or UNTIL)
-- Feed horizon is 2029-07-04
+- With import date 2026-10-09, 9 Series are open-ended and 6 keep their UNTIL
+- The import date is an explicit input and is in the result
 - Every rebuilt Series, with its Overrides, expands through the engine to exactly its feed Occurrences
 - Wednesday Evening Rides on 2026-09-30 is a cancelled Override
 - Hair of the Dog Ride is yearly with three tentative Overrides
 - Seven Events go to advocacy, and the rest to rides
 - No title contains `**`; no Tag is a weekday or Advocacy
-- Running the import twice gives the same result (stable order, stable Source IDs)
+- The feed with its VEVENTs in reverse order gives the same result
 
 ## Task order (test-first, one small commit per step)
 
@@ -318,8 +329,8 @@ interface ImportResult {
 6. **ics-parser** — parser tests, then `ics.ts`.
 7. **tockify-occurrence-mapping** — mapping tests, then `tockify-occurrence.ts`.
 8. **calendar-and-tag-cleanup** — tests, then `calendar-and-tags.ts`.
-9. **rule-inference** — tests, then `infer-rule.ts` with the feed horizon, open-ended Series, and
-   the exact-match check through the engine.
+9. **rule-inference** — tests, then `infer-rule.ts` with open-ended Series (import date), and the
+   exact-match check through the engine.
 10. **series-build** — tests, then `build-series.ts` (base values, Overrides, flags, fallback).
 11. **import-entry-point-and-fixture-check** — fixture tests, then `import-tockify.ts`.
 12. **refactor-and-verify** — clean up; `pnpm test`, `pnpm lint`, `pnpm typecheck` all pass.
