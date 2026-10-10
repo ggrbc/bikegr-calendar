@@ -210,6 +210,7 @@ export async function unretireTag(db: Db, editorId: string, input: { tagId: stri
   });
 }
 
+/** Counts of Events that are not deleted, as in the Event count and the merge confirm step. */
 export interface MergeCounts {
   /** Events that got a new link to the target. */
   moved: number;
@@ -251,9 +252,12 @@ export async function mergeTags(
       return refuse("retired-target", `"${target.name}" is retired. Unretire it first, or merge into an active Tag.`);
     }
 
+    // Every link moves, also those of deleted Events (an Admin can restore one). The counts leave
+    // deleted Events out, so they match the Event count that the confirm step shows.
     const links = await tx
-      .select({ eventId: eventTags.eventId, calendar: eventTags.calendar })
+      .select({ eventId: eventTags.eventId, calendar: eventTags.calendar, deletedAt: events.deletedAt })
       .from(eventTags)
+      .innerJoin(events, eq(events.id, eventTags.eventId))
       .where(eq(eventTags.tagId, source.id));
     const inserted =
       links.length === 0
@@ -276,6 +280,9 @@ export async function mergeTags(
       })
       .where(eq(tags.id, source.id));
 
-    return { ok: true, value: { moved: inserted.length, duplicates: links.length - inserted.length } } as const;
+    const movedIds = new Set(inserted.map((row) => row.eventId));
+    const live = links.filter((l) => l.deletedAt === null);
+    const moved = live.filter((l) => movedIds.has(l.eventId)).length;
+    return { ok: true, value: { moved, duplicates: live.length - moved } } as const;
   });
 }

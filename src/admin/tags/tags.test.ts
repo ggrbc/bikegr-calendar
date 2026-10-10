@@ -302,6 +302,27 @@ describe("Tag management", () => {
       expect(await tagIdsOf(both.id)).toEqual([b.id]);
     });
 
+    it("Merge counts only Events that are not deleted, as the confirm step does, and moves every link", async () => {
+      const a = await tag("rides", "Merge A8");
+      const b = await tag("rides", "Merge B8");
+      const live = await event("rides", "Live");
+      const deleted = await event("rides", "Deleted", { deletedAt: new Date() });
+      const both = await event("rides", "Both live");
+      const bothDeleted = await event("rides", "Both deleted", { deletedAt: new Date() });
+      await link(live, a);
+      await link(deleted, a);
+      await link(both, a, b);
+      await link(bothDeleted, a, b);
+
+      const confirmCount = (await listTagsForAdmin(db, "rides")).find((t) => t.id === a.id)!.eventCount;
+      expect(confirmCount).toBe(2);
+      const result = await mergeTags(db, editorId, { sourceId: a.id, targetId: b.id });
+      expect(result).toEqual({ ok: true, value: { moved: 1, duplicates: 1 } });
+      if (result.ok) expect(result.value.moved + result.value.duplicates).toBe(confirmCount);
+      expect(await tagIdsOf(deleted.id)).toEqual([b.id]);
+      expect(await tagIdsOf(bothDeleted.id)).toEqual([b.id]);
+    });
+
     it("Merge refuses A and B of different Calendars and changes nothing", async () => {
       const a = await tag("rides", "Merge A3");
       const b = await tag("advocacy", "Merge B3");
