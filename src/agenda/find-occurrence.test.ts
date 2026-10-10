@@ -3,7 +3,7 @@ import { overrides } from "@/db/schema";
 import { createTestDb } from "@/db/test-db";
 import type { Db } from "@/db/types";
 import { findOccurrence } from "./find-occurrence";
-import { addEvent, allDay, timed } from "./test-fixtures";
+import { addEvent, addTag, allDay, tagEvent, timed } from "./test-fixtures";
 
 describe("findOccurrence", () => {
   let db: Db;
@@ -26,6 +26,9 @@ describe("findOccurrence", () => {
       startLocal: "2026-10-22T18:30",
       endLocal: "2026-10-22T20:30",
     });
+    ids.tagged = (await addEvent(db, { title: "Tagged ride" })).id;
+    const social = await addTag(db, "rides", "Social", "social");
+    await tagEvent(db, ids.tagged, social.id, "rides");
     ids.daily = (await addEvent(db, { title: "Daily ride", rrule: "FREQ=DAILY" })).id;
     ids.until = (
       await addEvent(db, { title: "Until ride", rrule: "FREQ=WEEKLY;BYDAY=WE;UNTIL=20261021T235959" })
@@ -79,15 +82,22 @@ describe("findOccurrence", () => {
   it("a start outside 2000-01-01 to five years after today gives missing, also in year 9999", async () => {
     const today = "2026-10-12";
     for (const segment of ["9999-12-31T1800", "9999-12-30T1800", "2031-10-15T1800", "1999-12-29T1800"]) {
-      expect((await findOccurrence(db, ids.daily, segment, today)).kind, segment).toBe("missing");
+      expect((await findOccurrence(db, ids.daily, segment, { today })).kind, segment).toBe("missing");
     }
-    expect((await findOccurrence(db, ids.daily, "2031-10-11T1800", today)).kind).toBe("found");
+    expect((await findOccurrence(db, ids.daily, "2031-10-11T1800", { today })).kind).toBe("found");
   });
 
   it("a start before the first date or after UNTIL gives missing", async () => {
     expect((await findOccurrence(db, ids.weekly, "2026-10-07T1800")).kind).toBe("missing");
     expect((await findOccurrence(db, ids.until, "2026-10-14T1800")).kind).toBe("found");
     expect((await findOccurrence(db, ids.until, "2026-10-28T1800")).kind).toBe("missing");
+  });
+
+  it("withTags false skips the Tags read (the proxy needs only the Event and its Overrides)", async () => {
+    const result = await findOccurrence(db, ids.tagged, "2026-10-14T1800", { withTags: false });
+    expect(result.kind === "found" && result.row.tags).toEqual([]);
+    const full = await findOccurrence(db, ids.tagged, "2026-10-14T1800");
+    expect(full.kind === "found" && full.row.tags).toEqual([{ name: "Social", slug: "social" }]);
   });
 
   it("all-day Occurrence is found by its date", async () => {

@@ -7,7 +7,9 @@
  * On a database error the proxy lets the request through (`next`): the page then handles it.
  */
 import { describeError } from "./describe-error";
-import type { FindResult } from "./find-occurrence";
+import type { LocalDate } from "@/engine";
+import { todayInDetroit } from "./dates";
+import { checkDetailUrl, type FindResult } from "./find-occurrence";
 import { parseOccurrencePath } from "./occurrence-url";
 
 export type GateDecision = { kind: "next" } | { kind: "status"; status: 404 | 410 };
@@ -16,9 +18,12 @@ export async function detailGate(
   pathname: string,
   find: (eventId: string, segment: string) => Promise<FindResult>,
   log: (line: string) => void = console.error,
+  today: LocalDate = todayInDetroit(new Date()),
 ): Promise<GateDecision> {
   const parsed = parseOccurrencePath(pathname);
   if (!parsed) return { kind: "next" };
+  // A bad id, a bad start, or a start out of range: 404 with no database read.
+  if (checkDetailUrl(parsed.eventId, parsed.segment, today) === null) return { kind: "status", status: 404 };
   let result: FindResult;
   try {
     result = await find(parsed.eventId, parsed.segment);

@@ -69,18 +69,27 @@ export async function loadSnapshot(db: Db, calendar: CalendarSlug | null): Promi
   return { events: await snapshotEvents(db, eventRows), tags: calendarTags };
 }
 
-/** Adds the Overrides and active Tags to Event rows. Also used for one Event (find-occurrence.ts). */
-export async function snapshotEvents(db: Db, eventRows: EventRow[]): Promise<SnapshotEvent[]> {
+/**
+ * Adds the Overrides and active Tags to Event rows. Also used for one Event (find-occurrence.ts).
+ * `withTags: false` skips the Tags read (the proxy's status decision needs no Tags).
+ */
+export async function snapshotEvents(
+  db: Db,
+  eventRows: EventRow[],
+  { withTags = true }: { withTags?: boolean } = {},
+): Promise<SnapshotEvent[]> {
   if (eventRows.length === 0) return [];
   const ids = eventRows.map((e) => e.id);
 
   const overrideRows = await db.select().from(overrides).where(inArray(overrides.eventId, ids));
-  const tagRows = await db
-    .select({ eventId: eventTags.eventId, name: tags.name, slug: tags.slug })
-    .from(eventTags)
-    .innerJoin(tags, eq(tags.id, eventTags.tagId))
-    .where(and(inArray(eventTags.eventId, ids), isNull(tags.retiredAt)))
-    .orderBy(asc(tags.name));
+  const tagRows = withTags
+    ? await db
+        .select({ eventId: eventTags.eventId, name: tags.name, slug: tags.slug })
+        .from(eventTags)
+        .innerJoin(tags, eq(tags.id, eventTags.tagId))
+        .where(and(inArray(eventTags.eventId, ids), isNull(tags.retiredAt)))
+        .orderBy(asc(tags.name))
+    : [];
 
   const overridesByEvent = groupBy(overrideRows, (o) => o.eventId);
   const tagsByEvent = groupBy(tagRows, (t) => t.eventId);

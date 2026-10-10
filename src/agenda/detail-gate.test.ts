@@ -35,6 +35,20 @@ describe("detailGate", () => {
     expect(await detailGate(`/events/${ID}/x/y`, find)).toEqual({ kind: "next" });
   });
 
+  it("a bad id, a bad start, or a start out of range gives 404 without a database read", async () => {
+    const find = async (): Promise<FindResult> => {
+      throw new Error("must not be called");
+    };
+    for (const path of [
+      "/events/spike/2026-10-14T1800",
+      `/events/${ID}/2026-10-14T18:00`,
+      `/events/${ID}/9999-12-31T1800`,
+      `/events/${ID}/1999-01-01`,
+    ]) {
+      expect(await detailGate(path, find, () => {}, "2026-10-12"), path).toEqual({ kind: "status", status: 404 });
+    }
+  });
+
   it("a database error lets the request through and logs only the error name and code", async () => {
     const logged: string[] = [];
     const error = Object.assign(new Error("connect postgresql://u:npg_x@ep-y.neon.tech failed"), { code: "ETIMEDOUT" });

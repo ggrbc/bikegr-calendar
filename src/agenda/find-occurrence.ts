@@ -58,22 +58,30 @@ export function findInEvent(event: SnapshotEvent, originalStart: OriginalStart):
   );
 }
 
+/**
+ * The original start of a detail URL, or null when the URL can only be `missing` (a bad id, a bad
+ * segment, or a start out of range). No database read.
+ */
+export function checkDetailUrl(eventId: string, segment: string, today: LocalDate): OriginalStart | null {
+  const originalStart = parseStartSegment(segment);
+  if (!isUuid(eventId) || originalStart === null || !inStartRange(originalStart, today)) return null;
+  return originalStart;
+}
+
 export async function findOccurrence(
   db: Db,
   eventId: string,
   segment: string,
-  today: LocalDate = todayInDetroit(new Date()),
+  { today = todayInDetroit(new Date()), withTags = true }: { today?: LocalDate; withTags?: boolean } = {},
 ): Promise<FindResult> {
-  const originalStart = parseStartSegment(segment);
-  if (!isUuid(eventId) || originalStart === null || !inStartRange(originalStart, today)) {
-    return { kind: "missing" };
-  }
+  const originalStart = checkDetailUrl(eventId, segment, today);
+  if (originalStart === null) return { kind: "missing" };
 
   const [eventRow] = await db.select().from(events).where(eq(events.id, eventId.toLowerCase()));
   if (!eventRow || eventRow.reviewStatus !== "approved") return { kind: "missing" };
   if (eventRow.deletedAt !== null) return { kind: "gone", calendar: eventRow.calendar };
 
-  const [event] = await snapshotEvents(db, [eventRow]);
+  const [event] = await snapshotEvents(db, [eventRow], { withTags });
   const row = findInEvent(event, originalStart);
   return row ? { kind: "found", row, event } : { kind: "missing" };
 }

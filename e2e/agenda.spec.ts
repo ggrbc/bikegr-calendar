@@ -83,6 +83,8 @@ test("detail status codes: unknown 404, deleted 410, known 200, also for RSC req
     expect(await status(`/events/${IDS.tuesday}/9999-12-31T1800`)).toBe(404);
     expect(await status(`${deleted}/event.ics`)).toBe(410);
   }
+  // /events alone is not the admin: no redirect to /login.
+  expect((await request.get("/events", { maxRedirects: 0 })).status()).toBe(404);
   const ics = await request.get(`${known}/event.ics`);
   expect(ics.status()).toBe(200);
   expect(ics.headers()["content-type"]).toBe("text/calendar; charset=utf-8");

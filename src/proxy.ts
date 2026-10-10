@@ -7,8 +7,10 @@ import { proxyDb } from "@/agenda/proxy-db";
 const SESSION_COOKIES = ["authjs.session-token", "__Secure-authjs.session-token"];
 
 export async function proxy(request: NextRequest) {
-  if (request.nextUrl.pathname.startsWith("/events/")) return eventDetail(request);
-  return admin(request);
+  const { pathname } = request.nextUrl;
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) return admin(request);
+  if (pathname.startsWith("/events/")) return eventDetail(request);
+  return NextResponse.next();
 }
 
 /**
@@ -30,7 +32,8 @@ function admin(request: NextRequest) {
  */
 async function eventDetail(request: NextRequest) {
   const decision = await detailGate(request.nextUrl.pathname, (eventId, segment) =>
-    findOccurrence(proxyDb(), eventId, segment),
+    // The decision needs only the Event and its Overrides: no Tags read.
+    findOccurrence(proxyDb(), eventId, segment, { withTags: false }),
   );
   if (decision.kind === "next") return NextResponse.next();
   return new NextResponse(statusPageHtml(decision.status), {
@@ -40,5 +43,11 @@ async function eventDetail(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin", "/admin/:path*", "/events/:path*"],
+  matcher: [
+    "/admin",
+    "/admin/:path*",
+    // Router prefetches skip the detail check (no database read for each link on an agenda page).
+    // The real navigation still goes through it.
+    { source: "/events/:path+", missing: [{ type: "header" as const, key: "next-router-prefetch" }] },
+  ],
 };

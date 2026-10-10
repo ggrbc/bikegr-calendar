@@ -1,5 +1,6 @@
 /**
- * The cached Calendar snapshot for the public side (agenda pages, Embed, Feeds, detail page).
+ * The cached Calendar snapshot for the public side: agenda pages, Embed, and Feeds. (The detail
+ * page and the proxy read the database directly; see src/agenda/find-occurrence.ts.)
  *
  * - `"use cache: remote"`: on Vercel, all instances share the entry (Vercel Runtime Cache; on Hobby,
  *   the item limit is 2 MB, and the snapshot of the Bike GR data is far smaller). Plain `"use cache"`
