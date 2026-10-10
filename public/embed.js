@@ -7,8 +7,11 @@
  *
  * - data-calendar: rides | advocacy | all (default rides).
  * - data-filters: a filter query in the page URL format (tag, day, q, from, to).
- * - Filter values in the host page URL (?day=tue) replace data-filters, so a shared link works.
- *   With one Embed on the page, filter changes inside the Embed are written to the host URL.
+ * - Filter values in the host page URL replace data-filters, so a shared link works. On the host
+ *   URL the keys have the prefix "bgr-" (bgr-tag, bgr-day, bgr-q, bgr-from, bgr-to), so they never
+ *   clash with the host page's own keys (Squarespace uses ?q= for its search). The script maps them
+ *   to the short keys for the iframe. With one Embed on the page, filter changes inside the Embed
+ *   are written back to the host URL with the prefix; other host keys are never read or changed.
  *
  * The iframe sends two messages (see src/embed/protocol.ts): its height, and its filter query. This
  * script accepts a message only from the iframe's own origin and window, and checks each value.
@@ -21,6 +24,7 @@
   var MAX_HEIGHT = 50000;
   var MAX_SEARCH = 2000;
   var KEYS = ["tag", "day", "q", "from", "to"];
+  var HOST_PREFIX = "bgr-";
   var CALENDARS = ["rides", "advocacy", "all"];
   var MOUNTED = "data-bikegr-mounted";
 
@@ -55,19 +59,24 @@
     return out;
   }
 
-  function hasFilterKeys(params) {
-    return KEYS.some(function (key) {
-      return params.has(key);
+  /** The host URL's bgr- keys as short keys (bgr-day=tue becomes day=tue), or null if it has none. */
+  function hostFilters(params) {
+    var out = new URLSearchParams();
+    KEYS.forEach(function (key) {
+      params.getAll(HOST_PREFIX + key).forEach(function (value) {
+        out.append(key, value);
+      });
     });
+    return out.toString() ? out : null;
   }
 
   function writeHostUrl(search) {
     var url = new URL(window.location.href);
     KEYS.forEach(function (key) {
-      url.searchParams.delete(key);
+      url.searchParams.delete(HOST_PREFIX + key);
     });
     filterParams(new URLSearchParams(search)).forEach(function (value, key) {
-      url.searchParams.append(key, value);
+      url.searchParams.append(HOST_PREFIX + key, value);
     });
     if (url.href !== window.location.href) {
       window.history.replaceState(window.history.state, "", url.href);
@@ -84,9 +93,8 @@
       calendar = "rides";
     }
     var hostParams = new URLSearchParams(window.location.search);
-    var filters = filterParams(
-      hasFilterKeys(hostParams) ? hostParams : new URLSearchParams(script.getAttribute("data-filters") || ""),
-    );
+    var filters =
+      hostFilters(hostParams) || filterParams(new URLSearchParams(script.getAttribute("data-filters") || ""));
     var query = filters.toString();
 
     var iframe = document.createElement("iframe");

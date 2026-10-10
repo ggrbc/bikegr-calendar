@@ -14,8 +14,8 @@ test("agenda for Rides shows days, and a Day filter changes the list and the URL
   await expect(page.getByText("E2E Pending Ride")).toHaveCount(0);
 
   await page.getByText("Filter", { exact: true }).click();
+  // One checkbox click filters the list (no Apply click).
   await page.getByRole("checkbox", { name: "Thu", exact: true }).check();
-  await page.getByRole("button", { name: "Apply filters" }).click();
   await expect(page).toHaveURL(/\/rides\?day=thu$/);
   await expect(page.getByRole("link", { name: "E2E Thursday Ride" }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "E2E Tuesday Ride" })).toHaveCount(0);
@@ -27,6 +27,29 @@ test("no Calendar switcher on the public pages; the routes stay", async ({ page 
     expect(response?.status()).toBe(200);
     await expect(page.getByRole("navigation", { name: "Calendars" })).toHaveCount(0);
   }
+});
+
+test("the search applies on Enter, and Clear removes every filter", async ({ page }) => {
+  await page.goto("/rides");
+  await page.getByRole("searchbox", { name: "Search" }).fill("thursday");
+  await page.getByRole("searchbox", { name: "Search" }).press("Enter");
+  await expect(page).toHaveURL(/\/rides\?q=thursday$/);
+  await expect(page.getByRole("link", { name: "E2E Tuesday Ride" })).toHaveCount(0);
+  await page.getByRole("link", { name: "Clear" }).click();
+  await expect(page).toHaveURL(/\/rides$/);
+  await expect(page.getByRole("link", { name: "E2E Tuesday Ride" }).first()).toBeVisible();
+});
+
+test("without JavaScript, the Apply button submits the filters", async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+  await page.goto("/rides");
+  await page.getByText("Filter", { exact: true }).click();
+  await page.getByRole("checkbox", { name: "Thu", exact: true }).check();
+  await page.getByRole("button", { name: "Apply" }).click();
+  await expect(page).toHaveURL(/\/rides\?.*day=thu/);
+  await expect(page.getByRole("link", { name: "E2E Tuesday Ride" })).toHaveCount(0);
+  await context.close();
 });
 
 test("a far-future from is clamped: the page renders, with no error", async ({ page }) => {

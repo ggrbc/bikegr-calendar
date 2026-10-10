@@ -31,28 +31,36 @@ test("Embed shows an iframe, and its height grows to the content", async ({ page
   await expect(frame.getByRole("link", { name: "E2E Tuesday Ride" }).first()).toHaveAttribute("target", "_blank");
 });
 
-test("Embed height shrinks after a filter with fewer results, and the host URL gets the filter", async ({ page }) => {
-  await page.goto(HOST);
+test("Embed height shrinks after one checkbox click, and the host URL gets bgr- keys", async ({ page }) => {
+  await page.goto(`${HOST}/?q=host-search`);
   await waitForContent(page);
   const before = await iframeHeight(page);
   const frame = page.frameLocator("iframe[data-bikegr-embed]");
   await frame.getByText("Filter", { exact: true }).click();
   await frame.getByRole("checkbox", { name: "Thu", exact: true }).check();
-  await frame.getByRole("button", { name: "Apply filters" }).click();
   await expect(frame.getByRole("link", { name: "E2E Tuesday Ride" })).toHaveCount(0);
-  await expect(page).toHaveURL(`${HOST}/?day=thu`);
+  // The host page's own q is never read or deleted; the Embed writes only bgr- keys.
+  await expect(page).toHaveURL(`${HOST}/?q=host-search&bgr-day=thu`);
   await waitForContent(page);
   expect(await iframeHeight(page)).toBeLessThan(before);
 });
 
-test("a host URL with ?day=tue opens the Embed filtered", async ({ page }) => {
-  await page.goto(`${HOST}/?day=tue&other=kept`);
-  await expect(page.locator("iframe[data-bikegr-embed]")).toHaveAttribute("src", "http://localhost:3100/embed/rides?day=tue");
+test("a host URL with ?bgr-day=tue opens the Embed filtered; the host's own q is not read", async ({ page }) => {
+  await page.goto(`${HOST}/?bgr-day=tue&q=thursday&other=kept`);
+  await expect(page.locator("iframe[data-bikegr-embed]")).toHaveAttribute(
+    "src",
+    "http://localhost:3100/embed/rides?day=tue",
+  );
   const frame = page.frameLocator("iframe[data-bikegr-embed]");
   await expect(frame.getByRole("link", { name: "E2E Tuesday Ride" }).first()).toBeVisible();
   await expect(frame.getByRole("link", { name: "E2E Thursday Ride" })).toHaveCount(0);
   // The first load does not change the host URL.
-  await expect(page).toHaveURL(`${HOST}/?day=tue&other=kept`);
+  await expect(page).toHaveURL(`${HOST}/?bgr-day=tue&q=thursday&other=kept`);
+});
+
+test("short filter keys on the host URL are not Embed keys", async ({ page }) => {
+  await page.goto(`${HOST}/?day=tue&q=x`);
+  await expect(page.locator("iframe[data-bikegr-embed]")).toHaveAttribute("src", "http://localhost:3100/embed/rides");
 });
 
 test("a fake resize message from the host page itself does not change the height", async ({ page }) => {
@@ -83,7 +91,6 @@ test("two Embeds in a 360 px column: no horizontal scroll, data-filters applied,
   await expect(advocacy.getByText("E2E Commission Meeting")).toBeVisible();
   await page.frameLocator("iframe[data-bikegr-embed] >> nth=0").getByText("Filter", { exact: true }).click();
   await page.frameLocator("iframe[data-bikegr-embed] >> nth=0").getByRole("checkbox", { name: "Thu", exact: true }).check();
-  await page.frameLocator("iframe[data-bikegr-embed] >> nth=0").getByRole("button", { name: "Apply filters" }).click();
   await expect(page.frameLocator("iframe[data-bikegr-embed] >> nth=0").getByRole("link", { name: "E2E Tuesday Ride" })).toHaveCount(0);
   await expect(page).toHaveURL(`${HOST}/two.html`);
 });
