@@ -73,7 +73,7 @@ export interface QueryWindow {
 }
 
 /**
- * One dated instance of an Event, after Overrides.
+ * One dated Occurrence of an Event, after Overrides.
  *
  * A rescheduled Occurrence is returned once if its original or its actual time slot touches the
  * window. Views show it on both dates ("Rescheduled to …" and "Rescheduled from …").

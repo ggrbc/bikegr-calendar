@@ -189,6 +189,10 @@ Rejected for v1: a web component with Shadow DOM (Squarespace CSS and JS can lea
   Occurrence updates in place in subscribers' calendars. After a Series split, the later
   Occurrences' UIDs change once (seen as removed and added).
 - Schedule status maps to `STATUS` (table above); the Schedule note goes in the description.
+- **Wall-clock to UTC at DST changes** (RFC 5545 rule): a time that does not exist (02:30 on the
+  March change day) moves forward by the length of the gap (03:30 EDT). A time that occurs twice
+  (01:30 on the November change day) uses the first one (EDT). The engine stays in wall-clock time;
+  only the Feeds and JSON-LD convert.
 - Later: RSS.
 
 Rejected: one `VEVENT` per Series with `RRULE` / `RECURRENCE-ID`. Client support differs (Outlook
@@ -200,9 +204,11 @@ especially), and a Series split shows as an edit plus a new Series.
 
 Public ICS feed: `https://tockify.com/api/feeds/ics/bikegr` (no auth). Facts checked 2026-10-09:
 
-- 551 Occurrences, **29 distinct Events**; 15 are Series (top ones: Switchback Community Ride,
-  Ada Park Thursday Group Ride, Wednesday Evening Rides — 109 Occurrences each; Kent County Road
-  Commission Meeting — 67).
+- 551 Occurrences, **28 distinct Events**; 15 are Series, 13 one-time (top Series: Switchback
+  Community Ride, Ada Park Thursday Group Ride, Wednesday Evening Rides — 109 Occurrences each,
+  weekly in all 12 months with no gaps; Kent County Road Commission Meeting — 67).
+- **Tockify cuts each Series at its own horizon.** The weekly rides stop at 2028-10; the monthly
+  and yearly Series run to about 2029-07. The feed end is not the real end of a Series.
 - **No `RRULE` in the feed.** Tockify expands each Series into separate `VEVENT`s.
 - **UID shape:** `TKF/<calendarId>/<eventId>/<startMinutes>/0/0`. All Occurrences of a Series share
   `<eventId>`. `<startMinutes>` is the Occurrence start in minutes since the Unix epoch. Detail URLs
@@ -215,7 +221,8 @@ Public ICS feed: `https://tockify.com/api/feeds/ics/bikegr` (no auth). Facts che
   cut off with "…".
 - Advocacy Events: the 5 with the `Advocacy` Tag (Kent County Road Commission, ENTF Transportation
   Committee and Subcommittee, Mobile GR Commission, Southside Creekways) plus "Vital Streets
-  Oversight Commission" (#28 and #29, no Tag — most likely duplicates; check by hand).
+  Oversight Commission" (#28 and #29, no Tag). #29 runs 7 days (2026-12-14 to 12-21) — most likely
+  a data error in Tockify; check both by hand.
 
 ### Field mapping
 
@@ -240,11 +247,16 @@ Public ICS feed: `https://tockify.com/api/feeds/ics/bikegr` (no auth). Facts che
    import is run again by hand at cutover, and conflicts with Editor review are fixed by hand.
    Volume is low, so there is no freeze mechanism.
 2. **Rebuild each Series.** Group Occurrences by `<eventId>`; infer the rule from the dates.
-   - Rides look seasonal (about 109 weekly Occurrences over 3 years, not 156). Try forms such as
-     `FREQ=WEEKLY;BYDAY=TH;BYMONTH=4,5,6,7,8,9,10`; confirm months from the data.
-   - Missing weeks inside a season become `EXDATE`s.
-   - **Check:** the rule must expand to exactly the original Occurrence list. If it does not, import
-     that Event as separate one-time Events and flag it for manual review.
+   - Candidates: weekly (with `INTERVAL` and seasonal `BYMONTH`), monthly by nth weekday or last
+     weekday (`-1TU`), yearly. Missing dates become `EXDATE`s, at most 25% of the expanded dates.
+   - **Check:** the rule must expand to exactly the original Occurrence list, up to the Series' own
+     last Occurrence in the feed. If it does not, import that Event as separate one-time Events
+     (Source ID `<eventId>/<startMinutes>`) and flag it for manual review.
+   - **Open-ended rule:** the import date is an explicit input. A Series whose last Occurrence
+     starts more than one year after the import date (strictly after the same date one year later)
+     gets no `UNTIL` — that far-away end comes from Tockify's horizon, not from the organizer. Other
+     Series get `UNTIL=<last date>T235959` (Detroit wall-clock). The Series split and the Submission
+     form write `UNTIL` in the same form. Editors check each end date in the admin review.
    - Remove Schedule status prefixes from titles **before** comparing. Occurrences whose title, location,
      time, or Schedule status differs from the rest of their Series become Overrides.
 3. **Calendar.** Events with the `Advocacy` Tag, plus the Vital Streets Events, go to `advocacy`.
