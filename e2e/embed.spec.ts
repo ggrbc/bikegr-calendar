@@ -106,6 +106,16 @@ test("two Embeds in a 360 px column: no horizontal scroll, data-filters applied,
   await expect(page).toHaveURL(`${HOST}/two.html`);
 });
 
+test("the Embed has no Feed line; the site page keeps it", async ({ page }) => {
+  await page.goto("/embed/rides");
+  await expect(page.getByRole("link", { name: "E2E Tuesday Ride" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Subscribe in your calendar app" })).toHaveCount(0);
+  await expect(page.getByText("Feed URL:")).toHaveCount(0);
+
+  await page.goto("/rides");
+  await expect(page.getByRole("link", { name: "Subscribe in your calendar app" })).toBeVisible();
+});
+
 test("Embed response has the frame-ancestors header for the allowed hosts", async ({ request }) => {
   const response = await request.get("/embed/rides");
   expect(response.headers()["content-security-policy"]).toBe(
