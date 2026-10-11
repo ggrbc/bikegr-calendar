@@ -187,8 +187,7 @@ Test first, at each item. Vitest with PGlite for the data and rule code. Playwri
   detail URL (`2026-10-14T1800`).
 - No version check for a manager's save (last write wins on the three fields). The write still bumps
   `version`, so an Editor's open form for the same Event shows the normal conflict message on save.
-- A manager sets status `scheduled` again to undo a change: the stored value becomes null ("no
-  change") and an empty Override row is removed, as `saveOverride` does for Editors. A date that an
+- A manager sets status `scheduled` again to undo a change: see "Manager write rules". A date that an
   Editor moved (Override with a new time) keeps the new time; the manager sees the time read-only.
 - The form shows the Event title and the date; it never shows other Event fields.
 - Empty details or note store null. Details are trimmed; line endings become `\n`.
@@ -200,25 +199,28 @@ Test first, at each item. Vitest with PGlite for the data and rule code. Playwri
 - The history label of a manager's change is the Editor label plus the actor's name, for example
   "Changed one date (Oct 14)". The actor's role is not in the label.
 
-## Open decisions
+## Decisions (answered by Jeremy)
 
-1. **Can an Admin turn an Editor into an Event manager, and can the Admin invite form offer the role
-   "Event manager"?**
-   - A) No. Event manager exists only through the Managers section (an invite with a grant). An Admin
-     can promote an Event manager to Editor or Admin, never demote. The role select shows "Event
-     manager" only as the current value.
-   - B) Yes. The invite form and the role select both offer "Event manager". A manager with no grants
-     is allowed and sees "You manage no Events now".
-   - Recommendation: A. A manager without a grant is useless, the demotion has no clear use, and A
-     keeps the last-Admin and role rules simple.
+1. **Roles.** A. "Event manager" is not in the role select or the Admin invite form. People become
+   managers only through the Managers section. An Admin can promote a manager to Editor or Admin,
+   never demote anyone to manager.
+2. **Grant to an Editor or Admin.** A. Refused: "<Name> is an Editor and can already change every
+   Event."
+3. **Grant to a deactivated account.** A. Refused: "This person is deactivated. Ask an Admin to
+   reactivate them first."
 
-2. **A grant to an account that is already an Editor or Admin.**
-   - A) Refuse: "This person is an Editor and can already change every Event."
-   - B) Store it with no effect (as the Q8 role-change case does), with no email.
-   - Recommendation: A. A stored grant for a full Editor would start to matter after a demotion that
-     nobody planned.
+## Changes from the `editors-page` stream
 
-3. **A grant to a deactivated account.**
-   - A) Refuse: "This account is deactivated. An Admin can turn it on again."
-   - B) Store it and send no email; it takes effect after an Admin reactivates the account.
-   - Recommendation: A. The Editor sees at once why nothing happens, and no hidden state remains.
+- A name is required everywhere (`parseEditorName` refuses empty text). The Managers section asks
+  for a name and an email when the person is new.
+- The Admin's own Editor detail page shows no Role and no Deactivate.
+
+## Manager write rules (corrections to the defaults)
+
+- A manager's save updates only `schedule_status`, `schedule_note`, and `occurrence_details`. The
+  upsert never overwrites the Editor columns (time, location, title) of an existing Override: the
+  conflict `set` lists only those three columns plus `updated_by` and `updated_at`.
+- Back to `scheduled` clears only the status. The Override row is removed only when every field in
+  it is empty. A row that still has a Schedule note, Occurrence details, or Editor fields stays.
+- Test: an Editor moves the time of a date, then a manager cancels that date. The new time stays.
+- Last write wins (no version check) stays, because of the narrow upsert above.
