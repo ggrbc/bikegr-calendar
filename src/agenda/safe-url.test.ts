@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isHttpUrl } from "./safe-url";
+import { isHttpUrl, isLinkUrl } from "./safe-url";
 
 describe("isHttpUrl", () => {
   it("accepts http and https URLs", () => {
@@ -21,5 +21,18 @@ describe("isHttpUrl", () => {
     ]) {
       expect(isHttpUrl(url), url).toBe(false);
     }
+  });
+});
+
+describe("isLinkUrl", () => {
+  it("allows http, https, and mailto only", () => {
+    expect(isLinkUrl("https://example.org/a")).toBe(true);
+    expect(isLinkUrl("http://example.org")).toBe(true);
+    expect(isLinkUrl("mailto:ride@example.org")).toBe(true);
+    expect(isLinkUrl("javascript:alert(1)")).toBe(false);
+    expect(isLinkUrl("JaVaScRiPt:alert(1)")).toBe(false);
+    expect(isLinkUrl("data:text/html,x")).toBe(false);
+    expect(isLinkUrl("/relative")).toBe(false);
+    expect(isLinkUrl("")).toBe(false);
   });
 });

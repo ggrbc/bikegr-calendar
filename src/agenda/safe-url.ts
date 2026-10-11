@@ -11,3 +11,13 @@ export function isHttpUrl(value: string): boolean {
     return false;
   }
 }
+
+/** True only for an absolute `http:`, `https:`, or `mailto:` URL: the links a description may have. */
+export function isLinkUrl(value: string): boolean {
+  try {
+    const { protocol } = new URL(value);
+    return protocol === "http:" || protocol === "https:" || protocol === "mailto:";
+  } catch {
+    return false;
+  }
+}
