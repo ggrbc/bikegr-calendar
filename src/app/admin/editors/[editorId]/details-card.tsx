@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { AdminEditorRow } from "@/admin/editors/editors";
 import { ROLE_LABELS } from "@/admin/editors/rules";
 import { Badge, Card } from "../../_components/ui";
+import { EmailText } from "../email-text";
 
 const dateFormat = new Intl.DateTimeFormat("en-US", {
   timeZone: "America/Detroit",
@@ -29,7 +30,7 @@ export function DetailsCard({ editor }: { editor: AdminEditorRow }) {
     <Card title="Details" titleId="details-heading">
       <dl className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-[max-content_1fr] sm:gap-y-2">
         <DetailRow label="Email">
-          <span className="[overflow-wrap:anywhere]">{editor.email}</span>
+          <EmailText email={editor.email} />
         </DetailRow>
         <DetailRow label="Role">{ROLE_LABELS[editor.role]}</DetailRow>
         <DetailRow label="Status">

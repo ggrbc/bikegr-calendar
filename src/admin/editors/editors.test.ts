@@ -354,11 +354,22 @@ describe("Editor management", () => {
     it("nothing changed: ok, no write", async () => {
       const x = await person("x@example.org", "admin");
       const e = await person("e@example.org", "editor", { name: "Old" });
+      const before = await reload(e.id);
       const result = await saveEditor(db, x.id, { editorId: e.id, name: "Old", nameWas: "Old", role: "editor", roleWas: "editor" });
       expect(result).toMatchObject({ ok: true, value: { nameChanged: false, roleChanged: false } });
+      expect(await reload(e.id)).toEqual(before); // the whole row, updated_at included
     });
 
-    it("a stale roleWas is refused and nothing is written (another Admin changed the role)", async () => {
+    it("a decomposed (NFD) name equal to the stored composed (NFC) name is not a change", async () => {
+      const x = await person("x@example.org", "admin");
+      const e = await person("e@example.org", "editor", { name: "Jos\u00e9" });
+      const before = await reload(e.id);
+      const result = await saveEditor(db, x.id, { editorId: e.id, name: "Jose\u0301", nameWas: "Jos\u00e9" });
+      expect(result).toMatchObject({ ok: true, value: { nameChanged: false } });
+      expect(await reload(e.id)).toEqual(before);
+    });
+
+    it("a stale roleWas: the unchanged role is skipped, and a changed role is refused with nothing written", async () => {
       const x = await person("x@example.org", "admin");
       const e = await person("e@example.org", "admin", { name: "Old" }); // was "editor" on the old page
       const result = await saveEditor(db, x.id, {

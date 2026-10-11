@@ -110,6 +110,18 @@ describe("parseEditorName", () => {
     expect(parseEditorName("a".repeat(101))).toMatchObject({ ok: false });
   });
 
+  it("refuses a name of only combining marks or variation selectors", () => {
+    for (const mark of ["́", "͏", "️", "᠋", " ́️ "]) {
+      expect(parseEditorName(mark), JSON.stringify(mark)).toMatchObject({ ok: false, error: "Enter a name." });
+    }
+  });
+
+  it("normalizes to NFC, so a decomposed name equals the composed one", () => {
+    const decomposed = "José";
+    expect(decomposed).not.toBe("José");
+    expect(parseEditorName(decomposed)).toEqual({ ok: true, value: "José" });
+  });
+
   it("counts code points, not UTF-16 units, against the limit", () => {
     expect(parseEditorName("\u{1F600}".repeat(100))).toMatchObject({ ok: true });
     expect(parseEditorName("\u{1F600}".repeat(101))).toMatchObject({ ok: false });

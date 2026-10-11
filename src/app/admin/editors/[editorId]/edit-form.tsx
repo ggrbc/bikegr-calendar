@@ -32,14 +32,15 @@ export function EditForm({ editorId, name, role, roleLabels }: EditFormProps) {
       <input type="hidden" name="editorId" value={editorId} />
       <input type="hidden" name="nameWas" value={name} />
       {role && <input type="hidden" name="roleWas" value={role} />}
-      <NameField key={`name-${key}`} id="editor-name" defaultValue={shown?.name ?? name} />
+      {/* The keys include the stored values: a refreshed `*Was` never pairs with an old field value. */}
+      <NameField key={`name-${key}-${name}`}id="editor-name" defaultValue={shown?.name ?? name} />
       {role && (
         <>
           <label htmlFor="editor-role" className={labelClass}>
             Role
           </label>
           <select
-            key={`role-${key}`}
+            key={`role-${key}-${role}`}
             id="editor-role"
             name="role"
             defaultValue={shown?.role ?? role}

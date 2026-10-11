@@ -94,3 +94,24 @@ The edit page is in small parts: `DetailsCard` (with `DetailRow`), `EditForm`, a
 under `src/app/admin/editors/[editorId]/`. A "Manages" card can go between Details and the form
 in `page.tsx`. `ROLE_LABELS` in `src/admin/editors/rules.ts` takes one new entry for
 `event_manager`; the list, the Details card, the role select, and the account page all read it.
+
+## `saveEditor` (added after review)
+
+The edit page's Save is one domain write: `saveEditor(db, actorId, { editorId, name, nameWas, role?,
+roleWas? })` in `src/admin/editors/editors.ts`.
+
+- **One lock, one transaction, all or nothing.** Every check runs before the first write.
+- **`*Was` fields.** The form posts hidden `nameWas` and `roleWas`: what it showed when it loaded.
+  The server writes a field only when the posted value differs from its `*Was` value. A form that
+  changes only the name never writes the role, and the reverse.
+- **`stale` refusal.** For a field that changes, the stored value must still equal its `*Was` value.
+  If not, the save is refused: "Another Admin changed this Editor. Reload the page." A stale form
+  never undoes another change.
+- **Nothing changed** returns ok with no write (checked after the actor is read).
+- **Role rules** are the existing `checkRoleChange` (self, deactivated target, last Admin), so a
+  forged role on the Admin's own page is refused with `self`.
+- **Names** go through `parseEditorName`: trim, NFC, at least one letter, number, symbol, or
+  punctuation mark, at most 100 code points, no control or invisible format characters (ZWNJ and ZWJ
+  are allowed).
+- The form keeps the typed text after a refusal (the action returns the posted values), and its
+  field keys include the stored values.

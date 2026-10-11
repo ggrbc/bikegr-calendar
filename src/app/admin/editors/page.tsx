@@ -18,20 +18,8 @@ import {
   theadRowClass,
   thClass,
 } from "../_components/ui";
+import { EmailText } from "./email-text";
 import { InviteForm } from "./invite-form";
-
-/** `name<wbr>@example.org`: the only break point of an address. */
-function splitAtSign(email: string) {
-  const at = email.indexOf("@");
-  if (at < 1) return email;
-  return (
-    <>
-      {email.slice(0, at)}
-      <wbr />
-      {email.slice(at)}
-    </>
-  );
-}
 
 async function EditorList() {
   await requireAdmin();
@@ -63,8 +51,7 @@ async function EditorList() {
                 <tr role="row" key={editor.id} className={stackRowClass}>
                   <td role="cell" className={`${stackTdClass} max-lg:before:content-none`}>
                     {editor.name && <div className="font-semibold [overflow-wrap:anywhere]">{editor.name}</div>}
-                    {/* The email breaks before the "@"; `anywhere` only helps when one part is too long for the screen. */}
-                    <div className="[overflow-wrap:anywhere]">{splitAtSign(editor.email)}</div>
+                    <div><EmailText email={editor.email} /></div>
                   </td>
                   <td role="cell" data-label="Role" className={stackTdClass}>
                     {ROLE_LABELS[editor.role]}

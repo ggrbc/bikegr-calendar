@@ -147,6 +147,7 @@ export async function saveEditor(
 
     const nameChanged = name.value !== input.nameWas;
     const roleChanged = role !== null && role !== roleWas;
+    if (!nameChanged && !roleChanged) return { ok: true, value: { editor: target, nameChanged, roleChanged } } as const;
     if (nameChanged && (target.name ?? "") !== input.nameWas) return refused(STALE);
     if (roleChanged && target.role !== roleWas) return refused(STALE);
 
@@ -159,7 +160,6 @@ export async function saveEditor(
       const refusal = checkRoleChange({ actor, target, role, activeAdmins: await countActiveAdmins(tx) });
       if (refusal) return refused(refusal);
     }
-    if (!nameChanged && !roleChanged) return { ok: true, value: { editor: target, nameChanged, roleChanged } } as const;
 
     const [updated] = await tx
       .update(editors)
