@@ -169,7 +169,7 @@ export function MarkdownEditor({
     <div className={boxClassName}>
       <div
         role="toolbar"
-        aria-label={`${label} formatting`}
+        aria-label="Text formatting"
         className="flex flex-wrap items-center gap-1 border-b border-black/10 px-2 py-1"
       >
         {tool("Undo", "↶", run((c) => c.undo()), undefined, !state?.canUndo)}

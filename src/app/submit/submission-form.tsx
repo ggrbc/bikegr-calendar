@@ -7,6 +7,7 @@
  * "Repeats every week on [days] until [date]".
  */
 import { type FormEvent, type ReactNode, startTransition, useActionState, useCallback, useId, useState } from "react";
+import { PREVIEW_MAX } from "@/admin/events/event-input";
 import { ACCEPT, MAX_SELECT_BYTES, MAX_UPLOAD_BYTES } from "@/admin/images/limits";
 import { ShrinkFailed, shrinkForUpload } from "@/admin/images/shrink-in-browser";
 import type { PickerTag } from "@/admin/tags/tags";
@@ -15,6 +16,7 @@ import { addMinutes, type CalendarSlug, isLocalDateTime } from "@/engine";
 import { FIELDS } from "@/submissions/form-data";
 import { HONEYPOT_LABEL } from "@/submissions/spam-rules";
 import { LIMITS } from "@/submissions/submission-input";
+import { MarkdownEditor } from "../_components/markdown-editor";
 import { submitEventAction, type SubmitState } from "./actions";
 import { TurnstileWidget } from "./turnstile-widget";
 
@@ -74,6 +76,48 @@ function Field({
       {children({ id, "aria-describedby": described || undefined, "aria-invalid": error ? true : undefined })}
       <FieldError id={`${id}-error`} message={error} />
     </div>
+  );
+}
+
+/** "+ Custom Preview" on the public form: uncontrolled, so it posts with the FormData. */
+function SubmissionPreviewField({ error }: { error?: string }) {
+  const [open, setOpen] = useState(false);
+  const [length, setLength] = useState(0);
+  if (!open && !error) {
+    return (
+      <button
+        type="button"
+        className="self-start font-normal text-brand-orange-text underline underline-offset-4"
+        onClick={() => setOpen(true)}
+      >
+        + Custom Preview
+      </button>
+    );
+  }
+  return (
+    <Field
+      name="preview"
+      label="Custom Preview"
+      error={error}
+      hint="Shown on the calendar list instead of the start of the description."
+    >
+      {(props) => (
+        <>
+          <textarea
+            {...props}
+            name={FIELDS.preview}
+            rows={3}
+            maxLength={PREVIEW_MAX}
+            autoFocus
+            onChange={(e) => setLength([...e.target.value].length)}
+            className={input}
+          />
+          <p className="text-[14px]">
+            {length} / {PREVIEW_MAX}
+          </p>
+        </>
+      )}
+    </Field>
   );
 }
 
@@ -192,11 +236,15 @@ export function SubmissionForm({
         <Field name="title" label="Title (required)" error={errors.title}>
           {(props) => <input {...props} name={FIELDS.title} required maxLength={200} className={input} />}
         </Field>
-        <Field name="description" label="Description" error={errors.description} hint="Plain text. Web addresses become links.">
-          {(props) => (
-            <textarea {...props} name={FIELDS.description} rows={6} maxLength={LIMITS.description} className={input} />
-          )}
+        <Field
+          name="description"
+          label="Description"
+          error={errors.description}
+          hint="Use the toolbar for headings, bold, lists, and links."
+        >
+          {(props) => <MarkdownEditor {...props} label="Description" name={FIELDS.description} />}
         </Field>
+        <SubmissionPreviewField error={errors.preview} />
         <Field name="location" label="Location" error={errors.location} hint="A place name or an address.">
           {(props) => <input {...props} name={FIELDS.location} maxLength={LIMITS.location} className={input} />}
         </Field>
