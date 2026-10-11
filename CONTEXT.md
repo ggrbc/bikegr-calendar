@@ -31,6 +31,7 @@ Tockify and are embedded in the Bike GR Squarespace site. One organization, two 
 | **Admin** | An Editor who can also invite and deactivate Editors and change settings. |
 | **Event manager** | An invited person who can change the Occurrences of the Events that an Editor gave them: the Schedule status, the Schedule note, and the Occurrence details. Not an Editor. |
 | **Occurrence details** | Longer public text on one Occurrence (route, conditions, a map link). Shown on the detail page and in the Feed, not on the agenda card. |
+| **Custom Preview** | Optional short plain text on an Event (300 characters at most). Shown on the agenda card and in search and social previews instead of the start of the description. Not on the detail page body or in the Feed. |
 | **Embed** | One Calendar as shown inside a Squarespace page (an iframe placed by a script). |
 | **Feed** | A machine-readable export of approved Occurrences — ICS for calendar apps. |
 | **Call to action (CTA)** | An optional button on an Event with a label and a URL (e.g. "Register"). Tockify calls it a "promotion button". |

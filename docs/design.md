@@ -103,8 +103,20 @@ before committing.
   instead of a silent overwrite.
 - **Source ID:** nullable; holds the Tockify event ID for imported Events.
 - **Predecessor:** nullable link from a Series to the Series it was split from.
-- **No separate link or excerpt fields.** The CTA is the only external link. Excerpts are derived
-  from the description.
+- **No separate link field.** The CTA is the only external link. Excerpts are derived from the
+  description, unless the Event has a Custom Preview.
+- **Description.** Markdown with an allowed set: paragraphs, headings 1 and 2, bulleted and numbered
+  lists, horizontal lines, bold, italic, links (`http`, `https`, `mailto`), and line breaks. Edited
+  in a toolbar editor (Tiptap) on the Event editor and the Submission form. The detail page parses it
+  with `marked` (the same options as the editor) and renders React elements, never HTML; anything
+  outside the allowed set stays literal text, and bare `http`/`https` addresses become links
+  (`rel="nofollow noopener noreferrer"`). The agenda card excerpt, the meta description, JSON-LD, and
+  the Feed get plain text: formatting removed, links as "text (url)". Old plain-text descriptions read
+  as Markdown look the same, so there was no migration (ADR 0003).
+- **Custom Preview.** Optional plain text, 300 characters at most (a database check), set on the
+  Event editor ("+ Custom Preview") and the Submission form. Shown on the agenda card, the Embed, the
+  meta description, Open Graph, and JSON-LD instead of the start of the description. Never on the
+  detail page body or in the Feed.
 
 ## Series edit
 
@@ -331,8 +343,9 @@ Rejected for v1: a web component with Shadow DOM (Squarespace CSS and JS can lea
   approve, including its Calendar.
 - **Calendar from the link:** each page's "add event" link opens the form with `?calendar=rides` or
   `?calendar=advocacy`. The form shows the Calendar preselected; the default is `rides`.
-- **Fields:** title, start and end, all-day, location, description, image, Tags (from the selected
-  Calendar's list), CTA label and URL, plus Submitter name and email (never public).
+- **Fields:** title, start and end, all-day, location, description (the same toolbar editor as the
+  Event editor), Custom Preview, image, Tags (from the selected Calendar's list), CTA label and URL,
+  plus Submitter name and email (never public).
 - **Simple repeat:** "Repeats weekly on [days] until [date]", stored as
   `FREQ=WEEKLY;BYDAY=…;UNTIL=…`. Editors refine the rule (e.g. season months) before they approve.
   The Submitter never sees the words "Series" or "rule".
@@ -433,7 +446,7 @@ Public ICS feed: `https://tockify.com/api/feeds/ics/bikegr` (no auth). Facts che
 | `DTSTART;VALUE=DATE` | all-day event |
 | UID `<eventId>` | Source ID |
 | `URL` | dropped (Tockify's own page) |
-| `X-TKF-CUSTOM-PREVIEW` | dropped (derived from the description) |
+| `X-TKF-CUSTOM-PREVIEW` | dropped (every value is the description cut off; Custom Preview stays empty) |
 
 ### Approach
 
