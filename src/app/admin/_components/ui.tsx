@@ -118,7 +118,7 @@ export function PageHeader({
     <div className="mb-6 flex flex-col gap-2">
       {back && <p className="text-sm">{back}</p>}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 tabIndex={-1} className="font-chivo text-[28px] font-normal leading-tight text-brand-gray">{title}</h1>
+        <h1 tabIndex={-1} className="min-w-0 font-chivo text-[28px] font-normal leading-tight text-brand-gray [overflow-wrap:anywhere]">{title}</h1>
         {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
       </div>
       {children}

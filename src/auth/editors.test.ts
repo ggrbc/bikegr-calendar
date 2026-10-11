@@ -44,7 +44,7 @@ describe("editors", () => {
   });
 
   it("invite of an existing Editor fails", async () => {
-    const result = await inviteEditor(db, admin, { email: "nate@bikegr.org", role: "editor", name: null });
+    const result = await inviteEditor(db, admin, { email: "nate@bikegr.org", role: "editor", name: "Sam" });
     expect(result).toEqual({ ok: false, reason: "already-editor", error: expect.any(String) });
     const nates = await db.select().from(editors).where(eq(editors.email, "nate@bikegr.org"));
     expect(nates).toHaveLength(1);
@@ -55,13 +55,13 @@ describe("editors", () => {
     await db
       .insert(editors)
       .values({ email: "gone@example.org", role: "editor", deactivatedAt: new Date() });
-    const result = await inviteEditor(db, admin, { email: "gone@example.org", role: "editor", name: null });
+    const result = await inviteEditor(db, admin, { email: "gone@example.org", role: "editor", name: "Sam" });
     expect(result).toMatchObject({ ok: false, reason: "deactivated" });
   });
 
   it("invite by a non-Admin is refused", async () => {
     const editor = (await findEditorByEmail(db, "new.editor@example.org"))!;
-    const result = await inviteEditor(db, editor, { email: "other@example.org", role: "editor", name: null });
+    const result = await inviteEditor(db, editor, { email: "other@example.org", role: "editor", name: "Sam" });
     expect(result).toMatchObject({ ok: false, reason: "not-admin" });
     expect(await findEditorByEmail(db, "other@example.org")).toBeNull();
   });

@@ -9,6 +9,8 @@ export type EditorFacts = Pick<Editor, "id" | "role" | "deactivatedAt">;
 
 export type EditorRefusalReason =
   | "not-admin"
+  | "not-allowed"
+  | "stale"
   | "self"
   | "last-admin"
   | "deactivated"
@@ -26,6 +28,9 @@ const LAST_ADMIN: EditorRefusal = {
   reason: "last-admin",
   error: "This is the last active Admin. Make another Editor an Admin first.",
 };
+
+/** The display label of each role. A new role adds one entry here. */
+export const ROLE_LABELS: Record<EditorRole, string> = { admin: "Admin", editor: "Editor" };
 
 const isActiveAdmin = (editor: EditorFacts) => canInvite(editor);
 
@@ -68,4 +73,14 @@ export function checkReactivate(facts: { actor: EditorFacts; target: EditorFacts
   if (!isActiveAdmin(actor)) return NOT_ADMIN;
   if (!target.deactivatedAt) return { reason: "not-deactivated", error: "This Editor is already active." };
   return null;
+}
+
+/** An active Admin renames anyone. Any other active person renames only themselves. */
+export function checkRename(facts: { actor: EditorFacts; target: EditorFacts }): EditorRefusal | null {
+  const { actor, target } = facts;
+  if (actor.deactivatedAt) {
+    return { reason: "not-allowed", error: "Your account is deactivated. You cannot change names." };
+  }
+  if (isActiveAdmin(actor) || actor.id === target.id) return null;
+  return { reason: "not-allowed", error: "You can change only your own name." };
 }

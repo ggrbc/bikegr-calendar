@@ -12,7 +12,7 @@ import { todayInDetroit } from "@/agenda/dates";
 import { ruleInputToColumns } from "@/db/mappers";
 import * as schema from "@/db/schema";
 import type { EventRuleInput, Timing } from "@/engine";
-import { E2E_ADMIN, E2E_DATABASE_URL, E2E_EDITOR, fixtureDates, IDS } from "./fixture";
+import { E2E_ADMIN, E2E_DATABASE_URL, E2E_EDITOR, E2E_LONG, E2E_SELF, E2E_TARGET, fixtureDates, IDS } from "./fixture";
 
 const timed = (day: string, from = "18:00", to = "20:00"): Timing => ({
   kind: "timed",
@@ -48,6 +48,11 @@ export default async function globalSetup() {
       { id: E2E_EDITOR.id, email: E2E_EDITOR.email, name: E2E_EDITOR.name, role: "editor", emailVerified: new Date() },
       { id: E2E_ADMIN.id, email: E2E_ADMIN.email, name: E2E_ADMIN.name, role: "admin", emailVerified: new Date() },
     ]);
+    await db.insert(schema.editors).values([
+      { id: E2E_TARGET.id, email: E2E_TARGET.email, name: E2E_TARGET.name, role: "editor", invitedBy: E2E_ADMIN.id, invitedAt: new Date() },
+      { id: E2E_SELF.id, email: E2E_SELF.email, name: E2E_SELF.name, role: "editor", emailVerified: new Date() },
+    ]);
+    await db.insert(schema.editors).values({ id: E2E_LONG.id, email: E2E_LONG.email, name: E2E_LONG.name, role: "editor" });
     // A deactivated Editor with long text, for the Editors page layout (no sideways scroll).
     await db.insert(schema.editors).values({
       email: "deactivated.editor.with.a.long.address@example.org",
@@ -62,6 +67,7 @@ export default async function globalSetup() {
     await db.insert(schema.authSessions).values([
       { sessionToken: E2E_EDITOR.sessionToken, userId: E2E_EDITOR.id, expires },
       { sessionToken: E2E_ADMIN.sessionToken, userId: E2E_ADMIN.id, expires },
+      { sessionToken: E2E_SELF.sessionToken, userId: E2E_SELF.id, expires },
     ]);
 
     const dates = fixtureDates(todayInDetroit(new Date()));

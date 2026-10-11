@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canInvite, canSignIn, isValidEmail, normalizeEmail, parseInviteInput } from "./rules";
+import { canInvite, canSignIn, isValidEmail, normalizeEmail, parseEditorName, parseInviteInput } from "./rules";
 
 describe("canSignIn", () => {
   it("invited active Editor may sign in", () => {
@@ -73,18 +73,102 @@ describe("parseInviteInput", () => {
     });
   });
 
-  it("a missing name becomes null", () => {
-    const result = parseInviteInput({ email: "a@b.org", role: "admin", name: "" });
-    expect(result).toEqual({ ok: true, value: { email: "a@b.org", role: "admin", name: null } });
+  it("a missing, empty, or blank name is refused", () => {
+    for (const name of [undefined, "", "   ", null]) {
+      expect(parseInviteInput({ email: "a@b.org", role: "admin", name }), String(name)).toMatchObject({ ok: false });
+    }
+  });
+
+  it("a name with a control character is refused", () => {
+    expect(parseInviteInput({ email: "a@b.org", role: "admin", name: "Sam\u0000" })).toMatchObject({ ok: false });
   });
 
   it("invite input rejects a bad email", () => {
-    expect(parseInviteInput({ email: "not-an-email", role: "editor" })).toMatchObject({ ok: false });
-    expect(parseInviteInput({ email: "a b@c.org", role: "editor" })).toMatchObject({ ok: false });
-    expect(parseInviteInput({ email: null, role: "editor" })).toMatchObject({ ok: false });
+    expect(parseInviteInput({ email: "not-an-email", role: "editor", name: "Sam" })).toMatchObject({ ok: false });
+    expect(parseInviteInput({ email: "a b@c.org", role: "editor", name: "Sam" })).toMatchObject({ ok: false });
+    expect(parseInviteInput({ email: null, role: "editor", name: "Sam" })).toMatchObject({ ok: false });
   });
 
   it("invite input rejects an unknown role", () => {
-    expect(parseInviteInput({ email: "a@b.org", role: "owner" })).toMatchObject({ ok: false });
+    expect(parseInviteInput({ email: "a@b.org", role: "owner", name: "Sam" })).toMatchObject({ ok: false });
+  });
+});
+
+describe("parseEditorName", () => {
+  it("trims the name", () => {
+    expect(parseEditorName("  Sam Rider ")).toEqual({ ok: true, value: "Sam Rider" });
+  });
+
+  it("refuses empty text, blank text, and a non-string", () => {
+    for (const raw of ["", "   ", "\t\n", null, undefined, 5]) {
+      expect(parseEditorName(raw), String(raw)).toMatchObject({ ok: false, error: "Enter a name." });
+    }
+  });
+
+  it("allows 100 characters and refuses 101", () => {
+    expect(parseEditorName("a".repeat(100))).toMatchObject({ ok: true });
+    expect(parseEditorName("a".repeat(101))).toMatchObject({ ok: false });
+  });
+
+  it("refuses a name of only combining marks or variation selectors", () => {
+    for (const mark of ["́", "͏", "️", "᠋", " ́️ "]) {
+      expect(parseEditorName(mark), JSON.stringify(mark)).toMatchObject({ ok: false, error: "Enter a name." });
+    }
+  });
+
+  it("normalizes to NFC, so a decomposed name equals the composed one", () => {
+    const decomposed = "José";
+    expect(decomposed).not.toBe("José");
+    expect(parseEditorName(decomposed)).toEqual({ ok: true, value: "José" });
+  });
+
+  it("counts code points, not UTF-16 units, against the limit", () => {
+    expect(parseEditorName("\u{1F600}".repeat(100))).toMatchObject({ ok: true });
+    expect(parseEditorName("\u{1F600}".repeat(101))).toMatchObject({ ok: false });
+  });
+
+  it("refuses control characters", () => {
+    for (const bad of ["Sam\u0000", "Sam\nRider", "Sam\tRider", "Sam\u007f"]) {
+      expect(parseEditorName(bad), JSON.stringify(bad)).toMatchObject({ ok: false });
+    }
+  });
+
+  it("refuses invisible format characters", () => {
+    // Zero-width space, word joiner, BOM inside the text, soft hyphen.
+    for (const bad of ["Sam\u200bRider", "Sam\u2060Rider", "Sam\ufeffRider", "Ann\u00adMarie"]) {
+      expect(parseEditorName(bad), JSON.stringify(bad)).toMatchObject({ ok: false });
+    }
+  });
+
+  it("refuses bidi controls", () => {
+    const bidi = ["\u200e", "\u200f", "\u202a", "\u202b", "\u202c", "\u202d", "\u202e"];
+    bidi.push("\u2066", "\u2067", "\u2068", "\u2069", "\u061c");
+    for (const mark of bidi) {
+      expect(parseEditorName(`Sam${mark}Rider`), JSON.stringify(mark)).toMatchObject({ ok: false });
+    }
+  });
+
+  it("refuses line and paragraph separators and a lone surrogate", () => {
+    for (const bad of ["Sam\u2028Rider", "Sam\u2029Rider", "Sam\ud800"]) {
+      expect(parseEditorName(bad), JSON.stringify(bad)).toMatchObject({ ok: false });
+    }
+  });
+
+  it("allows ZWNJ and ZWJ, which Persian, Indic, and emoji names use", () => {
+    const good = ["\u0645\u0647\u0631\u200c\u0646\u0648\u0634", "Sam \u{1F468}\u200d\u{1F469}\u200d\u{1F467}"];
+    for (const name of good) expect(parseEditorName(name), JSON.stringify(name)).toMatchObject({ ok: true });
+  });
+
+  it("refuses a name with no visible character", () => {
+    const blanks = ["\u3164", "\u2800", "\u115f", "\u1160", "\uffa0", "\u00a0", "\u3000", " \u3164\u2800 ", "\u200c\u200d"];
+    for (const blank of blanks) {
+      expect(parseEditorName(blank), JSON.stringify(blank)).toMatchObject({ ok: false, error: "Enter a name." });
+    }
+  });
+
+  it("keeps ordinary names with accents, apostrophes, and hyphens", () => {
+    for (const good of ["José Núñez", "Mary O'Neil", "Ann-Marie Smith", "李雷"]) {
+      expect(parseEditorName(good), good).toEqual({ ok: true, value: good });
+    }
   });
 });
