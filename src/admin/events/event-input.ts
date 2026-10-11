@@ -489,3 +489,37 @@ export function parseOverrideInput(input: unknown, allDay: boolean): Parsed<Over
     errors,
   );
 }
+
+// ---------------------------------------------------------------------------------------------
+// Event manager input: the three fields an Event manager may change on one Occurrence.
+
+export interface ManagerOccurrenceDraft {
+  eventId: string;
+  originalStart: OriginalStart;
+  scheduleStatus: StoredScheduleStatus;
+  scheduleNote: string | null;
+  occurrenceDetails: string | null;
+}
+
+export function parseManagerOccurrenceInput(input: unknown): Parsed<ManagerOccurrenceDraft> {
+  const raw = asRecord(input);
+  const errors: FieldErrors = {};
+  const eventId = text(raw, "eventId");
+  if (!UUID.test(eventId)) errors.eventId = "This Event does not exist.";
+  const originalStart = text(raw, "originalStart");
+  if (!isLocalDate(originalStart) && !isLocalDateTime(originalStart)) {
+    errors.originalStart = "This is not a date of the Event.";
+  }
+  const schedule = parseSchedule(raw, errors);
+  const details = parseOccurrenceDetails(raw, errors);
+  return result(
+    {
+      eventId,
+      originalStart,
+      scheduleStatus: schedule.status,
+      scheduleNote: schedule.note,
+      occurrenceDetails: details,
+    },
+    errors,
+  );
+}

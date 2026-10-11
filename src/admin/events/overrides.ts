@@ -27,7 +27,7 @@ interface Target {
 }
 
 /** Checks that the Event is a Series that makes this original start; gives the original slot. */
-function checkOccurrence(row: EventRow, originalStart: OriginalStart) {
+export function checkOccurrence(row: EventRow, originalStart: OriginalStart) {
   const rule = eventRowToRuleInput(row);
   if (rule.rrule === null) throw invalid({}, "This Event does not repeat. Change it in the Event form.");
   const makes =
