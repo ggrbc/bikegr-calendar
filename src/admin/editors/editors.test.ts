@@ -3,7 +3,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { authSessions, authVerificationTokens, editors, type EditorRole } from "@/db/schema";
 import { createTestDb } from "@/db/test-db";
 import type { Db } from "@/db/types";
-import { changeEditorRole, deactivateEditor, listEditorsForAdmin, reactivateEditor } from "./editors";
+import {
+  changeEditorRole,
+  deactivateEditor,
+  getEditorForAdmin,
+  listEditorsForAdmin,
+  reactivateEditor,
+  renameEditor,
+} from "./editors";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -235,6 +242,96 @@ describe("Editor management", () => {
       const list = await listEditorsForAdmin(db);
       expect(list.map((r) => r.name)).toEqual(["Bea", "Xavier", "Aaron"]);
       expect(list[2].deactivatedByName).toBe("Xavier");
+    });
+  });
+
+  describe("rename", () => {
+    it("Admin renames an Editor", async () => {
+      const x = await person("x@example.org", "admin");
+      const e = await person("e@example.org", "editor", { name: "Old" });
+      const result = await renameEditor(db, x.id, { editorId: e.id, name: "  New Name " });
+      expect(result).toMatchObject({ ok: true, value: { name: "New Name" } });
+      expect((await reload(e.id)).name).toBe("New Name");
+    });
+
+    it("Admin renames another Admin and themselves", async () => {
+      const x = await person("x@example.org", "admin");
+      const y = await person("y@example.org", "admin");
+      expect(await renameEditor(db, x.id, { editorId: y.id, name: "Why" })).toMatchObject({ ok: true });
+      expect(await renameEditor(db, x.id, { editorId: x.id, name: "Ex" })).toMatchObject({ ok: true });
+      expect((await reload(y.id)).name).toBe("Why");
+    });
+
+    it("Admin renames a deactivated Editor", async () => {
+      const x = await person("x@example.org", "admin");
+      const e = await person("e@example.org", "editor", { deactivatedAt: new Date() });
+      expect(await renameEditor(db, x.id, { editorId: e.id, name: "Kept" })).toMatchObject({ ok: true });
+    });
+
+    it("an Editor renames themselves", async () => {
+      const e = await person("e@example.org", "editor", { name: "Old" });
+      expect(await renameEditor(db, e.id, { editorId: e.id, name: "Mine" })).toMatchObject({ ok: true });
+      expect((await reload(e.id)).name).toBe("Mine");
+    });
+
+    it("an Editor cannot rename another person", async () => {
+      const e = await person("e@example.org", "editor");
+      const other = await person("o@example.org", "editor", { name: "Other" });
+      expect(await renameEditor(db, e.id, { editorId: other.id, name: "Nope" })).toMatchObject({
+        ok: false,
+        reason: "not-allowed",
+      });
+      expect((await reload(other.id)).name).toBe("Other");
+    });
+
+    it("a deactivated actor is refused", async () => {
+      const e = await person("e@example.org", "editor", { name: "Old", deactivatedAt: new Date() });
+      expect(await renameEditor(db, e.id, { editorId: e.id, name: "New" })).toMatchObject({
+        ok: false,
+        reason: "not-allowed",
+      });
+      expect((await reload(e.id)).name).toBe("Old");
+    });
+
+    it("an empty name, a name over 100 characters, and a control character are refused", async () => {
+      const x = await person("x@example.org", "admin", { name: "Keep" });
+      for (const name of ["", "   ", "a".repeat(101), "Bad\u0000", "Bad\u200b"]) {
+        expect(await renameEditor(db, x.id, { editorId: x.id, name }), JSON.stringify(name)).toMatchObject({
+          ok: false,
+          reason: "invalid",
+        });
+      }
+      expect((await reload(x.id)).name).toBe("Keep");
+    });
+
+    it("an unknown or malformed id is not found", async () => {
+      const x = await person("x@example.org", "admin");
+      expect(await renameEditor(db, x.id, { editorId: "not-a-uuid", name: "A" })).toMatchObject({ reason: "not-found" });
+      expect(
+        await renameEditor(db, x.id, { editorId: "00000000-0000-4000-8000-000000000000", name: "A" }),
+      ).toMatchObject({ reason: "not-found" });
+    });
+  });
+
+  describe("getEditorForAdmin", () => {
+    it("returns the details with the inviter and deactivator names", async () => {
+      const x = await person("x@example.org", "admin", { name: "Xavier" });
+      const e = await person("e@example.org", "editor", {
+        invitedBy: x.id,
+        invitedAt: new Date(),
+        deactivatedAt: new Date(),
+        deactivatedBy: x.id,
+      });
+      expect(await getEditorForAdmin(db, e.id)).toMatchObject({
+        email: "e@example.org",
+        invitedByName: "Xavier",
+        deactivatedByName: "Xavier",
+      });
+    });
+
+    it("returns null for an unknown or malformed id", async () => {
+      expect(await getEditorForAdmin(db, "nope")).toBeNull();
+      expect(await getEditorForAdmin(db, "00000000-0000-4000-8000-000000000000")).toBeNull();
     });
   });
 });

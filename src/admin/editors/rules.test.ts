@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EditorRole } from "@/db/schema";
-import { checkDeactivate, checkReactivate, checkRoleChange, parseRole } from "./rules";
+import { checkDeactivate, checkReactivate, checkRename, checkRoleChange, parseRole, ROLE_LABELS } from "./rules";
 
 const person = (id: string, role: EditorRole, deactivated = false) => ({
   id,
@@ -76,5 +76,34 @@ describe("Editor rules", () => {
     expect(parseRole("editor")).toBe("editor");
     expect(parseRole("owner")).toBeNull();
     expect(parseRole(null)).toBeNull();
+  });
+
+  describe("rename", () => {
+    it("an active Admin renames anyone, themselves included", () => {
+      expect(checkRename({ actor: admin, target: editor })).toBeNull();
+      expect(checkRename({ actor: admin, target: otherAdmin })).toBeNull();
+      expect(checkRename({ actor: admin, target: admin })).toBeNull();
+      expect(checkRename({ actor: admin, target: person("gone", "editor", true) })).toBeNull();
+    });
+
+    it("an Editor renames only themselves", () => {
+      expect(checkRename({ actor: editor, target: editor })).toBeNull();
+      expect(checkRename({ actor: editor, target: otherAdmin })).toMatchObject({ reason: "not-allowed" });
+      expect(checkRename({ actor: editor, target: person("editor-2", "editor") })).toMatchObject({
+        reason: "not-allowed",
+      });
+    });
+
+    it("a deactivated actor is refused, even for their own name", () => {
+      const gone = person("gone", "editor", true);
+      expect(checkRename({ actor: gone, target: gone })).toMatchObject({ reason: "not-allowed" });
+      expect(checkRename({ actor: person("gone-admin", "admin", true), target: editor })).toMatchObject({
+        reason: "not-allowed",
+      });
+    });
+  });
+
+  it("every role has a label", () => {
+    expect(ROLE_LABELS).toEqual({ admin: "Admin", editor: "Editor" });
   });
 });
