@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { buttonClass, inputClass, labelClass, Notice } from "../_components/ui";
 import { inviteEditorAction, type InviteState } from "./actions";
+import { NameField } from "./name-field";
 
 const initial: InviteState = { result: "idle" };
 
@@ -21,10 +22,7 @@ export function InviteForm() {
         required
         className={inputClass}
       />
-      <label htmlFor="invite-name" className={labelClass}>
-        Name (optional)
-      </label>
-      <input id="invite-name" name="name" type="text" className={inputClass} />
+      <NameField id="invite-name" />
       <label htmlFor="invite-role" className={labelClass}>
         Role
       </label>

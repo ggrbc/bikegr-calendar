@@ -40,3 +40,6 @@ tmp/
 # Playwright MCP scratch
 .playwright-mcp/
 *.pem
+
+# Local screenshots and scratch files
+.scratch/

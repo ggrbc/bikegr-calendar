@@ -2,7 +2,13 @@
 
 import { AuthError } from "next-auth";
 import { revalidatePath } from "next/cache";
-import { changeEditorRole, deactivateEditor, reactivateEditor, type EditorResult } from "@/admin/editors/editors";
+import {
+  changeEditorRole,
+  deactivateEditor,
+  reactivateEditor,
+  renameEditor,
+  type EditorResult,
+} from "@/admin/editors/editors";
 import { parseRole } from "@/admin/editors/rules";
 import { signIn } from "@/auth";
 import { requireAdmin } from "@/auth/dal";
@@ -10,6 +16,9 @@ import { inviteEditor } from "@/auth/editors";
 import { parseInviteInput } from "@/auth/rules";
 import { getDb } from "@/db";
 import type { Editor } from "@/db/schema";
+
+/** The list, every edit page, and the header (it shows the name) read Editor rows. */
+const revalidateEditorPages = () => revalidatePath("/admin", "layout");
 
 export type InviteState =
   | { result: "idle" }
@@ -33,7 +42,7 @@ export async function inviteEditorAction(_prev: InviteState, formData: FormData)
     parsed.value,
   );
   if (!result.ok) return { result: "error", message: result.error };
-  revalidatePath("/admin/editors");
+  revalidateEditorPages();
 
   try {
     await signIn("resend", { email: result.editor.email, redirect: false, redirectTo: "/admin" });
@@ -62,26 +71,45 @@ const who = (editor: Editor) => editor.name ?? editor.email;
 
 function toState(result: EditorResult<Editor>, message: (editor: Editor) => string): EditorFormState {
   if (!result.ok) return { result: "error", message: result.error };
-  revalidatePath("/admin/editors");
+  revalidateEditorPages();
   return { result: "ok", message: message(result.value) };
 }
 
 /**
- * One action for every control of an Editor row, so the row shows one message: the last one.
- * `intent` is `role`, `deactivate`, or `reactivate`.
+ * The edit page's one form: Name, and Role when the form has it (an active Editor other than the
+ * Admin). The name is written first. If the role then fails, the name stays saved and the message
+ * says so.
  */
+export async function saveEditorAction(_prev: EditorFormState, formData: FormData): Promise<EditorFormState> {
+  const admin = await requireAdmin();
+  const db = getDb();
+  const editorId = text(formData, "editorId");
+
+  const renamed = await renameEditor(db, admin.id, { editorId, name: formData.get("name") });
+  if (!renamed.ok) return { result: "error", message: renamed.error };
+  let message = "Saved.";
+
+  if (formData.has("role")) {
+    const role = parseRole(formData.get("role"));
+    revalidateEditorPages(); // The name is saved, whatever happens to the role.
+    if (!role) return { result: "error", message: "The name is saved. Select a role: Admin or Editor." };
+    if (role !== renamed.value.role) {
+      const changed = await changeEditorRole(db, admin.id, { editorId, role });
+      if (!changed.ok) return { result: "error", message: `The name is saved. ${changed.error}` };
+      message = `Saved. ${who(changed.value)} is now ${role === "admin" ? "an Admin" : "an Editor"}.`;
+    }
+  }
+  revalidateEditorPages();
+  return { result: "ok", message };
+}
+
+/** `intent` is `deactivate` or `reactivate`. */
 export async function editorRowAction(_prev: EditorFormState, formData: FormData): Promise<EditorFormState> {
   const admin = await requireAdmin();
   const db = getDb();
   const editorId = text(formData, "editorId");
 
   switch (text(formData, "intent")) {
-    case "role": {
-      const role = parseRole(formData.get("role"));
-      if (!role) return { result: "error", message: "Select a role: Admin or Editor." };
-      const result = await changeEditorRole(db, admin.id, { editorId, role });
-      return toState(result, (e) => `${who(e)} is now ${e.role === "admin" ? "an Admin" : "an Editor"}.`);
-    }
     case "deactivate": {
       const result = await deactivateEditor(db, admin.id, { editorId });
       return toState(result, (e) => `${who(e)} is deactivated and signed out.`);

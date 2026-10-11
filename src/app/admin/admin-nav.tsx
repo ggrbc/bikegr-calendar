@@ -23,7 +23,9 @@ export async function AdminUser() {
         Public calendar
       </Link>
       <span className="flex items-center gap-2">
-        {editor.name ?? editor.email}
+        <Link href="/admin/account" className={linkClass}>
+          {editor.name ?? editor.email}
+        </Link>
         <Badge tone="neutral">{isAdmin ? "Admin" : "Editor"}</Badge>
       </span>
       <form action={signOutAction}>

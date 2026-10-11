@@ -1,9 +1,12 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { listEditorsForAdmin } from "@/admin/editors/editors";
+import { ROLE_LABELS } from "@/admin/editors/rules";
 import { requireAdmin } from "@/auth/dal";
 import { getDb } from "@/db";
 import {
   Badge,
+  buttonClass,
   Card,
   mutedClass,
   PageHeader,
@@ -15,19 +18,23 @@ import {
   theadRowClass,
   thClass,
 } from "../_components/ui";
-import { EditorActions } from "./editor-forms";
 import { InviteForm } from "./invite-form";
 
-const dateFormat = new Intl.DateTimeFormat("en-US", {
-  timeZone: "America/Detroit",
-  year: "numeric",
-  month: "short",
-  day: "numeric",
-});
-const day = (date: Date | null) => (date ? dateFormat.format(date) : "—");
+/** `name<wbr>@example.org`: the only break point of an address. */
+function splitAtSign(email: string) {
+  const at = email.indexOf("@");
+  if (at < 1) return email;
+  return (
+    <>
+      {email.slice(0, at)}
+      <wbr />
+      {email.slice(at)}
+    </>
+  );
+}
 
 async function EditorList() {
-  const admin = await requireAdmin();
+  await requireAdmin();
   const list = await listEditorsForAdmin(getDb());
 
   return (
@@ -41,65 +48,38 @@ async function EditorList() {
         <table role="table" className={`${stackTableClass} text-sm`}>
           <thead role="rowgroup" className={stackTheadClass}>
             <tr role="row" className={theadRowClass}>
-              <th role="columnheader" className={thClass}>Name</th>
+              <th role="columnheader" className={thClass}>Editor</th>
               <th role="columnheader" className={thClass}>Role</th>
-              <th role="columnheader" className={thClass}>Account</th>
-              <th role="columnheader" className={thClass}>Invited</th>
-              <th role="columnheader" className={thClass}>First sign-in</th>
-              <th role="columnheader" className={thClass}>Last active (about)</th>
-              <th role="columnheader" className={thClass}>Actions</th>
+              <th role="columnheader" className={thClass}>Status</th>
+              <th role="columnheader" className={thClass}>
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody role="rowgroup" className={stackTbodyClass}>
             {list.map((editor) => {
-              const isMe = editor.id === admin.id;
+              const label = editor.name ?? editor.email;
               return (
                 <tr role="row" key={editor.id} className={stackRowClass}>
                   <td role="cell" className={`${stackTdClass} max-lg:before:content-none`}>
                     {editor.name && <div className="font-semibold">{editor.name}</div>}
-                    <div className="break-all">{editor.email}</div>
+                    {/* The email breaks only before the "@", never inside a word. */}
+                    <div>{splitAtSign(editor.email)}</div>
                   </td>
                   <td role="cell" data-label="Role" className={stackTdClass}>
-                    {editor.role === "admin" ? "Admin" : "Editor"}
+                    {ROLE_LABELS[editor.role]}
                   </td>
-                  <td role="cell" data-label="Account" className={stackTdClass}>
+                  <td role="cell" data-label="Status" className={stackTdClass}>
                     {editor.deactivatedAt ? (
-                      // Only the word is a badge (no wrap); the date and the name wrap as text.
-                      <>
-                        <Badge tone="deleted">Deactivated</Badge>{" "}
-                        <span className="text-sm">
-                          {day(editor.deactivatedAt)}
-                          {editor.deactivatedByName ? ` by ${editor.deactivatedByName}` : ""}
-                        </span>
-                      </>
+                      <Badge tone="deleted">Deactivated</Badge>
                     ) : (
                       <Badge tone="approved">Active</Badge>
                     )}
                   </td>
-                  <td role="cell" data-label="Invited" className={stackTdClass}>
-                    {editor.invitedAt
-                      ? `${day(editor.invitedAt)}${editor.invitedByName ? ` by ${editor.invitedByName}` : ""}`
-                      : "Seeded"}
-                  </td>
-                  <td role="cell" data-label="First sign-in" className={stackTdClass}>
-                    {day(editor.firstSignIn)}
-                  </td>
-                  <td role="cell" data-label="Last active (about)" className={stackTdClass}>
-                    {day(editor.lastActive)}
-                  </td>
-                  <td role="cell" className={`${stackTdClass} max-lg:pt-1 max-lg:before:content-none`}>
-                    {isMe ? (
-                      <span className={mutedClass}>You</span>
-                    ) : (
-                      <EditorActions
-                        editor={{
-                          id: editor.id,
-                          label: editor.name ?? editor.email,
-                          role: editor.role,
-                          deactivated: editor.deactivatedAt !== null,
-                        }}
-                      />
-                    )}
+                  <td role="cell" className={`${stackTdClass} max-lg:pt-1 max-lg:before:content-none lg:text-right`}>
+                    <Link href={`/admin/editors/${editor.id}`} className={buttonClass("secondary", "sm")}>
+                      Edit<span className="sr-only"> {label}</span>
+                    </Link>
                   </td>
                 </tr>
               );
