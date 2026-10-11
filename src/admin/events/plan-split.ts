@@ -168,7 +168,8 @@ function hasMoreThanTiming(o: OverrideInput): boolean {
     o.title !== undefined ||
     o.location !== undefined ||
     o.scheduleStatus !== undefined ||
-    o.scheduleNote !== undefined
+    o.scheduleNote !== undefined ||
+    o.occurrenceDetails !== undefined
   );
 }
 

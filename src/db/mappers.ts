@@ -82,6 +82,7 @@ export function ruleInputToColumns(rule: EventRuleInput): RuleColumns {
     exdates: rule.exdates,
     scheduleStatus: rule.scheduleStatus,
     scheduleNote: rule.scheduleNote,
+    occurrenceDetails: rule.occurrenceDetails ?? null,
   };
 }
 

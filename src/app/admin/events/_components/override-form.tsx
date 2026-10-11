@@ -3,7 +3,8 @@
 import { useActionState, useState } from "react";
 import type { FieldErrors, OverrideFormValues } from "@/admin/events/event-input";
 import { clearOverrideAction, saveOverrideAction, type SaveState } from "../actions";
-import { ScheduleFields, TimingFields } from "./event-form";
+import { TimingFields } from "./event-form";
+import { ScheduleFields } from "./schedule-fields";
 import { buttonClass, hintClass, panelClass } from "../../_components/ui";
 import { Field, inputClass } from "./fields";
 import { errorsOf, IDLE, SaveStatus } from "./save-status";
@@ -76,7 +77,13 @@ function OverrideBody({
           onChange={(e) => set({ location: e.target.value })}
         />
       </Field>
-      <ScheduleFields status={values.scheduleStatus} note={values.scheduleNote} onChange={set} errors={errors} />
+      <ScheduleFields
+        status={values.scheduleStatus}
+        note={values.scheduleNote}
+        details={values.occurrenceDetails}
+        onChange={set}
+        errors={errors}
+      />
       <p className={hintClass}>
         A new time shows as “Rescheduled” on the old and the new date. Fields that you do not change stay
         the same as the Series.

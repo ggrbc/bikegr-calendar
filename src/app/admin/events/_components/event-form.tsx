@@ -11,6 +11,7 @@ import { buttonClass, checkClass, legendClass, panelClass } from "../../_compone
 import { ContentFields, Field, inputClass } from "./fields";
 import { OccurrencePreview } from "./occurrence-preview";
 import { RuleEditor, SkippedDates } from "./rule-editor";
+import { ScheduleFields } from "./schedule-fields";
 import { errorsOf, IDLE, SaveStatus } from "./save-status";
 
 export interface EventFormProps {
@@ -113,45 +114,6 @@ export function TimingFields({
   );
 }
 
-export function ScheduleFields({
-  status,
-  note,
-  onChange,
-  errors,
-}: {
-  status: string;
-  note: string;
-  onChange: (patch: { scheduleStatus?: string; scheduleNote?: string }) => void;
-  errors: FieldErrors;
-}) {
-  return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <Field id="schedule-status" label="Schedule status" error={errors.scheduleStatus}>
-        <select
-          id="schedule-status"
-          className={inputClass}
-          value={status}
-          onChange={(e) => onChange({ scheduleStatus: e.target.value })}
-        >
-          <option value="scheduled">Scheduled (no badge)</option>
-          <option value="tentative">Tentative (date to be confirmed)</option>
-          <option value="cancelled">Cancelled</option>
-          <option value="postponed">Postponed (new date not known)</option>
-        </select>
-      </Field>
-      <Field id="schedule-note" label="Schedule note (public, short)" error={errors.scheduleNote}>
-        <input
-          id="schedule-note"
-          className={inputClass}
-          value={note}
-          placeholder="Rain — see you next week"
-          onChange={(e) => onChange({ scheduleNote: e.target.value })}
-        />
-      </Field>
-    </div>
-  );
-}
-
 function EventFormBody({
   mode,
   initial,
@@ -206,6 +168,7 @@ function EventFormBody({
           <ScheduleFields
             status={values.scheduleStatus}
             note={values.scheduleNote}
+            details={values.occurrenceDetails}
             onChange={set}
             errors={errors}
           />

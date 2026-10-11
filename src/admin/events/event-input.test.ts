@@ -38,6 +38,7 @@ function values(patch: Partial<EventFormValues> = {}): EventFormValues {
     exdates: [],
     scheduleStatus: "scheduled",
     scheduleNote: "",
+    occurrenceDetails: "",
     ...patch,
   };
 }
@@ -240,6 +241,7 @@ describe("Series content, split, and Override input", () => {
         location: null,
         scheduleStatus: "scheduled",
         scheduleNote: "Moved for the election",
+        occurrenceDetails: null,
       },
     });
   });

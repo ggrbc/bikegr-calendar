@@ -61,6 +61,7 @@ export interface EventFormValues extends ContentValues {
   exdates: string[];
   scheduleStatus: string;
   scheduleNote: string;
+  occurrenceDetails: string;
 }
 
 /** "All dates" edit of a Series. */
@@ -90,6 +91,7 @@ export interface OverrideFormValues {
   location: string;
   scheduleStatus: string;
   scheduleNote: string;
+  occurrenceDetails: string;
 }
 
 export type FieldErrors = Partial<Record<string, string>>;
@@ -145,6 +147,7 @@ export interface OverrideDraft {
   location: string | null;
   scheduleStatus: StoredScheduleStatus;
   scheduleNote: string | null;
+  occurrenceDetails: string | null;
 }
 
 export type Parsed<T> = { ok: true; value: T } | { ok: false; errors: FieldErrors };
@@ -178,6 +181,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 export const TITLE_MAX = 200;
 export const NOTE_MAX = 300;
+export const OCCURRENCE_DETAILS_MAX = 2000;
 
 
 function isRealDate(value: string): boolean {
@@ -359,6 +363,16 @@ function parseSchedule(raw: Raw, errors: FieldErrors): { status: StoredScheduleS
   return { status, note: note === "" ? null : note };
 }
 
+/** Occurrence details: plain text, line ends as `\n`, 2,000 characters at most. Empty is none. */
+function parseOccurrenceDetails(raw: Raw, errors: FieldErrors): string | null {
+  const value = raw.occurrenceDetails;
+  const details = (typeof value === "string" ? value : "").replace(/\r\n?/g, "\n").trim();
+  if ([...details].length > OCCURRENCE_DETAILS_MAX) {
+    errors.occurrenceDetails = "Use 2,000 characters or fewer.";
+  }
+  return details === "" ? null : details;
+}
+
 function result<T>(value: T, errors: FieldErrors): Parsed<T> {
   return Object.keys(errors).length > 0 ? { ok: false, errors } : { ok: true, value };
 }
@@ -375,6 +389,7 @@ export function parseEventInput(input: unknown, ctx: ParseContext): Parsed<Event
   let timing = parseTiming(raw, allDay, errors);
   const exdateDates = parseDates(raw, "exdates", errors);
   const schedule = parseSchedule(raw, errors);
+  const details = parseOccurrenceDetails(raw, errors);
   const startDate = timing ? timingStart(timing).slice(0, 10) : "0000-01-01";
   const rule = parseRuleChoice(raw.rule, ctx, startDate, false, errors);
 
@@ -401,6 +416,7 @@ export function parseEventInput(input: unknown, ctx: ParseContext): Parsed<Event
         // A Series uses Overrides for one date; its own Schedule status stays `scheduled`.
         scheduleStatus: repeats ? "scheduled" : schedule.status,
         scheduleNote: repeats ? null : schedule.note,
+        ...(!repeats && details ? { occurrenceDetails: details } : {}),
       },
     },
     errors,
@@ -458,6 +474,7 @@ export function parseOverrideInput(input: unknown, allDay: boolean): Parsed<Over
   else if (title.length > TITLE_MAX) errors.title = `Use ${TITLE_MAX} characters or fewer.`;
   const location = text(raw, "location");
   const schedule = parseSchedule(raw, errors);
+  const details = parseOccurrenceDetails(raw, errors);
   if (!timing) return { ok: false, errors };
   return result(
     {
@@ -467,6 +484,7 @@ export function parseOverrideInput(input: unknown, allDay: boolean): Parsed<Over
       location: location === "" ? null : location,
       scheduleStatus: schedule.status,
       scheduleNote: schedule.note,
+      occurrenceDetails: details,
     },
     errors,
   );

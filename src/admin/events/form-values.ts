@@ -42,6 +42,7 @@ export type FormRow = Pick<
   | "exdates"
   | "scheduleStatus"
   | "scheduleNote"
+  | "occurrenceDetails"
 >;
 
 export function emptyEventValues(calendar: CalendarSlug, today: LocalDate): EventFormValues {
@@ -61,6 +62,7 @@ export function emptyEventValues(calendar: CalendarSlug, today: LocalDate): Even
     exdates: [],
     scheduleStatus: "scheduled",
     scheduleNote: "",
+    occurrenceDetails: "",
   };
 }
 
@@ -98,6 +100,7 @@ export function eventValuesFromRow(row: FormRow, tagIds: string[]): EventFormVal
     exdates: datesFromExdates(row.exdates),
     scheduleStatus: row.scheduleStatus,
     scheduleNote: row.scheduleNote ?? "",
+    occurrenceDetails: row.occurrenceDetails ?? "",
   };
 }
 
@@ -166,7 +169,7 @@ export function rruleFromChoice(
 
 type PreviewValues = Pick<
   EventFormValues,
-  "allDay" | "start" | "end" | "rule" | "exdates" | "scheduleStatus" | "scheduleNote"
+  "allDay" | "start" | "end" | "rule" | "exdates" | "scheduleStatus" | "scheduleNote" | "occurrenceDetails"
 >;
 
 /** The engine input for the preview of the form, or a message. */
@@ -187,6 +190,7 @@ export function previewRuleInput(
       exdates: repeats ? values.exdates.filter(isLocalDate).map((d) => exdateFromDate(timing, d)) : [],
       scheduleStatus: repeats ? "scheduled" : (values.scheduleStatus as EventRuleInput["scheduleStatus"]),
       scheduleNote: repeats ? null : values.scheduleNote || null,
+      ...(!repeats && values.occurrenceDetails ? { occurrenceDetails: values.occurrenceDetails } : {}),
     },
   };
 }

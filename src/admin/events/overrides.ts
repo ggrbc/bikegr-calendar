@@ -75,6 +75,7 @@ export async function saveOverride(
       location: changed(draft.location, row.location),
       scheduleStatus: draft.scheduleStatus === row.scheduleStatus ? null : draft.scheduleStatus,
       scheduleNote: changed(draft.scheduleNote, row.scheduleNote),
+      occurrenceDetails: draft.occurrenceDetails,
     };
     const empty = Object.values(values).every((v) => v === null);
     const existing = await findOverride(tx, row.id, draft.originalStart);
