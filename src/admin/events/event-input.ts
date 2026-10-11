@@ -17,6 +17,7 @@ import {
   type Timing,
   timingStart,
 } from "@/engine";
+import { descriptionParses } from "@/agenda/description-markdown";
 import { isHttpUrl } from "@/agenda/safe-url";
 import { firstStartOnOrAfter } from "./preview";
 import {
@@ -44,6 +45,7 @@ export interface ContentValues {
   calendar: string;
   title: string;
   description: string;
+  preview: string;
   location: string;
   tagIds: string[];
   ctaLabel: string;
@@ -111,6 +113,7 @@ export interface ContentDraft {
   calendar: CalendarSlug;
   title: string;
   description: string;
+  preview: string | null;
   location: string | null;
   tagIds: string[];
   cta: { label: string; url: string } | null;
@@ -182,6 +185,7 @@ const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 export const TITLE_MAX = 200;
 export const NOTE_MAX = 300;
 export const OCCURRENCE_DETAILS_MAX = 2000;
+export const PREVIEW_MAX = 300;
 
 
 function isRealDate(value: string): boolean {
@@ -230,11 +234,18 @@ function parseContent(raw: Raw, ctx: ParseContext, errors: FieldErrors): Content
     errors.imageUrl = "This image URL is not allowed. Upload the image again.";
   }
 
+  const preview = text(raw, "preview").replace(/\r\n?/g, "\n");
+  if ([...preview].length > PREVIEW_MAX) errors.preview = "Use 300 characters or fewer.";
+
+  const description = typeof raw.description === "string" ? raw.description.trim() : "";
+  if (!descriptionParses(description)) errors.description = "Use fewer lists or quotes inside each other.";
+
   const location = text(raw, "location");
   return {
     calendar,
     title,
-    description: typeof raw.description === "string" ? raw.description.trim() : "",
+    description,
+    preview: preview === "" ? null : preview,
     location: location === "" ? null : location,
     tagIds,
     cta,

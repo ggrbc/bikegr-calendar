@@ -1,12 +1,13 @@
 "use client";
 
-import { cloneElement, type ReactElement, useId } from "react";
-import type { ContentValues, FieldErrors } from "@/admin/events/event-input";
+import { cloneElement, type ReactElement, useId, useState } from "react";
+import { type ContentValues, type FieldErrors, PREVIEW_MAX } from "@/admin/events/event-input";
 import { CALENDAR_LABELS } from "@/admin/events/format";
 import { ImageUploadField } from "@/admin/images/image-upload-field";
 import type { PickerTag } from "@/admin/tags/tags";
 import type { CalendarSlug } from "@/engine";
-import { checkClass, chipClass, hintClass, inputClass, labelClass, legendClass } from "../../_components/ui";
+import { MarkdownEditor } from "../../../_components/markdown-editor";
+import { checkClass, chipClass, hintClass, inputClass, labelClass, legendClass, linkClass } from "../../_components/ui";
 
 export { inputClass };
 
@@ -89,6 +90,47 @@ export function TagPicker({
   );
 }
 
+/** "+ Custom Preview": plain text for the agenda card instead of the description start. */
+function PreviewField({
+  value,
+  onChange,
+  error,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+}) {
+  const [open, setOpen] = useState(value !== "");
+  if (!open && value === "" && !error) {
+    return (
+      <button type="button" className={`${linkClass} self-start`} onClick={() => setOpen(true)}>
+        + Custom Preview
+      </button>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-1">
+      <Field
+        id="preview"
+        label="Custom Preview"
+        error={error}
+        hint="Shown on the calendar list instead of the start of the description."
+      >
+        <textarea
+          rows={3}
+          className={inputClass}
+          value={value}
+          autoFocus={value === ""}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      </Field>
+      <p className={hintClass}>
+        {[...value.trim()].length} / {PREVIEW_MAX}
+      </p>
+    </div>
+  );
+}
+
 /**
  * Title, description, place, Tags, image, and button: the fields that "All dates" changes.
  * `lockCalendar`: a Series split keeps the Calendar.
@@ -140,14 +182,14 @@ export function ContentFields<T extends ContentValues>({
         />
       </Field>
       <Field id="description" label="Description" error={errors.description}>
-        <textarea
-          id="description"
-          rows={5}
-          className={inputClass}
+        <MarkdownEditor
+          label="Description"
           value={values.description}
-          onChange={(e) => set({ description: e.target.value })}
+          onChange={(description) => set({ description })}
+          boxClassName="rounded border border-brand-divider bg-white"
         />
       </Field>
+      <PreviewField value={values.preview} onChange={(preview) => set({ preview })} error={errors.preview} />
       <Field id="location" label="Location" error={errors.location}>
         <input
           id="location"

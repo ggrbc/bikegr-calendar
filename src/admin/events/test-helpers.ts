@@ -27,6 +27,7 @@ export function draft(patch: Partial<EventDraft> = {}): EventDraft {
     calendar: "rides",
     title: "Tuesday Ride",
     description: "Meet at the shop.",
+    preview: null,
     location: "Shop",
     tagIds: [],
     cta: null,

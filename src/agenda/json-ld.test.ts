@@ -58,6 +58,11 @@ describe("eventJsonLd", () => {
     });
   });
 
+  it("uses the Custom Preview, else the description without Markdown", () => {
+    expect(eventJsonLd(row({ description: "**Bring** lights", preview: "Easy pace." }), URL).description).toBe("Easy pace.");
+    expect(eventJsonLd(row({ description: "**Bring** lights" }), URL).description).toBe("Bring lights");
+  });
+
   it("no location, no image, and a zero-length time give no location, image, or endDate keys", () => {
     const json = eventJsonLd(row({ timing: timed("2026-10-14", "07:00", "07:00") }), URL);
     expect(Object.keys(json)).not.toContain("location");

@@ -18,6 +18,7 @@ describe("loadSnapshot", () => {
       await addEvent(db, {
         title: "Wednesday Evening Rides",
         description: "Bring lights.",
+        preview: "Short.",
         imageUrl: "https://blob.example/events/a.jpg",
         rrule: "FREQ=WEEKLY;BYDAY=WE",
       })
@@ -46,11 +47,14 @@ describe("loadSnapshot", () => {
     const [weekly] = snapshot.events;
     expect(weekly).toMatchObject({
       description: "Bring lights.",
+      preview: "Short.",
       imageUrl: "https://blob.example/events/a.jpg",
       tags: [{ name: "Social", slug: "social" }],
       overrides: [{ originalStart: "2026-10-21T18:00", scheduleStatus: "cancelled" }],
     });
     expect(Object.keys(weekly.overrideUpdatedAt)).toEqual(["2026-10-21T18:00"]);
+    const all = await loadSnapshot(db, null);
+    expect(all.events.find((e) => e.title === "Mobile GR Commission")?.preview).toBeNull();
   });
 
   it("lists the active Tags of both Calendars, also Tags with no Events, and not retired Tags", async () => {

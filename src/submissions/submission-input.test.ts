@@ -9,6 +9,7 @@ function values(patch: Partial<SubmissionValues> = {}): SubmissionValues {
     calendar: "rides",
     title: "Tuesday Social Ride",
     description: "Meet at the shop.",
+    preview: "",
     location: "Riverside Park",
     tagIds: [TAG],
     ctaLabel: "",
@@ -157,5 +158,30 @@ describe("parseSubmissionInput", () => {
 
   it("treats a non-object input as empty", () => {
     expect(parseSubmissionInput("junk", { today: TODAY }).ok).toBe(false);
+  });
+});
+
+describe("Submission description", () => {
+  it("counts a form's CRLF line break as one character", () => {
+    const lines = "x".repeat(99);
+    const description = Array.from({ length: 50 }, () => lines).join("\r\n");
+    expect(description.replace(/\r\n/g, "\n").length).toBeLessThanOrEqual(5000);
+    expect(description.length).toBeGreaterThan(5000);
+    const result = parse({ description });
+    expect(result.ok && result.value.event.description).toBe(description.replace(/\r\n/g, "\n"));
+  });
+
+  it("refuses Markdown that nests too deep to show", () => {
+    expect(errorsOf({ description: `${"> ".repeat(2400)}x` }).description).toBe(
+      "Use fewer lists or quotes inside each other.",
+    );
+  });
+});
+
+describe("Submission Custom Preview", () => {
+  it("goes to the Event draft and has the 300 limit", () => {
+    const result = parse({ preview: " Easy pace. " });
+    expect(result.ok && result.value.event.preview).toBe("Easy pace.");
+    expect(errorsOf({ preview: "x".repeat(301) }).preview).toBe("Use 300 characters or fewer.");
   });
 });

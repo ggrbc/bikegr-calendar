@@ -6,7 +6,7 @@ import { cache } from "react";
 import { badgeText } from "@/agenda/agenda-days";
 import { dateLine, normalizeLocation } from "@/agenda/card-text";
 import { dayHeading, shortDate } from "@/agenda/dates";
-import { excerpt } from "@/agenda/description-text";
+import { listingText } from "@/agenda/listing-text";
 import { findOccurrence } from "@/agenda/find-occurrence";
 import { eventJsonLd, jsonLdText } from "@/agenda/json-ld";
 import { occurrenceIcsPath, occurrenceUrl } from "@/agenda/occurrence-url";
@@ -17,6 +17,7 @@ import { googleCalendarUrl, outlookUrl } from "@/feeds/add-to-calendar";
 import { Badge } from "../../../_components/badge";
 import { ParagraphText } from "../../../_components/paragraph-text";
 import { pillButton } from "../../../_components/filter-form";
+import { RichText } from "../../../_components/rich-text";
 import { SiteHeader } from "../../../_components/site-header";
 
 /**
@@ -44,7 +45,7 @@ export async function generateMetadata({ params }: PageProps<"/events/[eventId]/
   const { row } = result;
   const date = dayHeading(timingStart(row.timing).slice(0, 10));
   const url = occurrenceUrl(row.eventId, row.originalStart);
-  const description = excerpt(row.description) || `${row.title} on ${date}`;
+  const description = listingText(row, 160) || `${row.title} on ${date}`;
   return {
     title: `${row.title} — ${date} — Bike GR Calendar`,
     description,
@@ -148,9 +149,9 @@ export default async function OccurrencePage({ params }: PageProps<"/events/[eve
                 </section>
               )}
 
-              <ParagraphText
-                text={row.description}
-                className="mt-8 space-y-4 text-[15.84px] font-light leading-[1.92]"
+              <RichText
+                markdown={row.description}
+                className="mt-8 space-y-4 text-[15.84px] font-light leading-[1.92] [overflow-wrap:anywhere]"
               />
 
               <p className="mt-8 border-l-4 border-brand-green pl-4 text-[15.84px] font-light leading-[1.92]">

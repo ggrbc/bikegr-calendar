@@ -48,6 +48,7 @@ describe("Review queue and review writes", () => {
       calendar: "rides",
       title: "Social Ride",
       description: "",
+      preview: "",
       location: "",
       tagIds: [],
       ctaLabel: "",

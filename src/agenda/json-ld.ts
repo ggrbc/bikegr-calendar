@@ -4,6 +4,7 @@
  */
 import { isoWithOffset } from "@/feeds/utc";
 import { type ScheduleStatus, type Timing } from "@/engine";
+import { listingText } from "./listing-text";
 import type { AgendaRow } from "./occurrence-rows";
 import { ORGANIZER } from "./site";
 
@@ -28,7 +29,7 @@ function end(timing: Timing): string | undefined {
 }
 
 export function eventJsonLd(row: AgendaRow, url: string): Record<string, unknown> {
-  const description = row.description.trim();
+  const description = listingText(row, DESCRIPTION_LENGTH);
   const json: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Event",
@@ -40,12 +41,7 @@ export function eventJsonLd(row: AgendaRow, url: string): Record<string, unknown
     url,
     organizer: { "@type": "Organization", ...ORGANIZER },
   };
-  if (description) {
-    json.description =
-      description.length > DESCRIPTION_LENGTH
-        ? `${description.slice(0, DESCRIPTION_LENGTH - 1).trimEnd()}…`
-        : description;
-  }
+  if (description) json.description = description;
   if (row.scheduleStatus === "rescheduled") json.previousStartDate = start(row.originalTiming);
   if (row.location) json.location = { "@type": "Place", name: row.location, address: row.location };
   if (row.imageUrl) json.image = [row.imageUrl];

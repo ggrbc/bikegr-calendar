@@ -29,6 +29,7 @@ export type FormRow = Pick<
   | "calendar"
   | "title"
   | "description"
+  | "preview"
   | "location"
   | "ctaLabel"
   | "ctaUrl"
@@ -50,6 +51,7 @@ export function emptyEventValues(calendar: CalendarSlug, today: LocalDate): Even
     calendar,
     title: "",
     description: "",
+    preview: "",
     location: "",
     tagIds: [],
     ctaLabel: "",
@@ -71,6 +73,7 @@ function contentValues(row: FormRow, tagIds: string[]) {
     calendar: row.calendar,
     title: row.title,
     description: row.description,
+    preview: row.preview ?? "",
     location: row.location ?? "",
     tagIds,
     ctaLabel: row.ctaLabel ?? "",

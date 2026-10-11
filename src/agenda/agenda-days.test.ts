@@ -21,6 +21,7 @@ function row(patch: Partial<AgendaRow> & { timing: Timing }): AgendaRow {
     originalTiming: patch.timing,
     title: "Ride",
     description: "",
+    preview: null,
     location: null,
     imageUrl: null,
     lastModified: "2026-10-01T12:00:00.000Z",

@@ -8,36 +8,11 @@ import { type BrowserContext, expect, type Page, test } from "@playwright/test";
 import { todayInDetroit } from "@/agenda/dates";
 import { addDays } from "@/engine";
 import { E2E_EDITOR, nextWeekday } from "./fixture";
+import { stubTurnstile } from "./turnstile";
 
 const today = todayInDetroit(new Date());
 const tuesday = nextWeekday(addDays(today, 1), 2);
 const until = addDays(tuesday, 56);
-
-/** The Turnstile widget stub: each render and each reset gives a token after a short wait. */
-function turnstileStub(token: string): string {
-  return `window.turnstile = (() => {
-    const widgets = {};
-    const issue = (id) => setTimeout(() => widgets[id].callback(${JSON.stringify(token)}), 50);
-    return {
-      render(element, options) {
-        const id = "w" + (Object.keys(widgets).length + 1);
-        widgets[id] = options;
-        element.textContent = "Spam check (e2e stub)";
-        issue(id);
-        return id;
-      },
-      reset(id) { issue(id); },
-      remove(id) { delete widgets[id]; },
-    };
-  })();`;
-}
-
-async function stubTurnstile(page: Page, ip: string, token = "e2e-token") {
-  await page.setExtraHTTPHeaders({ "x-forwarded-for": ip });
-  await page.route("https://challenges.cloudflare.com/turnstile/**", (route) =>
-    route.fulfill({ status: 200, contentType: "text/javascript", body: turnstileStub(token) }),
-  );
-}
 
 async function logIn(context: BrowserContext) {
   await context.addCookies([

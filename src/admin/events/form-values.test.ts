@@ -12,6 +12,7 @@ const row: FormRow = {
   calendar: "rides",
   title: "Tuesday Ride",
   description: "",
+  preview: null,
   location: null,
   ctaLabel: null,
   ctaUrl: null,

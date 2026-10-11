@@ -31,6 +31,12 @@ describe("Occurrence details in the Feed", () => {
     );
   });
 
+  it("the Event description is plain text, and the Custom Preview is not in the Feed", () => {
+    expect(description({ description: "# Route\n\n**Bold** [Map](https://m.org)", preview: "Short." })).toBe(
+      ["Route\n\nBold Map (https://m.org)", `https://calendar.bikegr.org/events/${ID}/2026-10-14T1800`].join("\n\n"),
+    );
+  });
+
   it("are left out when there are none", () => {
     expect(description({ description: "Weekly ride." })).toBe(
       ["Weekly ride.", `https://calendar.bikegr.org/events/${ID}/2026-10-14T1800`].join("\n\n"),

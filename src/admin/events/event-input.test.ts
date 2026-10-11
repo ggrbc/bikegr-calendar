@@ -26,6 +26,7 @@ function values(patch: Partial<EventFormValues> = {}): EventFormValues {
     calendar: "rides",
     title: "Tuesday Ride",
     description: "Meet at the shop.",
+    preview: "",
     location: "Shop",
     tagIds: [TAG],
     ctaLabel: "",
@@ -54,6 +55,7 @@ describe("Event input", () => {
         calendar: "rides",
         title: "Tuesday Ride",
         description: "Meet at the shop.",
+        preview: null,
         location: "Shop",
         tagIds: [TAG],
         cta: null,
@@ -252,5 +254,27 @@ describe("Series content, split, and Override input", () => {
       true,
     );
     expect(errorsOf(result)).toEqual({ scheduleStatus: "Pick a Schedule status." });
+  });
+});
+
+describe("description input", () => {
+  it("refuses Markdown that nests too deep to show", () => {
+    expect(errorsOf(parseSeriesContentInput(values({ description: `${"- ".repeat(1875)}x` }), editor))).toEqual({
+      description: "Use fewer lists or quotes inside each other.",
+    });
+    expect(parseSeriesContentInput(values({ description: "- a\n  - b" }), editor).ok).toBe(true);
+  });
+});
+
+describe("Custom Preview input", () => {
+  it("is trimmed, empty is null, and more than 300 characters is an error", () => {
+    const ok = parseSeriesContentInput(values({ preview: "  Social pace, lights.  " }), editor);
+    expect(ok.ok && ok.value.preview).toBe("Social pace, lights.");
+    const empty = parseSeriesContentInput(values({ preview: "   " }), editor);
+    expect(empty.ok && empty.value.preview).toBeNull();
+    expect(errorsOf(parseSeriesContentInput(values({ preview: "x".repeat(301) }), editor))).toEqual({
+      preview: "Use 300 characters or fewer.",
+    });
+    expect(parseSeriesContentInput(values({ preview: "é".repeat(300) }), editor).ok).toBe(true);
   });
 });

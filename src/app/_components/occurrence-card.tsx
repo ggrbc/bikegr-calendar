@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { AgendaEntry } from "@/agenda/agenda-days";
 import { dateLine, tagLine, venueName } from "@/agenda/card-text";
-import { excerpt } from "@/agenda/description-text";
+import { listingText } from "@/agenda/listing-text";
 import { occurrencePath } from "@/agenda/occurrence-url";
 import { CALENDAR_NAMES } from "@/agenda/site";
 import { Badge } from "./badge";
@@ -32,7 +32,7 @@ export function OccurrenceCard({
   // In the Embed, detail pages open in a new tab on the calendar domain.
   const linkProps = embed ? { target: "_blank", rel: "noopener" } : {};
   const Title = headingLevel === 2 ? "h2" : "h3";
-  const description = moved ? "" : excerpt(row.description, 300);
+  const description = moved ? "" : listingText(row, 300);
 
   return (
     <li className="flex gap-5 py-6 sm:gap-8 sm:py-8">
