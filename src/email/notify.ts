@@ -13,6 +13,7 @@ import type { Db } from "@/db/types";
 import type { LocalDate } from "@/engine";
 import type { ReviewedEvent } from "@/submissions/review";
 import type { SubmittedEvent } from "@/submissions/submit-event";
+import { composeManagerGrantEmail } from "./manager-emails";
 import { composeApprovedEmail, composeNewSubmissionEmail, composeRejectedEmail } from "./submission-emails";
 import type { EmailMessage, EmailTransport } from "./transport";
 
@@ -85,6 +86,17 @@ export async function notifyApproved(
     : `${origin}${calendarPath(review.calendar)}`;
   const email = composeApprovedEmail({ calendar: review.calendar, title: review.title, eventUrl });
   await safeSend("approved", transport, { to: [review.submitterEmail], ...email }, log);
+}
+
+/** An existing account got a manager grant: a short email with a sign-in link. */
+export async function notifyManagerGranted(
+  transport: EmailTransport,
+  grant: { to: string; title: string },
+  origin: string,
+  log: Log = defaultLog,
+): Promise<void> {
+  const email = composeManagerGrantEmail({ title: grant.title, signInUrl: `${origin}/login` });
+  await safeSend("manager-grant", transport, { to: [grant.to], ...email }, log);
 }
 
 export async function notifyRejected(

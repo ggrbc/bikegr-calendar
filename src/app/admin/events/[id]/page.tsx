@@ -19,9 +19,11 @@ import { eventRowToRuleInput } from "@/db/mappers";
 import { addDays, isLocalDate, timingStart } from "@/engine";
 import { DeleteRestore } from "../_components/delete-restore";
 import { EventForm } from "../_components/event-form";
+import { ManagersSection } from "../_components/managers-section";
 import { PendingReview } from "../_components/pending-review";
 import { ReviewPanel } from "../_components/review-panel";
 import { SeriesEditor } from "../_components/series-editor";
+import { listManagers } from "@/admin/events/managers";
 import { loadSplitBounds } from "@/admin/events/split-series";
 import { imageRemovedByReview } from "@/submissions/review";
 import {
@@ -282,6 +284,10 @@ async function EventPage({ params, searchParams }: { params: Promise<{ id: strin
       )}
 
       {!deleted && !pending && row.rrule !== null && <DateList event={event} from={from} />}
+
+      {!deleted && row.reviewStatus === "approved" && (
+        <ManagersSection eventId={row.id} managers={await listManagers(db, row.id)} />
+      )}
 
       {/* A pending Event has "Delete as spam" in its Review panel. */}
       {(!pending || deleted) && (
