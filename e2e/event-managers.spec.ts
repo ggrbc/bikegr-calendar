@@ -138,6 +138,8 @@ test("an Editor adds a manager, who changes one date; the public pages show it",
   // --- Un-cancel: set Scheduled, Save, and the public page has no badge. Then cancel again.
   const detail = await browser.newPage();
   await manager.getByLabel("Schedule status").selectOption("scheduled");
+  // A change hides the last result, so the next "Saved" is a new element and the wait below is real.
+  await expect(manager.getByRole("status")).toHaveCount(0);
   await manager.getByRole("button", { name: "Save" }).click();
   await expect(manager.getByRole("status")).toContainText("The change is public now");
   await expect(manager.getByLabel("Schedule status")).toHaveValue("scheduled");

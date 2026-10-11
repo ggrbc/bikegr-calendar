@@ -21,6 +21,9 @@ export interface OccurrenceFormProps {
 export function OccurrenceForm({ eventId, originalStart, initial }: OccurrenceFormProps) {
   const [values, setValues] = useState(initial);
   const [state, dispatch, pending] = useActionState<SaveState, unknown>(saveOccurrenceAction, IDLE);
+  // A change to a field hides the result of the last save. The next save then shows a new status
+  // element, which a screen reader announces (the same text twice would be silent).
+  const [staleFor, setStaleFor] = useState<SaveState | null>(null);
   return (
     <form
       onSubmit={(event) => submitForm(event, () => dispatch({ eventId, originalStart, values }))}
@@ -30,10 +33,13 @@ export function OccurrenceForm({ eventId, originalStart, initial }: OccurrenceFo
         status={values.scheduleStatus}
         note={values.scheduleNote}
         details={values.occurrenceDetails}
-        onChange={(patch) => setValues((v) => ({ ...v, ...patch }))}
+        onChange={(patch) => {
+          setValues((v) => ({ ...v, ...patch }));
+          setStaleFor(state);
+        }}
         errors={errorsOf(state)}
       />
-      <SaveStatus state={state} />
+      <SaveStatus state={state === staleFor ? IDLE : state} pending={pending} />
       <div>
         <button type="submit" disabled={pending} className={buttonClass("primary")}>
           {pending ? "Saving…" : "Save"}

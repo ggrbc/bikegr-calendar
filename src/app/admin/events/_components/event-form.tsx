@@ -40,7 +40,7 @@ export function EventForm(props: EventFormProps) {
   );
   return (
     <div className="flex flex-col gap-4">
-      <SaveStatus state={state} />
+      <SaveStatus state={state} pending={pending} />
       {/* A new version (after a save) starts the form again from the saved values. */}
       <EventFormBody
         key={props.version ?? 0}

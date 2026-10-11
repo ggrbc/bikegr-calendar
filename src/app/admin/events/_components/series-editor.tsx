@@ -103,7 +103,7 @@ function AllDatesForm(props: SeriesEditorProps) {
   const [state, dispatch, pending] = useActionState<SaveState, unknown>(saveEventAction, IDLE);
   return (
     <div className="flex flex-col gap-4">
-      <SaveStatus state={state} />
+      <SaveStatus state={state} pending={pending} />
       <AllDatesBody
         key={props.version}
         {...props}
@@ -175,7 +175,7 @@ function SplitPanel(props: SeriesEditorProps) {
   const [state, dispatch, pending] = useActionState<SaveState, unknown>(splitSeriesAction, IDLE);
   return (
     <div className="flex flex-col gap-4">
-      <SaveStatus state={state} />
+      <SaveStatus state={state} pending={pending} />
       <SplitBody
         key={props.version}
         {...props}

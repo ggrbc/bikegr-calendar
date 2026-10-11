@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState } from "react";
 import type { FieldErrors, OverrideFormValues } from "@/admin/events/event-input";
 import { clearOverrideAction, saveOverrideAction, type SaveState } from "../actions";
 import { TimingFields } from "./event-form";
@@ -25,14 +25,14 @@ export function OverrideForm(props: OverrideFormProps) {
   const shown = clearState.status !== "idle" && state.status === "idle" ? clearState : state;
   return (
     <div className="flex flex-col gap-4">
-      <SaveStatus state={shown} />
+      <SaveStatus state={shown} pending={pending || clearing} />
       <OverrideBody
         key={props.version}
         {...props}
         errors={errorsOf(state)}
         pending={pending || clearing}
         submit={(values) => dispatch({ id: props.id, version: props.version, values })}
-        clear={() => clear({ id: props.id, version: props.version, originalStart: props.initial.originalStart })}
+        clear={() => startTransition(() => clear({ id: props.id, version: props.version, originalStart: props.initial.originalStart }))}
       />
     </div>
   );
