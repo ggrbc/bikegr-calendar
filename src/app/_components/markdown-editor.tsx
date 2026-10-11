@@ -9,7 +9,7 @@
 import { Markdown } from "@tiptap/markdown";
 import { type ChainedCommands, EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { isLinkUrl } from "@/agenda/safe-url";
 
 const LINK_ERROR = "Use a web address that starts with http://, https://, or mailto:.";
@@ -18,6 +18,27 @@ const contentClass =
   "min-h-40 px-4 py-3 outline-none [&_a]:text-brand-orange-text [&_a]:underline [&_h1]:font-chivo [&_h1]:text-[22px] [&_h2]:font-chivo [&_h2]:text-[19px] [&_hr]:my-4 [&_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-2 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-6";
 const buttonClass =
   "min-w-9 rounded px-2 py-1 text-sm hover:bg-black/5 disabled:opacity-40 aria-pressed:bg-black/10 aria-pressed:font-semibold";
+
+// useEditor compares its options on every render and resets the view when they differ, so the
+// extensions, initial content, and props must keep their identity between renders.
+const extensions = [
+  StarterKit.configure({
+    heading: { levels: [1, 2] },
+    blockquote: false,
+    code: false,
+    codeBlock: false,
+    strike: false,
+    underline: false,
+    link: {
+      openOnClick: false,
+      autolink: true,
+      linkOnPaste: true,
+      protocols: ["mailto"],
+      isAllowedUri: (url) => isLinkUrl(url),
+    },
+  }),
+  Markdown.configure({ markedOptions: { gfm: true, breaks: true } }),
+];
 
 export function MarkdownEditor({
   label,
@@ -38,45 +59,34 @@ export function MarkdownEditor({
   "aria-invalid"?: boolean;
   boxClassName?: string;
 }) {
-  const [markdown, setMarkdown] = useState(value ?? "");
-  const lastEmitted = useRef(value ?? "");
+  const [initialContent] = useState(value ?? "");
+  const [markdown, setMarkdown] = useState(initialContent);
+  const lastEmitted = useRef(initialContent);
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkHref, setLinkHref] = useState("");
   const [linkError, setLinkError] = useState<string | null>(null);
 
-  const attributes = {
-    role: "textbox",
-    "aria-multiline": "true",
-    "aria-label": label,
-    class: contentClass,
-    ...(id ? { id } : {}),
-    ...(describedBy ? { "aria-describedby": describedBy } : {}),
-    ...(invalid ? { "aria-invalid": "true" } : {}),
-  };
+  const editorProps = useMemo(
+    () => ({
+      attributes: {
+        role: "textbox",
+        "aria-multiline": "true",
+        "aria-label": label,
+        class: contentClass,
+        ...(id ? { id } : {}),
+        ...(describedBy ? { "aria-describedby": describedBy } : {}),
+        ...(invalid ? { "aria-invalid": "true" } : {}),
+      },
+    }),
+    [label, id, describedBy, invalid],
+  );
 
   const editor = useEditor({
     immediatelyRender: false,
-    extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2] },
-        blockquote: false,
-        code: false,
-        codeBlock: false,
-        strike: false,
-        underline: false,
-        link: {
-          openOnClick: false,
-          autolink: true,
-          linkOnPaste: true,
-          protocols: ["mailto"],
-          isAllowedUri: (url) => isLinkUrl(url),
-        },
-      }),
-      Markdown.configure({ markedOptions: { gfm: true, breaks: true } }),
-    ],
-    content: value ?? "",
+    extensions,
+    content: initialContent,
     contentType: "markdown",
-    editorProps: { attributes },
+    editorProps,
     onUpdate: ({ editor }) => {
       const next = editor.getMarkdown();
       lastEmitted.current = next;
@@ -92,11 +102,6 @@ export function MarkdownEditor({
     setMarkdown(value);
     editor.commands.setContent(value, { contentType: "markdown", emitUpdate: false });
   }, [editor, value]);
-
-  useEffect(() => {
-    editor?.setOptions({ editorProps: { attributes } });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor, id, describedBy, invalid, label]);
 
   const state = useEditorState({
     editor,
@@ -130,12 +135,23 @@ export function MarkdownEditor({
     if (editor.state.selection.empty && !editor.isActive("link")) {
       chain.insertContent({ type: "text", text: href, marks: [{ type: "link", attrs: { href } }] }).run();
     } else chain.setLink({ href }).run();
-    setLinkOpen(false);
+    closeLink();
   }
 
   function removeLink() {
     editor?.chain().focus().extendMarkRange("link").unsetLink().run();
+    closeLink();
+  }
+
+  // Tiptap's focus() waits a frame, so keys typed right after a toolbar button or the Link address
+  // box would land there; focus the text at once instead.
+  function focusText() {
+    editor?.view.focus();
+  }
+
+  function closeLink() {
     setLinkOpen(false);
+    focusText();
   }
 
   function onLinkKey(event: KeyboardEvent<HTMLInputElement>) {
@@ -143,11 +159,13 @@ export function MarkdownEditor({
     if (event.key === "Enter") {
       event.preventDefault();
       applyLink();
-    } else if (event.key === "Escape") setLinkOpen(false);
+    } else if (event.key === "Escape") closeLink();
   }
 
   const run = (command: (chain: ChainedCommands) => ChainedCommands) => () => {
-    if (editor) command(editor.chain().focus()).run();
+    if (!editor) return;
+    command(editor.chain().focus()).run();
+    focusText();
   };
 
   const tool = (labelText: string, glyph: string, onClick: () => void, pressed?: boolean, disabled?: boolean) => (
@@ -158,6 +176,8 @@ export function MarkdownEditor({
       title={labelText}
       aria-pressed={pressed}
       disabled={!editor || disabled}
+      // A click keeps the focus and selection in the text, so typing continues where it was.
+      onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
     >
       {glyph}
@@ -208,7 +228,7 @@ export function MarkdownEditor({
               Remove link
             </button>
           )}
-          <button type="button" className={buttonClass} onClick={() => setLinkOpen(false)}>
+          <button type="button" className={buttonClass} onClick={closeLink}>
             Cancel
           </button>
           {linkError && (
