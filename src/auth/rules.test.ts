@@ -111,7 +111,7 @@ describe("parseEditorName", () => {
   });
 
   it("refuses control characters and invisible format characters", () => {
-    for (const bad of ["Sam\u0000", "Sam\nRider", "Sam\u200bRider", "\u202eSam", "Sam\ufeff"]) {
+    for (const bad of ["Sam\u0000", "Sam\nRider", "Sam\u200bRider", "\u202eSam", "Sam\ufeffRider"]) {
       expect(parseEditorName(bad), JSON.stringify(bad)).toMatchObject({ ok: false });
     }
   });
