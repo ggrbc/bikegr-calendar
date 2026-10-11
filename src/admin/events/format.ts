@@ -65,6 +65,10 @@ export interface HistoryDetail {
   reason?: string;
   /** Reject or Delete as spam: the image was cleared (no other Event used it) and its blob removed. */
   imageRemoved?: boolean;
+  /** A grant added or removed: the manager's name. */
+  manager?: string;
+  /** Grants copied by a Series split: the managers' names. */
+  managers?: string[];
 }
 
 /** History actions written by the admin and the import. */
@@ -82,7 +86,10 @@ export type HistoryAction =
   | "import"
   | "submit"
   | "approve"
-  | "reject";
+  | "reject"
+  | "manager-add"
+  | "manager-remove"
+  | "managers-copied";
 
 export function historyActionLabel(action: string, detail: HistoryDetail): string {
   const day = (value?: string) => (value ? shortDate(value.slice(0, 10)) : "");
@@ -107,6 +114,12 @@ export function historyActionLabel(action: string, detail: HistoryDetail): strin
       return "Deleted";
     case "restore":
       return "Restored";
+    case "manager-add":
+      return `Added ${detail.manager ?? "a person"} as a manager`;
+    case "manager-remove":
+      return `Removed ${detail.manager ?? "a person"} as a manager`;
+    case "managers-copied":
+      return `Managers copied by a Series split: ${(detail.managers ?? []).join(", ")}`;
     case "import":
       return "Import";
     case "submit":
