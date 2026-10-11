@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { buttonClass, panelClass } from "../../_components/ui";
 import { ScheduleFields } from "../../events/_components/schedule-fields";
 import { errorsOf, IDLE, SaveStatus } from "../../events/_components/save-status";
+import { submitForm } from "../../events/_components/submit-form";
 import type { SaveState } from "../../events/actions";
 import { saveOccurrenceAction } from "../actions";
 
@@ -22,7 +23,7 @@ export function OccurrenceForm({ eventId, originalStart, initial }: OccurrenceFo
   const [state, dispatch, pending] = useActionState<SaveState, unknown>(saveOccurrenceAction, IDLE);
   return (
     <form
-      action={() => dispatch({ eventId, originalStart, values })}
+      onSubmit={(event) => submitForm(event, () => dispatch({ eventId, originalStart, values }))}
       className={`${panelClass} flex flex-col gap-4`}
     >
       <ScheduleFields

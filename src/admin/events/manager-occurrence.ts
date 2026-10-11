@@ -8,7 +8,7 @@
  */
 import { and, eq } from "drizzle-orm";
 import { eventRowToRuleInput } from "@/db/mappers";
-import { editors, eventManagers, type EventRow, events, overrides } from "@/db/schema";
+import { editors, eventManagers, type EventRow, events, type OverrideRow, overrides } from "@/db/schema";
 import type { Db } from "@/db/types";
 import { addDays, type LocalDate, timingStart } from "@/engine";
 import { type ManagerOccurrenceDraft, parseManagerOccurrenceInput } from "./event-input";
@@ -24,9 +24,13 @@ export const EDIT_DAYS_AHEAD = 365;
 
 const NOT_YOURS = "You do not manage this Event.";
 
-/** True when an Occurrence that starts on `date` is inside the window for an Event manager. */
-export function isEditableDate(date: LocalDate, today: LocalDate): boolean {
-  return date >= addDays(today, -EDIT_DAYS_BACK) && date <= addDays(today, EDIT_DAYS_AHEAD);
+/**
+ * True when an Occurrence is open to an Event manager: its actual start (after an Editor's
+ * reschedule) is no more than 7 days in the past, and its original start (the key) is no more than
+ * one year ahead.
+ */
+export function isEditableOccurrence(originalDate: LocalDate, actualDate: LocalDate, today: LocalDate): boolean {
+  return actualDate >= addDays(today, -EDIT_DAYS_BACK) && originalDate <= addDays(today, EDIT_DAYS_AHEAD);
 }
 
 const refuse = (message: string) => new WriteError({ ok: false, reason: "not-found", message });
@@ -41,14 +45,20 @@ async function checkAccess(tx: Parameters<Parameters<Db["transaction"]>[0]>[0], 
     .from(eventManagers)
     .where(and(eq(eventManagers.eventId, eventId), eq(eventManagers.editorId, actor.id)));
   if (!grant) throw refuse(NOT_YOURS);
-  const [row] = await tx.select().from(events).where(eq(events.id, eventId));
+  // Locked: the version below is the current one, so a manager never gets a false conflict.
+  const [row] = await tx.select().from(events).where(eq(events.id, eventId)).for("update");
   if (!row) throw refuse(NOT_YOURS);
   if (row.deletedAt !== null) throw new WriteError({ ok: false, reason: "deleted", message: DELETED_MESSAGE });
   if (row.reviewStatus !== "approved") throw invalid({}, NOT_APPROVED_MESSAGE);
   return row;
 }
 
-function checkDate(row: EventRow, draft: ManagerOccurrenceDraft, today: LocalDate): void {
+function checkDate(
+  row: EventRow,
+  draft: ManagerOccurrenceDraft,
+  today: LocalDate,
+  stored: OverrideRow | undefined,
+): void {
   const rule = eventRowToRuleInput(row);
   if (rule.rrule === null) {
     if (timingStart(rule.timing) !== draft.originalStart) {
@@ -57,7 +67,10 @@ function checkDate(row: EventRow, draft: ManagerOccurrenceDraft, today: LocalDat
   } else {
     checkOccurrence(row, draft.originalStart);
   }
-  if (!isEditableDate(draft.originalStart.slice(0, 10), today)) {
+  // The actual start: an Editor may have moved the date.
+  const moved = stored?.startLocal ?? stored?.startDate ?? null;
+  const actualDate = (moved ?? draft.originalStart).slice(0, 10);
+  if (!isEditableOccurrence(draft.originalStart.slice(0, 10), actualDate, today)) {
     throw invalid({ originalStart: "This date is closed. Ask an Editor to change it." }, "This date is closed.");
   }
 }
@@ -74,7 +87,15 @@ export async function saveManagerOccurrence(
 
   return runWrite(db, async (tx) => {
     const row = await checkAccess(tx, actor, draft.eventId);
-    checkDate(row, draft, today);
+    const find = async () => {
+      const [existing] = await tx
+        .select()
+        .from(overrides)
+        .where(and(eq(overrides.eventId, row.id), eq(overrides.originalStart, draft.originalStart)));
+      return existing;
+    };
+    const first = await find();
+    checkDate(row, draft, today, first);
 
     const claim = () => claimVersion(tx, { id: row.id, version: row.version, actor });
     const history = () => writeHistory(tx, row.id, "override", actor, { originalStart: draft.originalStart });
@@ -106,15 +127,7 @@ export async function saveManagerOccurrence(
       scheduleNote: draft.scheduleNote,
       occurrenceDetails: draft.occurrenceDetails,
     };
-    const find = async () => {
-      const [existing] = await tx
-        .select()
-        .from(overrides)
-        .where(and(eq(overrides.eventId, row.id), eq(overrides.originalStart, draft.originalStart)));
-      return existing;
-    };
     const empty = Object.values(values).every((v) => v === null);
-    const first = await find();
     if (!first && empty) return {};
     if (
       first &&

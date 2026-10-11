@@ -7,8 +7,8 @@ import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { eventRowToRuleInput, overrideRowToInput } from "@/db/mappers";
 import { eventManagers, events, overrides } from "@/db/schema";
 import type { Db } from "@/db/types";
-import { addDays, expandOccurrences, type LocalDate, type OriginalStart, type Timing } from "@/engine";
-import { EDIT_DAYS_AHEAD, isEditableDate } from "./manager-occurrence";
+import { addDays, expandOccurrences, type LocalDate, type Occurrence, type OriginalStart, type Timing } from "@/engine";
+import { EDIT_DAYS_AHEAD, EDIT_DAYS_BACK, isEditableOccurrence } from "./manager-occurrence";
 
 /** The dates on the first view of a card. */
 export const MY_EVENTS_FIRST_PAGE = 8;
@@ -23,11 +23,18 @@ export interface ManagedDate {
   editable: boolean;
 }
 
+/** The date part of the actual start of an Occurrence (after an Editor's reschedule). */
+const actualDay = (timing: Timing): LocalDate =>
+  (timing.kind === "timed" ? timing.start : timing.startDate).slice(0, 10);
+
 export interface ManagedEvent {
   eventId: string;
   title: string;
   /** The RRULE text, or null for a one-time Event. */
   rrule: string | null;
+  /** Dates that started in the last 7 days (still open), oldest first. Not counted in the 8. */
+  recent: ManagedDate[];
+  /** From today on: the first 8, or all up to one year ahead for the expanded card. */
   dates: ManagedDate[];
   /** True when the card shows the first dates only and more exist up to one year ahead. */
   hasMore: boolean;
@@ -53,26 +60,33 @@ export async function listManagedEvents(
     .select()
     .from(overrides)
     .where(inArray(overrides.eventId, rows.map((r) => r.event.id)));
-  const window = { from: today, to: addDays(today, EDIT_DAYS_AHEAD + 1) };
+  const window = { from: addDays(today, -EDIT_DAYS_BACK), to: addDays(today, EDIT_DAYS_AHEAD + 1) };
 
   return rows.map(({ event }) => {
     const mine = overrideRows.filter((o) => o.eventId === event.id);
-    const found = expandOccurrences(eventRowToRuleInput(event), mine.map(overrideRowToInput), window);
+    const toDate = (o: Occurrence): ManagedDate => ({
+      originalStart: o.originalStart,
+      timing: o.timing,
+      scheduleStatus: o.scheduleStatus,
+      scheduleNote: o.scheduleNote,
+      hasDetails: o.occurrenceDetails !== undefined,
+      editable: isEditableOccurrence(o.originalStart.slice(0, 10), actualDay(o.timing), today),
+    });
+    // Only dates that are open: a date moved to the past, 8 or more days ago, is closed.
+    const found = expandOccurrences(eventRowToRuleInput(event), mine.map(overrideRowToInput), window).filter(
+      (o) => isEditableOccurrence(o.originalStart.slice(0, 10), actualDay(o.timing), today),
+    );
+    const recent = found.filter((o) => actualDay(o.timing) < today).map(toDate);
+    const upcoming = found.filter((o) => actualDay(o.timing) >= today);
     const all = event.id === expandId;
-    const shown = all ? found : found.slice(0, MY_EVENTS_FIRST_PAGE);
+    const shown = all ? upcoming : upcoming.slice(0, MY_EVENTS_FIRST_PAGE);
     return {
       eventId: event.id,
       title: event.title,
       rrule: event.rrule,
-      hasMore: !all && found.length > shown.length,
-      dates: shown.map((o) => ({
-        originalStart: o.originalStart,
-        timing: o.timing,
-        scheduleStatus: o.scheduleStatus,
-        scheduleNote: o.scheduleNote,
-        hasDetails: o.occurrenceDetails !== undefined,
-        editable: isEditableDate(o.originalStart.slice(0, 10), today),
-      })),
+      hasMore: !all && upcoming.length > shown.length,
+      recent,
+      dates: shown.map(toDate),
     };
   });
 }
@@ -131,6 +145,6 @@ export async function loadManagedOccurrence(
     scheduleStatus: stored[0]?.scheduleStatus ?? found.event.scheduleStatus,
     scheduleNote: occurrence.scheduleNote ?? "",
     occurrenceDetails: occurrence.occurrenceDetails ?? "",
-    editable: isEditableDate(date, today),
+    editable: isEditableOccurrence(date, actualDay(occurrence.timing), today),
   };
 }

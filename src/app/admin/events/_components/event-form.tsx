@@ -10,6 +10,7 @@ import { createEventAction, saveEventAction, type SaveState } from "../actions";
 import { buttonClass, checkClass, legendClass, panelClass } from "../../_components/ui";
 import { ContentFields, Field, inputClass } from "./fields";
 import { OccurrencePreview } from "./occurrence-preview";
+import { submitForm } from "./submit-form";
 import { RuleEditor, SkippedDates } from "./rule-editor";
 import { ScheduleFields } from "./schedule-fields";
 import { errorsOf, IDLE, SaveStatus } from "./save-status";
@@ -143,7 +144,7 @@ function EventFormBody({
   }, [values, overrides, today]);
 
   return (
-    <form action={() => submit(values)} className="flex flex-col gap-6">
+    <form onSubmit={(event) => submitForm(event, () => submit(values))} className="flex flex-col gap-6">
       <div className={panelClass}>
         <ContentFields
           values={values}

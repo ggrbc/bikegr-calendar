@@ -8,6 +8,7 @@ import { ScheduleFields } from "./schedule-fields";
 import { buttonClass, hintClass, panelClass } from "../../_components/ui";
 import { Field, inputClass } from "./fields";
 import { errorsOf, IDLE, SaveStatus } from "./save-status";
+import { submitForm } from "./submit-form";
 
 export interface OverrideFormProps {
   id: string;
@@ -54,7 +55,7 @@ function OverrideBody({
   const [values, setValues] = useState(initial);
   const set = (patch: Partial<OverrideFormValues>) => setValues((v) => ({ ...v, ...patch }));
   return (
-    <form action={() => submit(values)} className={`${panelClass} flex flex-col gap-6`}>
+    <form onSubmit={(event) => submitForm(event, () => submit(values))} className={`${panelClass} flex flex-col gap-6`}>
       <TimingFields
         values={{ allDay, start: values.start, end: values.end }}
         // The kind of time slot stays the Series' kind.
