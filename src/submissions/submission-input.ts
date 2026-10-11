@@ -130,7 +130,7 @@ export function parseSubmissionInput(input: unknown, { today }: { today: LocalDa
     {
       calendar: text(raw, "calendar"),
       title: text(raw, "title"),
-      description: typeof raw.description === "string" ? raw.description : "",
+      description: typeof raw.description === "string" ? raw.description.replace(/\r\n?/g, "\n") : "",
       preview: text(raw, "preview"),
       location: text(raw, "location"),
       tagIds: strings(raw, "tagIds"),
@@ -161,7 +161,8 @@ export function parseSubmissionInput(input: unknown, { today }: { today: LocalDa
     }
   }
 
-  const description = typeof raw.description === "string" ? raw.description.trim() : "";
+  // A form sends each line break as CRLF; it is stored as LF, so it counts as one character.
+  const description = typeof raw.description === "string" ? raw.description.trim().replace(/\r\n?/g, "\n") : "";
   if (description.length > LIMITS.description) errors.description = tooLong(LIMITS.description);
   if (text(raw, "location").length > LIMITS.location) errors.location = tooLong(LIMITS.location);
   if (text(raw, "ctaLabel").length > LIMITS.ctaLabel) errors.cta = `Use ${LIMITS.ctaLabel} characters or fewer for the button label.`;

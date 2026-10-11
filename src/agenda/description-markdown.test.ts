@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parseIcsEvents } from "@/import/ics";
 import { toTockifyOccurrence } from "@/import/tockify-occurrence";
-import { type Block, descriptionBlocks, descriptionText, type Inline } from "./description-markdown";
+import { type Block, descriptionBlocks, descriptionParses, descriptionText, type Inline } from "./description-markdown";
 import { descriptionParagraphs, type TextPart } from "./description-text";
 
 const text = (t: string): Inline => ({ kind: "text", text: t });
@@ -75,6 +75,25 @@ describe("descriptionBlocks", () => {
     const md = "[click](javascript:alert(1)) [d](data:text/html,x)";
     expect(descriptionText(md)).toBe("click d");
     expect(JSON.stringify(descriptionBlocks(md))).not.toContain('"kind":"link"');
+  });
+
+  it("reads the entities the editor writes for & < >, but not escaped ones", () => {
+    expect(descriptionText("Bikes &amp; Beers &lt;3 &gt; &quot;x&quot; &#39;y&#x27;")).toBe(
+      `Bikes & Beers <3 > "x" 'y'`,
+    );
+    expect(descriptionText("\\&amp; stays")).toBe("&amp; stays");
+    expect(descriptionText("# Q&amp;A\n\n- R&amp;R\n\n[a&amp;b](https://example.org/?a=1&amp;b=2)")).toBe(
+      "Q&A\n\n• R&R\n\na&b (https://example.org/?a=1&b=2)",
+    );
+  });
+
+  it("falls back to plain paragraphs when the Markdown nests too deep to parse", () => {
+    const deep = `${"- ".repeat(1875)}x\n\nAfter`;
+    expect(() => descriptionBlocks(deep)).not.toThrow();
+    expect(descriptionText(deep)).toContain("After");
+    expect(descriptionParses(deep)).toBe(false);
+    expect(descriptionParses(`${"> ".repeat(2400)}x`)).toBe(false);
+    expect(descriptionParses("- a\n  - b\n    - c")).toBe(true);
   });
 
   it("does not link inside a link", () => {

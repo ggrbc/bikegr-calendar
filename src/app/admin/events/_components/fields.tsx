@@ -125,7 +125,7 @@ function PreviewField({
         />
       </Field>
       <p className={hintClass}>
-        {[...value].length} / {PREVIEW_MAX}
+        {[...value.trim()].length} / {PREVIEW_MAX}
       </p>
     </div>
   );

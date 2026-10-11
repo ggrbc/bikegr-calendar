@@ -14,7 +14,7 @@ import { E2E_DATABASE_URL, E2E_EDITOR, nextWeekday, segment } from "./fixture";
 import { stubTurnstile } from "./turnstile";
 
 const OLD_ID = "10000000-0000-4000-8000-0000000000c1";
-const OLD_DESCRIPTION = "Line one\nLine two\n\nSee https://example.org/x.";
+const OLD_DESCRIPTION = "Line one\nLine two\n\nSee https://example.org/x.\n\n* Helmet\n* Water";
 const today = todayInDetroit(new Date());
 const thursday = nextWeekday(addDays(today, 1), 4);
 
@@ -139,6 +139,8 @@ test("toolbar formatting and a Custom Preview show on the detail page, card, and
 test("an untouched description is saved byte for byte, and line breaks survive an edit", async ({ page, context }) => {
   await logIn(context);
   await page.goto(`/admin/events/${OLD_ID}`);
+  // Clicking into a description that ends in a list is not an edit.
+  await editorBox(page).click();
   const title = page.getByLabel("Title", { exact: true }).locator("visible=true");
   await title.fill("E2E Old Plain Ride (renamed)");
   await page.getByRole("button", { name: "Save for all dates" }).click();
@@ -170,6 +172,8 @@ test("literal characters, paste, and the Link box stay safe", async ({ page, con
   // editor's own `*text*` input rule (that needs a space before the first `*`).
   await page.keyboard.type("Price 5*3 and 2*4, #1 pick");
   await page.keyboard.press("Enter");
+  await page.keyboard.type("Bikes & Beers <3");
+  await page.keyboard.press("Enter");
   await editorBox(page).evaluate((element) => {
     const data = new DataTransfer();
     data.setData(
@@ -195,6 +199,7 @@ test("literal characters, paste, and the Link box stay safe", async ({ page, con
     await page.goto(`/events/${id}/${segment(today)}`);
     await expect(page.getByText("Price 5*3 and 2*4, #1 pick")).toBeVisible({ timeout: 1000 });
   }).toPass();
+  await expect(page.getByText("Bikes & Beers <3")).toBeVisible();
   await expect(page.locator("main em")).toHaveCount(0);
   await expect(page.locator('main img, main table, main script:not([type="application/ld+json"])')).toHaveCount(0);
   await expect(page.locator("main").getByText("Red").first()).toBeVisible();

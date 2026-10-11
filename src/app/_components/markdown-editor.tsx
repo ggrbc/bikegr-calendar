@@ -15,7 +15,7 @@ import { isLinkUrl } from "@/agenda/safe-url";
 const LINK_ERROR = "Use a web address that starts with http://, https://, or mailto:.";
 
 const contentClass =
-  "min-h-40 px-4 py-3 outline-none [&_a]:text-brand-orange-text [&_a]:underline [&_h1]:font-chivo [&_h1]:text-[22px] [&_h2]:font-chivo [&_h2]:text-[19px] [&_hr]:my-4 [&_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-2 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-6";
+  "min-h-40 px-4 py-3 -outline-offset-4 [&_a]:text-brand-orange-text [&_a]:underline [&_h1]:font-chivo [&_h1]:text-[22px] [&_h2]:font-chivo [&_h2]:text-[19px] [&_hr]:my-4 [&_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-2 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-6";
 const buttonClass =
   "min-w-9 rounded px-2 py-1 text-sm hover:bg-black/5 disabled:opacity-40 aria-pressed:bg-black/10 aria-pressed:font-semibold";
 
@@ -29,6 +29,8 @@ const extensions = [
     codeBlock: false,
     strike: false,
     underline: false,
+    // It adds an empty paragraph after a final list or heading on focus, which would count as an edit.
+    trailingNode: false,
     link: {
       openOnClick: false,
       autolink: true,
@@ -87,7 +89,8 @@ export function MarkdownEditor({
     content: initialContent,
     contentType: "markdown",
     editorProps,
-    onUpdate: ({ editor }) => {
+    onUpdate: ({ editor, transaction }) => {
+      if (!transaction.docChanged) return;
       const next = editor.getMarkdown();
       lastEmitted.current = next;
       setMarkdown(next);
@@ -126,11 +129,12 @@ export function MarkdownEditor({
 
   function applyLink() {
     if (!editor) return;
-    const href = linkHref.trim();
-    if (!isLinkUrl(href)) {
+    if (!isLinkUrl(linkHref.trim())) {
       setLinkError(LINK_ERROR);
       return;
     }
+    // Spaces and parentheses would end the Markdown link early.
+    const href = new URL(linkHref.trim()).href.replace(/\(/g, "%28").replace(/\)/g, "%29");
     const chain = editor.chain().focus().extendMarkRange("link");
     if (editor.state.selection.empty && !editor.isActive("link")) {
       chain.insertContent({ type: "text", text: href, marks: [{ type: "link", attrs: { href } }] }).run();

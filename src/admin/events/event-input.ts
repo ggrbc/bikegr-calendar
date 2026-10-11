@@ -17,6 +17,7 @@ import {
   type Timing,
   timingStart,
 } from "@/engine";
+import { descriptionParses } from "@/agenda/description-markdown";
 import { isHttpUrl } from "@/agenda/safe-url";
 import { firstStartOnOrAfter } from "./preview";
 import {
@@ -236,11 +237,14 @@ function parseContent(raw: Raw, ctx: ParseContext, errors: FieldErrors): Content
   const preview = text(raw, "preview").replace(/\r\n?/g, "\n");
   if ([...preview].length > PREVIEW_MAX) errors.preview = "Use 300 characters or fewer.";
 
+  const description = typeof raw.description === "string" ? raw.description.trim() : "";
+  if (!descriptionParses(description)) errors.description = "Use fewer lists or quotes inside each other.";
+
   const location = text(raw, "location");
   return {
     calendar,
     title,
-    description: typeof raw.description === "string" ? raw.description.trim() : "",
+    description,
     preview: preview === "" ? null : preview,
     location: location === "" ? null : location,
     tagIds,

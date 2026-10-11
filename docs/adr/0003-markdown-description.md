@@ -20,7 +20,13 @@ export), so there is no migration.
 
 - The editor and the page must parse alike: `marked` is pinned to the major version that
   `@tiptap/markdown` uses, with the same options. GFM bare-URL autolinks are off in the page parser;
-  bare `http`/`https` addresses become links the same way as in the Occurrence details.
+  bare `http`/`https` addresses become links the same way as in the Occurrence details. The editor
+  writes `&`, `<`, and `>` as entities, so the page reads those entities back as characters.
+- One known difference: raw HTML tags in stored text (only from a hand-made POST) show as literal
+  text on the page, but the editor loads them as formatting, so the next save turns them into
+  Markdown. Nothing is ever rendered as HTML.
+- The forms refuse Markdown that nests lists or quotes too deep for the parser; the page falls back
+  to plain paragraphs if one gets through.
 - The editor does not report a change until the person edits, so opening an old plain-text
   description and saving other fields stores it byte for byte, and loading a Submission is not an
   unsaved change.

@@ -107,9 +107,8 @@ function SubmissionPreviewField({ error }: { error?: string }) {
             {...props}
             name={FIELDS.preview}
             rows={3}
-            maxLength={PREVIEW_MAX}
             autoFocus
-            onChange={(e) => setLength([...e.target.value].length)}
+            onChange={(e) => setLength([...e.target.value.trim()].length)}
             className={input}
           />
           <p className="text-[14px]">

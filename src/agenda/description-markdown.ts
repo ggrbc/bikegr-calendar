@@ -32,6 +32,17 @@ function lex(markdown: string): Token[] {
   return new Lexer({ gfm: true, breaks: true, tokenizer: new NoBareUrls() }).lex(markdown.replace(/\r\n?/g, "\n"));
 }
 
+const NAMED: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: "\u00a0" };
+
+/** The editor writes `&`, `<`, `>` as entities; marked keeps them in its text, so read them here. */
+function decodeEntities(value: string): string {
+  return value.replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/gi, (entity, dec?: string, hex?: string, name?: string) => {
+    if (name) return NAMED[name.toLowerCase()] ?? entity;
+    const code = dec ? Number(dec) : Number.parseInt(hex ?? "", 16);
+    return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : entity;
+  });
+}
+
 /** Plain text with `\n` as breaks and web addresses as links. */
 function plainInlines(value: string, inLink: boolean): Inline[] {
   return value
@@ -63,10 +74,10 @@ function inlines(tokens: Token[] | undefined, inLink = false): Inline[] {
         if (token.tokens?.length) {
           flush();
           out.push(...inlines(token.tokens, inLink));
-        } else pending += token.text;
+        } else pending += decodeEntities(token.text);
         break;
       case "escape":
-        pending += token.text;
+        pending += token.raw.slice(1);
         break;
       case "br":
         flush();
@@ -77,12 +88,14 @@ function inlines(tokens: Token[] | undefined, inLink = false): Inline[] {
         flush();
         out.push({ kind: token.type, children: inlines(token.tokens, inLink) });
         break;
-      case "link":
+      case "link": {
         flush();
-        if (!inLink && isLinkUrl(token.href)) {
-          out.push({ kind: "link", href: token.href, children: inlines(token.tokens, true) });
+        const href = decodeEntities(token.href);
+        if (!inLink && isLinkUrl(href)) {
+          out.push({ kind: "link", href, children: inlines(token.tokens, true) });
         } else out.push(...inlines(token.tokens, inLink));
         break;
+      }
       default:
         pending += token.raw;
     }
@@ -105,7 +118,10 @@ function blocks(tokens: Token[]): Block[] {
         out.push({ kind: "paragraph", children: inlines(token.tokens) });
         break;
       case "text":
-        out.push({ kind: "paragraph", children: token.tokens ? inlines(token.tokens) : plainInlines(token.text, false) });
+        out.push({
+          kind: "paragraph",
+          children: token.tokens ? inlines(token.tokens) : plainInlines(decodeEntities(token.text), false),
+        });
         break;
       case "heading":
         if (token.depth === 1 || token.depth === 2) {
@@ -132,8 +148,31 @@ function blocks(tokens: Token[]): Block[] {
   return out.filter((block) => block.kind !== "paragraph" || block.children.length > 0);
 }
 
+/**
+ * False for Markdown that nests lists or quotes too deep for the parser (it runs out of stack).
+ * The Event and Submission forms refuse it.
+ */
+export function descriptionParses(markdown: string): boolean {
+  try {
+    blocks(lex(markdown));
+    return true;
+  } catch (error) {
+    if (error instanceof RangeError) return false;
+    throw error;
+  }
+}
+
 export function descriptionBlocks(markdown: string): Block[] {
-  return blocks(lex(markdown));
+  try {
+    return blocks(lex(markdown));
+  } catch (error) {
+    if (!(error instanceof RangeError)) throw error;
+    return markdown
+      .replace(/\r\n?/g, "\n")
+      .split(/\n{2,}/)
+      .map((part): Block => literal(part))
+      .filter((block) => block.kind !== "paragraph" || block.children.length > 0);
+  }
 }
 
 function inlineText(nodes: Inline[]): string {

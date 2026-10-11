@@ -257,6 +257,15 @@ describe("Series content, split, and Override input", () => {
   });
 });
 
+describe("description input", () => {
+  it("refuses Markdown that nests too deep to show", () => {
+    expect(errorsOf(parseSeriesContentInput(values({ description: `${"- ".repeat(1875)}x` }), editor))).toEqual({
+      description: "Use fewer lists or quotes inside each other.",
+    });
+    expect(parseSeriesContentInput(values({ description: "- a\n  - b" }), editor).ok).toBe(true);
+  });
+});
+
 describe("Custom Preview input", () => {
   it("is trimmed, empty is null, and more than 300 characters is an error", () => {
     const ok = parseSeriesContentInput(values({ preview: "  Social pace, lights.  " }), editor);
