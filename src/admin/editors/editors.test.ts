@@ -10,6 +10,7 @@ import {
   listEditorsForAdmin,
   reactivateEditor,
   renameEditor,
+  saveEditor,
 } from "./editors";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -310,6 +311,160 @@ describe("Editor management", () => {
       expect(
         await renameEditor(db, x.id, { editorId: "00000000-0000-4000-8000-000000000000", name: "A" }),
       ).toMatchObject({ reason: "not-found" });
+    });
+  });
+
+  describe("saveEditor (name and role in one transaction)", () => {
+    it("name only", async () => {
+      const x = await person("x@example.org", "admin");
+      const e = await person("e@example.org", "editor", { name: "Old" });
+      const result = await saveEditor(db, x.id, { editorId: e.id, name: " New ", nameWas: "Old" });
+      expect(result).toMatchObject({ ok: true, value: { nameChanged: true, roleChanged: false } });
+      expect(await reload(e.id)).toMatchObject({ name: "New", role: "editor" });
+    });
+
+    it("role only: the name is not written", async () => {
+      const x = await person("x@example.org", "admin");
+      const e = await person("e@example.org", "editor", { name: "Old" });
+      const result = await saveEditor(db, x.id, {
+        editorId: e.id,
+        name: "Old",
+        nameWas: "Old",
+        role: "admin",
+        roleWas: "editor",
+      });
+      expect(result).toMatchObject({ ok: true, value: { nameChanged: false, roleChanged: true } });
+      expect(await reload(e.id)).toMatchObject({ name: "Old", role: "admin" });
+    });
+
+    it("both", async () => {
+      const x = await person("x@example.org", "admin");
+      const e = await person("e@example.org", "editor", { name: "Old" });
+      const result = await saveEditor(db, x.id, {
+        editorId: e.id,
+        name: "New",
+        nameWas: "Old",
+        role: "admin",
+        roleWas: "editor",
+      });
+      expect(result).toMatchObject({ ok: true, value: { nameChanged: true, roleChanged: true } });
+      expect(await reload(e.id)).toMatchObject({ name: "New", role: "admin" });
+    });
+
+    it("nothing changed: ok, no write", async () => {
+      const x = await person("x@example.org", "admin");
+      const e = await person("e@example.org", "editor", { name: "Old" });
+      const result = await saveEditor(db, x.id, { editorId: e.id, name: "Old", nameWas: "Old", role: "editor", roleWas: "editor" });
+      expect(result).toMatchObject({ ok: true, value: { nameChanged: false, roleChanged: false } });
+    });
+
+    it("a stale roleWas is refused and nothing is written (another Admin changed the role)", async () => {
+      const x = await person("x@example.org", "admin");
+      const e = await person("e@example.org", "admin", { name: "Old" }); // was "editor" on the old page
+      const result = await saveEditor(db, x.id, {
+        editorId: e.id,
+        name: "New",
+        nameWas: "Old",
+        role: "editor",
+        roleWas: "editor",
+      });
+      // The posted role equals roleWas, so the role is not written; the name is.
+      expect(result).toMatchObject({ ok: true, value: { nameChanged: true, roleChanged: false } });
+      expect(await reload(e.id)).toMatchObject({ name: "New", role: "admin" });
+
+      const stale = await saveEditor(db, x.id, {
+        editorId: e.id,
+        name: "New",
+        nameWas: "New",
+        role: "admin",
+        roleWas: "editor",
+      });
+      expect(stale).toMatchObject({ ok: false, reason: "stale" });
+      expect(await reload(e.id)).toMatchObject({ name: "New", role: "admin" });
+    });
+
+    it("a stale nameWas is refused and the role is not written either", async () => {
+      const x = await person("x@example.org", "admin");
+      const e = await person("e@example.org", "editor", { name: "Renamed Since" });
+      const result = await saveEditor(db, x.id, {
+        editorId: e.id,
+        name: "Mine",
+        nameWas: "Old",
+        role: "admin",
+        roleWas: "editor",
+      });
+      expect(result).toMatchObject({ ok: false, reason: "stale" });
+      expect(await reload(e.id)).toMatchObject({ name: "Renamed Since", role: "editor" });
+    });
+
+    it("a role-only save keeps a name that changed since the page loaded", async () => {
+      const x = await person("x@example.org", "admin");
+      const e = await person("e@example.org", "editor", { name: "Renamed Since" });
+      const result = await saveEditor(db, x.id, {
+        editorId: e.id,
+        name: "Old",
+        nameWas: "Old",
+        role: "admin",
+        roleWas: "editor",
+      });
+      expect(result).toMatchObject({ ok: true, value: { nameChanged: false, roleChanged: true } });
+      expect(await reload(e.id)).toMatchObject({ name: "Renamed Since", role: "admin" });
+    });
+
+    it("a forged role on the Admin's own page is refused with self, and the name is not written", async () => {
+      const x = await person("x@example.org", "admin", { name: "Old" });
+      await person("y@example.org", "admin");
+      const result = await saveEditor(db, x.id, {
+        editorId: x.id,
+        name: "New",
+        nameWas: "Old",
+        role: "editor",
+        roleWas: "admin",
+      });
+      expect(result).toMatchObject({ ok: false, reason: "self" });
+      expect(await reload(x.id)).toMatchObject({ name: "Old", role: "admin" });
+    });
+
+    it("a refused role also stops the name change (all or nothing)", async () => {
+      // The last-Admin rule cannot fire through a real actor (an active Admin counts as one of two),
+      // so use another role refusal: a deactivated target cannot change role.
+      const x = await person("x@example.org", "admin");
+      const e = await person("e@example.org", "editor", { name: "Old", deactivatedAt: new Date() });
+      const result = await saveEditor(db, x.id, {
+        editorId: e.id,
+        name: "New",
+        nameWas: "Old",
+        role: "admin",
+        roleWas: "editor",
+      });
+      expect(result).toMatchObject({ ok: false, reason: "deactivated" });
+      expect(await reload(e.id)).toMatchObject({ name: "Old", role: "editor" });
+    });
+
+    it("an Editor (not Admin) is refused when the form has a role, and nothing is written", async () => {
+      const e = await person("e@example.org", "editor", { name: "Old" });
+      const result = await saveEditor(db, e.id, {
+        editorId: e.id,
+        name: "New",
+        nameWas: "Old",
+        role: "admin",
+        roleWas: "editor",
+      });
+      expect(result).toMatchObject({ ok: false, reason: "not-admin" });
+      expect(await reload(e.id)).toMatchObject({ name: "Old", role: "editor" });
+    });
+
+    it("an invalid name or role writes nothing", async () => {
+      const x = await person("x@example.org", "admin");
+      const e = await person("e@example.org", "editor", { name: "Old" });
+      expect(await saveEditor(db, x.id, { editorId: e.id, name: "", nameWas: "Old" })).toMatchObject({
+        ok: false,
+        reason: "invalid",
+      });
+      expect(
+        await saveEditor(db, x.id, { editorId: e.id, name: "New", nameWas: "Old", role: "boss", roleWas: "editor" }),
+      ).toMatchObject({ ok: false, reason: "invalid" });
+      expect(await reload(e.id)).toMatchObject({ name: "Old", role: "editor" });
     });
   });
 

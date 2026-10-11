@@ -12,7 +12,14 @@ import { alias } from "drizzle-orm/pg-core";
 import { authSessions, authVerificationTokens, editors, type Editor, type EditorRole } from "@/db/schema";
 import type { Db } from "@/db/types";
 import { parseEditorName } from "@/auth/rules";
-import { checkDeactivate, checkReactivate, checkRename, checkRoleChange, type EditorRefusal } from "./rules";
+import {
+  checkDeactivate,
+  checkReactivate,
+  checkRename,
+  checkRoleChange,
+  parseRole,
+  type EditorRefusal,
+} from "./rules";
 
 export type EditorResult<T> = { ok: true; value: T } | ({ ok: false } & EditorRefusal);
 
@@ -32,17 +39,27 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
-/** Takes the lock, then reads the actor, the target, and the active Admin count. */
+/** Takes the lock, then reads the actor and the target. */
 async function lockAndRead(tx: Tx, actorId: string, editorId: string) {
   await tx.execute(sql`select pg_advisory_xact_lock(${sql.raw(String(EDITOR_WRITES_LOCK))})`);
   const [actor] = await tx.select().from(editors).where(eq(editors.id, actorId));
   const [target] = await tx.select().from(editors).where(eq(editors.id, editorId));
+  return { actor, target };
+}
+
+/** Call after `lockAndRead`, only for the rules that need it. */
+async function countActiveAdmins(tx: Tx): Promise<number> {
   const [{ activeAdmins }] = await tx
     .select({ activeAdmins: count() })
     .from(editors)
     .where(and(eq(editors.role, "admin"), isNull(editors.deactivatedAt)));
-  return { actor, target, activeAdmins };
+  return activeAdmins;
 }
+
+const STALE: EditorRefusal = {
+  reason: "stale",
+  error: "Another Admin changed this Editor. Reload the page.",
+};
 
 const refused = (refusal: EditorRefusal) => ({ ok: false, ...refusal }) as const;
 
@@ -53,9 +70,10 @@ export async function changeEditorRole(
 ): Promise<EditorResult<Editor>> {
   if (!UUID.test(input.editorId) || !UUID.test(actorId)) return NOT_FOUND;
   return db.transaction(async (tx) => {
-    const { actor, target, activeAdmins } = await lockAndRead(tx, actorId, input.editorId);
+    const { actor, target } = await lockAndRead(tx, actorId, input.editorId);
     if (!actor) return refused({ reason: "not-admin", error: "Only an active Admin can manage Editors." });
     if (!target) return NOT_FOUND;
+    const activeAdmins = await countActiveAdmins(tx);
     const refusal = checkRoleChange({ actor, target, role: input.role, activeAdmins });
     if (refusal) return refused(refusal);
     if (target.role === input.role) return { ok: true, value: target } as const;
@@ -93,6 +111,65 @@ export async function renameEditor(
   });
 }
 
+export interface SaveEditorInput {
+  editorId: string;
+  /** The posted name, and the name the form showed (what the page loaded with; "" for none). */
+  name: unknown;
+  nameWas: string;
+  /** The posted role and the role the form showed. Both are absent when the form has no Role. */
+  role?: unknown;
+  roleWas?: unknown;
+}
+
+/**
+ * The edit page's Save: name and role in one lock and one transaction, all or nothing. A field is
+ * written only when the posted value differs from its `*Was` value (what the form showed). And then
+ * the stored value must still be the `*Was` value: if not, another Admin (or the person) changed it
+ * since the page loaded, and the whole save is refused, so a stale form never undoes a change.
+ */
+export async function saveEditor(
+  db: Db,
+  actorId: string,
+  input: SaveEditorInput,
+): Promise<EditorResult<{ editor: Editor; nameChanged: boolean; roleChanged: boolean }>> {
+  if (!UUID.test(input.editorId) || !UUID.test(actorId)) return NOT_FOUND;
+  const name = parseEditorName(input.name);
+  if (!name.ok) return refused({ reason: "invalid", error: name.error });
+  const hasRole = input.role !== undefined;
+  const role = hasRole ? parseRole(input.role) : null;
+  const roleWas = hasRole ? parseRole(input.roleWas) : null;
+  if (hasRole && (!role || !roleWas)) return refused({ reason: "invalid", error: "Select a role: Admin or Editor." });
+
+  return db.transaction(async (tx) => {
+    const { actor, target } = await lockAndRead(tx, actorId, input.editorId);
+    if (!actor) return refused({ reason: "not-allowed", error: "You cannot change names." });
+    if (!target) return NOT_FOUND;
+
+    const nameChanged = name.value !== input.nameWas;
+    const roleChanged = role !== null && role !== roleWas;
+    if (nameChanged && (target.name ?? "") !== input.nameWas) return refused(STALE);
+    if (roleChanged && target.role !== roleWas) return refused(STALE);
+
+    // Every check runs before the first write.
+    if (nameChanged) {
+      const refusal = checkRename({ actor, target });
+      if (refusal) return refused(refusal);
+    }
+    if (roleChanged) {
+      const refusal = checkRoleChange({ actor, target, role, activeAdmins: await countActiveAdmins(tx) });
+      if (refusal) return refused(refusal);
+    }
+    if (!nameChanged && !roleChanged) return { ok: true, value: { editor: target, nameChanged, roleChanged } } as const;
+
+    const [updated] = await tx
+      .update(editors)
+      .set({ ...(nameChanged && { name: name.value }), ...(roleChanged && { role }) })
+      .where(eq(editors.id, target.id))
+      .returning();
+    return { ok: true, value: { editor: updated, nameChanged, roleChanged } } as const;
+  });
+}
+
 /**
  * Deactivates an Editor: sets `deactivated_at/by`, deletes their sessions (access stops at once),
  * and deletes their unused magic links. The row stays, so audit trails keep the name.
@@ -104,9 +181,10 @@ export async function deactivateEditor(
 ): Promise<EditorResult<Editor>> {
   if (!UUID.test(input.editorId) || !UUID.test(actorId)) return NOT_FOUND;
   return db.transaction(async (tx) => {
-    const { actor, target, activeAdmins } = await lockAndRead(tx, actorId, input.editorId);
+    const { actor, target } = await lockAndRead(tx, actorId, input.editorId);
     if (!actor) return refused({ reason: "not-admin", error: "Only an active Admin can manage Editors." });
     if (!target) return NOT_FOUND;
+    const activeAdmins = await countActiveAdmins(tx);
     const refusal = checkDeactivate({ actor, target, activeAdmins });
     if (refusal) return refused(refusal);
 

@@ -10,6 +10,7 @@ export type EditorFacts = Pick<Editor, "id" | "role" | "deactivatedAt">;
 export type EditorRefusalReason =
   | "not-admin"
   | "not-allowed"
+  | "stale"
   | "self"
   | "last-admin"
   | "deactivated"

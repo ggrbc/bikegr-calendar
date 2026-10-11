@@ -110,9 +110,47 @@ describe("parseEditorName", () => {
     expect(parseEditorName("a".repeat(101))).toMatchObject({ ok: false });
   });
 
-  it("refuses control characters and invisible format characters", () => {
-    for (const bad of ["Sam\u0000", "Sam\nRider", "Sam\u200bRider", "\u202eSam", "Sam\ufeffRider"]) {
+  it("counts code points, not UTF-16 units, against the limit", () => {
+    expect(parseEditorName("\u{1F600}".repeat(100))).toMatchObject({ ok: true });
+    expect(parseEditorName("\u{1F600}".repeat(101))).toMatchObject({ ok: false });
+  });
+
+  it("refuses control characters", () => {
+    for (const bad of ["Sam\u0000", "Sam\nRider", "Sam\tRider", "Sam\u007f"]) {
       expect(parseEditorName(bad), JSON.stringify(bad)).toMatchObject({ ok: false });
+    }
+  });
+
+  it("refuses invisible format characters", () => {
+    // Zero-width space, word joiner, BOM inside the text, soft hyphen.
+    for (const bad of ["Sam\u200bRider", "Sam\u2060Rider", "Sam\ufeffRider", "Ann\u00adMarie"]) {
+      expect(parseEditorName(bad), JSON.stringify(bad)).toMatchObject({ ok: false });
+    }
+  });
+
+  it("refuses bidi controls", () => {
+    const bidi = ["\u200e", "\u200f", "\u202a", "\u202b", "\u202c", "\u202d", "\u202e"];
+    bidi.push("\u2066", "\u2067", "\u2068", "\u2069", "\u061c");
+    for (const mark of bidi) {
+      expect(parseEditorName(`Sam${mark}Rider`), JSON.stringify(mark)).toMatchObject({ ok: false });
+    }
+  });
+
+  it("refuses line and paragraph separators and a lone surrogate", () => {
+    for (const bad of ["Sam\u2028Rider", "Sam\u2029Rider", "Sam\ud800"]) {
+      expect(parseEditorName(bad), JSON.stringify(bad)).toMatchObject({ ok: false });
+    }
+  });
+
+  it("allows ZWNJ and ZWJ, which Persian, Indic, and emoji names use", () => {
+    const good = ["\u0645\u0647\u0631\u200c\u0646\u0648\u0634", "Sam \u{1F468}\u200d\u{1F469}\u200d\u{1F467}"];
+    for (const name of good) expect(parseEditorName(name), JSON.stringify(name)).toMatchObject({ ok: true });
+  });
+
+  it("refuses a name with no visible character", () => {
+    const blanks = ["\u3164", "\u2800", "\u115f", "\u1160", "\uffa0", "\u00a0", "\u3000", " \u3164\u2800 ", "\u200c\u200d"];
+    for (const blank of blanks) {
+      expect(parseEditorName(blank), JSON.stringify(blank)).toMatchObject({ ok: false, error: "Enter a name." });
     }
   });
 

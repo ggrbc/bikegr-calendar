@@ -25,7 +25,7 @@ export function canInvite(editor: Pick<Editor, "role" | "deactivatedAt">): boole
 export interface InviteInput {
   email: string;
   role: EditorRole;
-  name: string | null;
+  name: string;
 }
 
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -48,17 +48,25 @@ export function isValidEmail(email: string): boolean {
 /** The longest Editor name. */
 export const MAX_NAME_LENGTH = 100;
 
-// Control characters (`\p{Cc}`, for example NUL) and invisible format characters (`\p{Cf}`, for
-// example a zero-width space or an RTL override) would let a name look like another name.
-const BAD_NAME_CHARACTER = /[\p{Cc}\p{Cf}]/u;
+// Refused inside a name, because they can make one name look like another or like no name:
+// - control characters `\p{Cc}`, line and paragraph separators `\p{Zl}` `\p{Zp}`, lone surrogates;
+// - invisible format characters `\p{Cf}` (zero-width space, word joiner, BOM, soft hyphen, and the
+//   bidi controls U+200E, U+200F, U+202A-202E, U+2066-2069, U+061C), except U+200C (ZWNJ) and
+//   U+200D (ZWJ): Persian, Indic, and emoji names need them.
+const BAD_NAME_CHARACTER = /[\p{Cc}\p{Zl}\p{Zp}\p{Cs}]|(?![‌‍])\p{Cf}/u;
+
+// Characters that show nothing: whitespace, other separators, ZWNJ, ZWJ, the Hangul fillers
+// (U+115F, U+1160, U+3164, U+FFA0), and the blank braille pattern (U+2800).
+const BLANK_NAME_CHARACTER = /[\s\p{Z}‌‍ᅟᅠㅤﾠ⠀]/gu;
 
 /**
- * An Editor's name: trimmed, 1 to 100 characters, no control or invisible format characters. The
- * name is required (an email can have nothing to do with the person's name).
+ * An Editor's name: trimmed, 1 to 100 characters (code points), at least one visible character, and
+ * no control or invisible format characters. The name is required (an email can have nothing to do
+ * with the person's name).
  */
 export function parseEditorName(raw: unknown): ParseResult<string> {
   const name = typeof raw === "string" ? raw.trim() : "";
-  if (name === "") return { ok: false, error: "Enter a name." };
+  if (name.replace(BLANK_NAME_CHARACTER, "") === "") return { ok: false, error: "Enter a name." };
   if ([...name].length > MAX_NAME_LENGTH) {
     return { ok: false, error: `Use ${MAX_NAME_LENGTH} characters or fewer for the name.` };
   }
