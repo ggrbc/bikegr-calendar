@@ -7,6 +7,7 @@ import { eventRowToRuleInput, overrideRowToInput, ruleInputToColumns } from "@/d
 import { events, type EventRow, overrides, type OverrideRow } from "@/db/schema";
 import type { Db } from "@/db/types";
 import { contentColumns } from "./create-event";
+import { copyGrants } from "./managers";
 import type { SplitDraft } from "./event-input";
 import type { LocalDate } from "@/engine";
 import { boundsFromChain, loadChainMembers, spanOf } from "./chain";
@@ -163,6 +164,7 @@ export async function splitSeries(
       predecessorId: row.id,
       removedOverrides: plan.removedOverrides,
     });
+    await copyGrants(tx, row.id, created.id, actor);
     return { kind: "split" as const, id: created.id };
   });
 }
