@@ -199,6 +199,25 @@ Test first, at each item. Vitest with PGlite for the data and rule code. Playwri
 - The history label of a manager's change is the Editor label plus the actor's name, for example
   "Changed one date (Oct 14)". The actor's role is not in the label.
 
+## Build notes (where the build differs from the plan above)
+
+- Migration: `drizzle/0003_event-managers.sql`. `ADD VALUE` runs in the same migration (the value is
+  not used in it), and the migration works on PGlite and on Docker Postgres.
+- The links in Occurrence details reuse `descriptionParagraphs` (src/agenda/description-text.ts) and
+  a new `ParagraphText` component, also used for the Event description. No second link parser.
+- `requireSignedIn` has the admin shell and the account page; the sign-out action is open to every
+  role. `roleChoices()` (src/admin/editors/rules.ts) builds the role selects.
+- "Show more" opens one card: `?more=<eventId>`. The list starts today; a date that started up to
+  7 days ago can still be opened by its link and edited, and a closed date shows read-only.
+- The window check uses the original start of the Occurrence.
+- A new person gets the plain invite email (the magic link); the plan's extra sentence about the
+  Event was dropped. The Managers form asks for the name for every add; the server needs it only
+  for a new person.
+- The Managers section lists the status "Invited", "Active", or "Deactivated" for each manager.
+- `ManagesList` is on the Editor detail page for an Event manager (src/app/admin/editors/[editorId]).
+- Tests: `src/auth/access.test.ts` (every page and action refuses a manager), the manager write, the
+  grants, the split, My Events data, history labels, emails, and `e2e/event-managers.spec.ts`.
+
 ## Decisions (answered by Jeremy)
 
 1. **Roles.** A. "Event manager" is not in the role select or the Admin invite form. People become
