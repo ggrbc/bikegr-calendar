@@ -2,12 +2,14 @@
  * The public Submission form: its values and their parser. The admin parser (`parseEventInput`)
  * checks the Event fields, so a Submission follows the same rules as an Editor's Event. This
  * wrapper adds the Submitter fields, the public length limits, the date limits, and the simple
- * repeat ("Repeats weekly on [days] until [date]"). The Submitter cannot send any other rule. Pure.
+ * repeats ("Repeats weekly on [days] until [date]" or "Repeats every full moon until [date]"). The
+ * Submitter cannot send any other rule. Pure.
  */
+import { shortDate } from "@/agenda/dates";
 import { type EventDraft, type FieldErrors, type Parsed, parseEventInput } from "@/admin/events/event-input";
 import { WEEKDAYS } from "@/admin/events/rule-form";
 import { isValidEmail, normalizeEmail } from "@/auth/rules";
-import { type CalendarSlug, dayOfWeek, isLocalDate, type LocalDate } from "@/engine";
+import { addDays, type CalendarSlug, dayOfWeek, fullMoonDates, isLocalDate, type LocalDate } from "@/engine";
 
 export interface SubmissionValues {
   calendar: string;
@@ -23,7 +25,9 @@ export interface SubmissionValues {
   start: string;
   end: string;
   repeats: boolean;
-  /** `MO` … `SU`. */
+  /** `weekly` or `fullMoon`. Anything else is `weekly`. */
+  repeatKind: string;
+  /** `MO` … `SU`. Only for `weekly`. */
   repeatDays: string[];
   /** `YYYY-MM-DD`. */
   repeatUntil: string;
@@ -89,6 +93,11 @@ function strings(raw: Raw, key: string): string[] {
 
 const WEEKDAY_SET = new Set<string>(WEEKDAYS);
 
+/** The first full-moon date on or after `date`. */
+export function nextFullMoon(date: LocalDate): LocalDate {
+  return fullMoonDates(date, addDays(date, 31))[0];
+}
+
 /** Rule error keys of the admin parser, as the fields of the public form. */
 const RULE_KEYS: Record<string, string> = { days: "repeatDays", ruleEnd: "repeatUntil", rule: "repeatUntil" };
 
@@ -100,6 +109,7 @@ export function parseSubmissionInput(input: unknown, { today }: { today: LocalDa
   const raw = asRecord(input);
   const errors: FieldErrors = {};
   const repeats = raw.repeats === true;
+  const fullMoon = text(raw, "repeatKind") === "fullMoon";
   const start = text(raw, "start");
   const startDate = start.slice(0, 10);
 
@@ -107,21 +117,27 @@ export function parseSubmissionInput(input: unknown, { today }: { today: LocalDa
   const repeatUntil = text(raw, "repeatUntil");
   let rule: unknown = { mode: "none" };
   if (repeats) {
-    if (!repeatDays.every((d) => WEEKDAY_SET.has(d))) errors.repeatDays = "Pick days from the list.";
-    // The typed first date must be a date of the Event: a Tuesday start with only Monday picked
-    // would quietly move the Event to the next Monday.
-    else if (repeatDays.length > 0 && isLocalDate(startDate)) {
-      const startDay = WEEKDAYS[(dayOfWeek(startDate) + 6) % 7];
-      if (!repeatDays.includes(startDay)) errors.repeatDays = "The first date must be on one of the days you picked.";
+    const end = { kind: "until", date: repeatUntil };
+    if (fullMoon) {
+      // Like the weekly days: a start that is not a full moon would quietly move to the next one.
+      if (isLocalDate(startDate) && fullMoonDates(startDate, startDate).length === 0) {
+        errors.start = `The first date must be a full moon, such as ${shortDate(nextFullMoon(startDate))}.`;
+      }
+      rule = { mode: "form", form: { repeat: "fullMoon", end } };
+    } else {
+      if (!repeatDays.every((d) => WEEKDAY_SET.has(d))) errors.repeatDays = "Pick days from the list.";
+      // The typed first date must be a date of the Event: a Tuesday start with only Monday picked
+      // would quietly move the Event to the next Monday.
+      else if (repeatDays.length > 0 && isLocalDate(startDate)) {
+        const startDay = WEEKDAYS[(dayOfWeek(startDate) + 6) % 7];
+        if (!repeatDays.includes(startDay)) errors.repeatDays = "The first date must be on one of the days you picked.";
+      }
+      rule = { mode: "form", form: { repeat: "weekly", interval: 1, days: repeatDays, months: [], end } };
     }
     if (!isLocalDate(repeatUntil)) errors.repeatUntil = "Give the date of the last ride or meeting.";
     else if (isLocalDate(startDate) && repeatUntil > addMonths(startDate, LIMITS.repeatMonths)) {
       errors.repeatUntil = `The repeat can end at most ${LIMITS.repeatMonths} months after the start.`;
     }
-    rule = {
-      mode: "form",
-      form: { repeat: "weekly", interval: 1, days: repeatDays, months: [], end: { kind: "until", date: repeatUntil } },
-    };
   }
 
   // Only the fields of the public form go to the admin parser: never a rule, an image URL, or a

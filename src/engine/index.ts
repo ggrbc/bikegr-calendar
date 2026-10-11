@@ -1,6 +1,7 @@
 export * from "./types";
 export { expandOccurrences } from "./expand-occurrences";
-export { InvalidRuleError, isRuleStart, ruleStartsBetween } from "./expand-rule";
+export { FULL_MOON_FREQ, InvalidRuleError, isFullMoonRule, isRuleStart, ruleStartsBetween } from "./expand-rule";
+export { fullMoonDates } from "./full-moon";
 export {
   checkLocalDate,
   checkTiming,

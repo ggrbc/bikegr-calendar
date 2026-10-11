@@ -57,6 +57,7 @@ describe("Review queue and review writes", () => {
       start: "2026-10-13T18:00",
       end: "2026-10-13T20:00",
       repeats: true,
+      repeatKind: "weekly",
       repeatDays: ["TU"],
       repeatUntil: "2026-12-29",
       submitterName: "Sam Rider",

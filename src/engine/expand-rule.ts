@@ -15,11 +15,18 @@
  * behavior).
  *
  * `EXDATE`s are not applied here; `expand-occurrences.ts` applies them.
+ *
+ * One rule is the app's own, not RFC 5545: `FREQ=X-FULLMOON`, with only `UNTIL` or `COUNT`. It
+ * repeats the time slot on the Detroit date of each full moon (`full-moon.ts`). It never leaves the
+ * app: the Feeds write each Occurrence as its own `VEVENT`.
  */
 import { RRule, type Options } from "rrule";
+import { fullMoonDates } from "./full-moon";
 import type { OriginalStart, Timing } from "./types";
 import { timingStart } from "./timing";
 import { fromFloating, fromFloatingDate, toFloating, utcToWallClock } from "./wall-clock";
+
+export const FULL_MOON_FREQ = "X-FULLMOON";
 
 export class InvalidRuleError extends Error {
   constructor(rrule: string, reason: string) {
@@ -70,16 +77,22 @@ const PART_CHECKS: Record<string, (value: string) => boolean> = {
   BYSETPOS: integerList(1, 366, true),
 };
 
+const FULL_MOON_PARTS = new Set(["FREQ", "UNTIL", "COUNT"]);
+
 /** Checks the rule and rewrites `UNTIL` as floating wall-clock time. */
 function normalizeRule(rrule: string): string {
   // One trailing ";" is allowed.
   const body = rrule.endsWith(";") ? rrule.slice(0, -1) : rrule;
   if (body.trim() === "") throw new InvalidRuleError(rrule, "the rule is empty");
+  const fullMoon = isFullMoonRule(body);
   const seen = new Set<string>();
   const values = new Map<string, string>();
   const parts = body.split(";").map((part) => {
     const [name, value, ...rest] = part.split("=");
-    const check = PART_CHECKS[name];
+    if (fullMoon && !FULL_MOON_PARTS.has(name)) {
+      throw new InvalidRuleError(rrule, `${FULL_MOON_FREQ} takes only UNTIL or COUNT`);
+    }
+    const check = fullMoon && name === "FREQ" ? (v: string) => v === FULL_MOON_FREQ : PART_CHECKS[name];
     if (!check) throw new InvalidRuleError(rrule, `unknown part "${name}"`);
     if (value === undefined || rest.length > 0 || !check(value)) {
       throw new InvalidRuleError(rrule, `bad value for ${name}`);
@@ -136,6 +149,51 @@ function format(timing: Timing, date: Date): OriginalStart {
   return timing.kind === "timed" ? fromFloating(date) : fromFloatingDate(date);
 }
 
+export function isFullMoonRule(rrule: string): boolean {
+  return rrule.split(";").includes(`FREQ=${FULL_MOON_FREQ}`);
+}
+
+const DAY_MS = 86_400_000;
+/** The longest lunation in days, so a `COUNT` walk never stops early. */
+const LUNATION_DAYS = 29.9;
+
+function fullMoonStartsBetween(
+  timing: Timing,
+  rrule: string,
+  from: OriginalStart,
+  to: OriginalStart,
+): OriginalStart[] {
+  const parts = new Map(normalizeRule(rrule).split(";").map((part) => part.split("=") as [string, string]));
+  const first = timingStart(timing);
+  const firstDate = first.slice(0, 10);
+  const time = timing.kind === "timed" ? first.slice(10) : "";
+  const fromMs = toFloating(from).getTime();
+  let lastMs = toFloating(to).getTime();
+  const until = parts.get("UNTIL");
+  if (until) {
+    const [, y, mo, d, h, mi, s] = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})$/.exec(until)!;
+    lastMs = Math.min(lastMs, Date.UTC(+y, +mo - 1, +d, +h, +mi, +s));
+  }
+  const count = parts.has("COUNT") ? Number(parts.get("COUNT")) : null;
+  if (count !== null) {
+    // The last day the walk needs; the COUNT itself is applied below.
+    const days = Math.ceil(count * LUNATION_DAYS) + 2;
+    lastMs = Math.min(lastMs, toFloating(firstDate).getTime() + days * DAY_MS);
+  }
+  if (lastMs < fromMs) return [];
+
+  // Only a COUNT needs the walk from the first date.
+  const fromDate = fromFloatingDate(new Date(fromMs));
+  const walkFrom = count === null && fromDate > firstDate ? fromDate : firstDate;
+  const starts = fullMoonDates(walkFrom, fromFloatingDate(new Date(lastMs)))
+    .map((date) => `${date}${time}`)
+    .filter((start) => start >= first);
+  return (count === null ? starts : starts.slice(0, count)).filter((start) => {
+    const ms = toFloating(start).getTime();
+    return ms >= fromMs && ms <= lastMs;
+  });
+}
+
 /** Original starts that the rule makes from `from` to `to`, both included. */
 export function ruleStartsBetween(
   timing: Timing,
@@ -143,6 +201,7 @@ export function ruleStartsBetween(
   from: OriginalStart,
   to: OriginalStart,
 ): OriginalStart[] {
+  if (isFullMoonRule(rrule)) return fullMoonStartsBetween(timing, rrule, from, to);
   return buildRule(timing, rrule)
     .between(toFloating(from), toFloating(to), true)
     .map((date) => format(timing, date));
