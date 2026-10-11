@@ -14,7 +14,10 @@ const sin = (degrees: number) => Math.sin(degrees * RAD);
 /** Lunations per year (Meeus 49.2). */
 const LUNATIONS_PER_YEAR = 12.3685;
 
-/** TT − UT in seconds, Espenak and Meeus' fit for 2005–2050 (good enough for dates near it). */
+/**
+ * TT − UT in seconds: Espenak and Meeus' fit for 2005–2050, used for every year. Outside that
+ * range it drifts by minutes per century, so do not trust the instant to the minute there.
+ */
 function deltaTSeconds(year: number): number {
   const t = year - 2000;
   return 62.92 + 0.32217 * t + 0.005589 * t * t;

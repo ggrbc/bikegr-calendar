@@ -25,12 +25,12 @@ const MOON = "FREQ=X-FULLMOON";
 const ride9pm = timed("2026-10-26T21:00", "2026-10-26T23:00");
 
 describe("fullMoonInstant", () => {
-  it("is within 2 minutes of the USNO times", () => {
+  it("is within a minute of the USNO times", () => {
     // Full moon number 321.5 is the one of 2026-01-03.
     const k0 = 321.5;
     USNO_2026.forEach((expected, i) => {
       const off = Math.abs(fullMoonInstant(k0 + i).getTime() - new Date(expected).getTime());
-      expect(off).toBeLessThan(2 * 60_000);
+      expect(off).toBeLessThan(60_000);
     });
   });
 });

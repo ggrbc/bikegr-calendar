@@ -333,20 +333,20 @@ export function SubmissionForm({
                 ))}
               </div>
             </fieldset>
-            {repeatKind === "weekly" ? (
-              <fieldset aria-describedby={errors.repeatDays ? "repeat-days-error" : undefined}>
-                <legend className="mb-2">On these days</legend>
-                <div className="flex flex-wrap gap-4">
-                  {DAYS.map(([value, label]) => (
-                    <label key={value} className="flex items-center gap-2">
-                      <input type="checkbox" name={FIELDS.repeatDays} value={value} className="size-4 accent-brand-orange-text" />
-                      {label}
-                    </label>
-                  ))}
-                </div>
-                <FieldError id="repeat-days-error" message={errors.repeatDays} />
-              </fieldset>
-            ) : (
+            {/* Hidden, not unmounted, so the picked days stay after a switch to full moon and back. */}
+            <fieldset hidden={repeatKind !== "weekly"} aria-describedby={errors.repeatDays ? "repeat-days-error" : undefined}>
+              <legend className="mb-2">On these days</legend>
+              <div className="flex flex-wrap gap-4">
+                {DAYS.map(([value, label]) => (
+                  <label key={value} className="flex items-center gap-2">
+                    <input type="checkbox" name={FIELDS.repeatDays} value={value} className="size-4 accent-brand-orange-text" />
+                    {label}
+                  </label>
+                ))}
+              </div>
+              <FieldError id="repeat-days-error" message={errors.repeatDays} />
+            </fieldset>
+            {repeatKind === "fullMoon" && (
               <p className="text-[14px]">
                 On the date of each full moon in Grand Rapids. Start on a full moon:{" "}
                 {upcomingFullMoons(start.slice(0, 10) || today)}.

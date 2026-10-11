@@ -195,6 +195,9 @@ export function rruleToRuleForm(rrule: string): RuleForm | null {
   return sameRuleParts(ruleFormToRrule(form), rrule) ? form : null;
 }
 
+/** Each full-moon lookup walks from the first date when there is a COUNT. */
+export const FULL_MOON_MAX_COUNT = 200;
+
 const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
 /** Field messages for a form. Empty when the form is good. */
@@ -220,6 +223,8 @@ export function checkRuleForm(form: RuleForm, startDate: LocalDate): RuleFormErr
   }
   if (form.end.kind === "count" && !(Number.isInteger(form.end.count) && form.end.count >= 1)) {
     errors.end = "The number of dates must be 1 or more.";
+  } else if (form.repeat === "fullMoon" && form.end.kind === "count" && form.end.count > FULL_MOON_MAX_COUNT) {
+    errors.end = `A full-moon repeat can have at most ${FULL_MOON_MAX_COUNT} dates.`;
   }
   if (form.end.kind === "until" && !(form.end.date >= startDate)) {
     errors.end = "The end date must be on or after the start date.";

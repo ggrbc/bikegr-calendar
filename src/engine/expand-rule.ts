@@ -84,7 +84,7 @@ function normalizeRule(rrule: string): string {
   // One trailing ";" is allowed.
   const body = rrule.endsWith(";") ? rrule.slice(0, -1) : rrule;
   if (body.trim() === "") throw new InvalidRuleError(rrule, "the rule is empty");
-  const fullMoon = body.split(";").includes(`FREQ=${FULL_MOON_FREQ}`);
+  const fullMoon = isFullMoonRule(body);
   const seen = new Set<string>();
   const values = new Map<string, string>();
   const parts = body.split(";").map((part) => {
