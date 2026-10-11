@@ -17,6 +17,7 @@ import { googleCalendarUrl, outlookUrl } from "@/feeds/add-to-calendar";
 import { Badge } from "../../../_components/badge";
 import { ParagraphText } from "../../../_components/paragraph-text";
 import { pillButton } from "../../../_components/filter-form";
+import { RichText } from "../../../_components/rich-text";
 import { SiteHeader } from "../../../_components/site-header";
 
 /**
@@ -148,9 +149,9 @@ export default async function OccurrencePage({ params }: PageProps<"/events/[eve
                 </section>
               )}
 
-              <ParagraphText
-                text={row.description}
-                className="mt-8 space-y-4 text-[15.84px] font-light leading-[1.92]"
+              <RichText
+                markdown={row.description}
+                className="mt-8 space-y-4 text-[15.84px] font-light leading-[1.92] [overflow-wrap:anywhere]"
               />
 
               <p className="mt-8 border-l-4 border-brand-green pl-4 text-[15.84px] font-light leading-[1.92]">
