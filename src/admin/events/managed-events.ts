@@ -29,7 +29,7 @@ export interface ManagedEvent {
   /** The RRULE text, or null for a one-time Event. */
   rrule: string | null;
   dates: ManagedDate[];
-  /** True when `all` was false and more dates exist up to one year ahead. */
+  /** True when the card shows the first dates only and more exist up to one year ahead. */
   hasMore: boolean;
 }
 
@@ -37,7 +37,7 @@ export async function listManagedEvents(
   db: Db,
   editorId: string,
   today: LocalDate,
-  { all }: { all: boolean },
+  { expandId }: { expandId?: string } = {},
 ): Promise<ManagedEvent[]> {
   const rows = await db
     .select({ event: events })
@@ -58,6 +58,7 @@ export async function listManagedEvents(
   return rows.map(({ event }) => {
     const mine = overrideRows.filter((o) => o.eventId === event.id);
     const found = expandOccurrences(eventRowToRuleInput(event), mine.map(overrideRowToInput), window);
+    const all = event.id === expandId;
     const shown = all ? found : found.slice(0, MY_EVENTS_FIRST_PAGE);
     return {
       eventId: event.id,
@@ -74,4 +75,62 @@ export async function listManagedEvents(
       })),
     };
   });
+}
+
+export interface ManagedOccurrence {
+  eventId: string;
+  title: string;
+  originalStart: OriginalStart;
+  timing: Timing;
+  scheduleStatus: string;
+  scheduleNote: string;
+  occurrenceDetails: string;
+  editable: boolean;
+}
+
+/**
+ * One date of a managed Event for the date form, or null when the person has no grant, the Event
+ * is not approved or is deleted, or the date is not a date of the Event.
+ */
+export async function loadManagedOccurrence(
+  db: Db,
+  editorId: string,
+  eventId: string,
+  originalStart: OriginalStart,
+  today: LocalDate,
+): Promise<ManagedOccurrence | null> {
+  const [found] = await db
+    .select({ event: events })
+    .from(eventManagers)
+    .innerJoin(events, eq(events.id, eventManagers.eventId))
+    .where(
+      and(
+        eq(eventManagers.editorId, editorId),
+        eq(eventManagers.eventId, eventId),
+        eq(events.reviewStatus, "approved"),
+        isNull(events.deletedAt),
+      ),
+    );
+  if (!found) return null;
+  const date = originalStart.slice(0, 10);
+  const stored = await db
+    .select()
+    .from(overrides)
+    .where(and(eq(overrides.eventId, eventId), eq(overrides.originalStart, originalStart)));
+  const occurrence = expandOccurrences(eventRowToRuleInput(found.event), stored.map(overrideRowToInput), {
+    from: date,
+    to: addDays(date, 1),
+  }).find((o) => o.originalStart === originalStart);
+  if (!occurrence) return null;
+  return {
+    eventId,
+    title: occurrence.title ?? found.event.title,
+    originalStart,
+    timing: occurrence.timing,
+    // `rescheduled` is derived from a moved time; the form shows the stored status.
+    scheduleStatus: stored[0]?.scheduleStatus ?? found.event.scheduleStatus,
+    scheduleNote: occurrence.scheduleNote ?? "",
+    occurrenceDetails: occurrence.occurrenceDetails ?? "",
+    editable: isEditableDate(date, today),
+  };
 }

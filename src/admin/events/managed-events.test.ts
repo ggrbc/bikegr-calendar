@@ -32,7 +32,7 @@ describe("My Events", () => {
   afterEach(async () => close());
 
   it("one card per managed Event with the next 8 dates, from today", async () => {
-    const cards = await listManagedEvents(db, sam.id, TODAY, { all: false });
+    const cards = await listManagedEvents(db, sam.id, TODAY, {});
     expect(cards).toHaveLength(1);
     expect(cards[0]).toMatchObject({ eventId: id, title: "Tuesday Ride", rrule: "FREQ=WEEKLY;BYDAY=TU" });
     expect(cards[0].dates).toHaveLength(MY_EVENTS_FIRST_PAGE);
@@ -41,7 +41,7 @@ describe("My Events", () => {
   });
 
   it("Show more lists every date up to one year ahead", async () => {
-    const [card] = await listManagedEvents(db, sam.id, TODAY, { all: true });
+    const [card] = await listManagedEvents(db, sam.id, TODAY, { expandId: id });
     expect(card.dates.length).toBeGreaterThan(50);
     expect(card.dates.at(-1)!.originalStart <= "2027-10-20T23:59").toBe(true);
     expect(card.hasMore).toBe(false);
@@ -49,21 +49,21 @@ describe("My Events", () => {
 
   it("shows the status, note, and whether details are set", async () => {
     await saveManagerOccurrence(db, sam, { eventId: id, originalStart: "2026-10-27T18:00", scheduleStatus: "cancelled", scheduleNote: "Rain", occurrenceDetails: "Route" }, { today: TODAY });
-    const [card] = await listManagedEvents(db, sam.id, TODAY, { all: false });
+    const [card] = await listManagedEvents(db, sam.id, TODAY, {});
     expect(card.dates[1]).toMatchObject({ scheduleStatus: "cancelled", scheduleNote: "Rain", hasDetails: true });
   });
 
   it("hides a Deleted Event and shows it again after Restore; hides a pending Event", async () => {
     await db.update(events).set({ deletedAt: new Date() }).where(eq(events.id, id));
-    expect(await listManagedEvents(db, sam.id, TODAY, { all: false })).toEqual([]);
+    expect(await listManagedEvents(db, sam.id, TODAY, {})).toEqual([]);
     await db.update(events).set({ deletedAt: null }).where(eq(events.id, id));
-    expect(await listManagedEvents(db, sam.id, TODAY, { all: false })).toHaveLength(1);
+    expect(await listManagedEvents(db, sam.id, TODAY, {})).toHaveLength(1);
     await db.update(events).set({ reviewStatus: "pending" }).where(eq(events.id, id));
-    expect(await listManagedEvents(db, sam.id, TODAY, { all: false })).toEqual([]);
+    expect(await listManagedEvents(db, sam.id, TODAY, {})).toEqual([]);
   });
 
   it("a person with no grants gets an empty list", async () => {
     const other = await addEditor(db, "Lee");
-    expect(await listManagedEvents(db, other.id, TODAY, { all: false })).toEqual([]);
+    expect(await listManagedEvents(db, other.id, TODAY, {})).toEqual([]);
   });
 });
