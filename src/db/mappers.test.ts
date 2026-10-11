@@ -177,6 +177,7 @@ describe("overrideInputToRow", () => {
       location: null,
       scheduleStatus: null,
       scheduleNote: null,
+      occurrenceDetails: null,
     });
   });
 

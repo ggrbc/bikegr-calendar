@@ -51,12 +51,13 @@ function timeLines(row: AgendaRow): string[] {
   return lines;
 }
 
-/** Plain text: badge and Schedule note, the description, the CTA, and the detail page URL. */
+/** Plain text: badge and Schedule note, the Occurrence details, the description, the CTA, and the detail page URL. */
 export function occurrenceDetails(row: AgendaRow): string {
   const badge = badgeText(row);
   const status = [badge, row.scheduleNote].filter((part) => part).join(" — ");
   return [
     status,
+    row.occurrenceDetails?.trim() ?? "",
     row.description.trim(),
     row.cta ? `${row.cta.label}: ${row.cta.url}` : "",
     occurrenceUrl(row.eventId, row.originalStart),

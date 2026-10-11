@@ -52,6 +52,8 @@ export interface EventRuleInput {
   /** Schedule status of a one-time Event. A Series uses Overrides instead. */
   scheduleStatus: StoredScheduleStatus;
   scheduleNote: string | null;
+  /** Longer public text on the only Occurrence. A Series uses Overrides instead. */
+  occurrenceDetails?: string | null;
 }
 
 /** A stored change to one Occurrence. Fields that are absent do not change. */
@@ -64,6 +66,8 @@ export interface OverrideInput {
   location?: string;
   scheduleStatus?: StoredScheduleStatus;
   scheduleNote?: string | null;
+  /** Longer public text on this Occurrence. */
+  occurrenceDetails?: string;
 }
 
 /** Half-open date window `[from, to)` in {@link TIME_ZONE}. */
@@ -90,6 +94,8 @@ export interface Occurrence {
   /** Present only when an Override changes it for this Occurrence. */
   title?: string;
   location?: string;
+  /** Longer public text (route, conditions). Present only when set. */
+  occurrenceDetails?: string;
 }
 
 /** Expands one Event into its Occurrences for a window, sorted by actual start. */
