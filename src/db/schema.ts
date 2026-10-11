@@ -92,6 +92,8 @@ export const events = pgTable(
     calendar: calendarEnum("calendar").notNull(),
     title: text("title").notNull(),
     description: text("description").notNull().default(""),
+    /** Custom Preview: plain text for the agenda card and page metadata instead of the description start. */
+    preview: text("preview"),
     location: text("location"),
 
     // Timing: one of two shapes, chosen by `all_day` (CHECK below).
@@ -160,6 +162,7 @@ export const events = pgTable(
             else ${sql.raw(`'^(${RE_DATE_TIME}(,${RE_DATE_TIME})*)?$'`)} end)`,
     ),
     check("events_occurrence_details_length", sql`char_length(${t.occurrenceDetails}) <= 2000`),
+    check("events_preview_length", sql`char_length(${t.preview}) <= 300`),
     check("events_cta_pair", sql`(${t.ctaLabel} is null) = (${t.ctaUrl} is null)`),
     index("events_review_queue_idx")
       .on(t.createdAt)

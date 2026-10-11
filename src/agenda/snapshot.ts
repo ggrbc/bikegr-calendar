@@ -29,6 +29,7 @@ export interface SnapshotEvent {
   calendar: CalendarSlug;
   title: string;
   description: string;
+  preview: string | null;
   location: string | null;
   imageUrl: string | null;
   cta: { label: string; url: string } | null;
@@ -101,6 +102,7 @@ export async function snapshotEvents(
       calendar: event.calendar,
       title: event.title,
       description: event.description,
+      preview: event.preview,
       location: event.location,
       imageUrl: event.imageUrl,
       // Only an http(s) URL goes into an href; a data: or javascript: CTA is left out.

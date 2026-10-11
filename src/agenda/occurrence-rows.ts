@@ -24,6 +24,8 @@ export interface AgendaRow {
   /** The Override's title if it has one, else the Event's. */
   title: string;
   description: string;
+  /** Custom Preview: replaces the description excerpt on the card and in metadata. */
+  preview: string | null;
   location: string | null;
   imageUrl: string | null;
   /** Not retired, sorted by name. */
@@ -48,6 +50,7 @@ export function expandEvent(event: SnapshotEvent, window: QueryWindow): AgendaRo
       originalTiming: occurrence.originalTiming,
       title: occurrence.title ?? event.title,
       description: event.description,
+      preview: event.preview,
       location: occurrence.location ?? event.location,
       imageUrl: event.imageUrl,
       tags: event.tags,

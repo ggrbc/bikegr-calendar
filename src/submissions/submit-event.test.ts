@@ -17,6 +17,7 @@ function values(patch: Partial<SubmissionValues> = {}): SubmissionValues {
     calendar: "rides",
     title: "Tuesday Social Ride",
     description: "Meet at the shop.",
+    preview: "",
     location: "Riverside Park",
     tagIds: [],
     ctaLabel: "",

@@ -9,6 +9,7 @@ function values(patch: Partial<SubmissionValues> = {}): SubmissionValues {
     calendar: "rides",
     title: "Tuesday Social Ride",
     description: "Meet at the shop.",
+    preview: "",
     location: "Riverside Park",
     tagIds: [TAG],
     ctaLabel: "",
@@ -157,5 +158,13 @@ describe("parseSubmissionInput", () => {
 
   it("treats a non-object input as empty", () => {
     expect(parseSubmissionInput("junk", { today: TODAY }).ok).toBe(false);
+  });
+});
+
+describe("Submission Custom Preview", () => {
+  it("goes to the Event draft and has the 300 limit", () => {
+    const result = parse({ preview: " Easy pace. " });
+    expect(result.ok && result.value.event.preview).toBe("Easy pace.");
+    expect(errorsOf({ preview: "x".repeat(301) }).preview).toBe("Use 300 characters or fewer.");
   });
 });

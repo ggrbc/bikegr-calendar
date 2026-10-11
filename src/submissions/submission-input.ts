@@ -13,6 +13,7 @@ export interface SubmissionValues {
   calendar: string;
   title: string;
   description: string;
+  preview: string;
   location: string;
   tagIds: string[];
   ctaLabel: string;
@@ -130,6 +131,7 @@ export function parseSubmissionInput(input: unknown, { today }: { today: LocalDa
       calendar: text(raw, "calendar"),
       title: text(raw, "title"),
       description: typeof raw.description === "string" ? raw.description : "",
+      preview: text(raw, "preview"),
       location: text(raw, "location"),
       tagIds: strings(raw, "tagIds"),
       ctaLabel: text(raw, "ctaLabel"),

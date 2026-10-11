@@ -16,6 +16,13 @@ describe("create an Event", () => {
   });
   afterEach(async () => close());
 
+  it("stores the Custom Preview", async () => {
+    const result = await createEvent(db, editor, draft({ preview: "Social pace." }));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect((await eventRow(db, result.id)).preview).toBe("Social pace.");
+  });
+
   it("makes an approved Event with created_by, its Tags, version 1, and one create history row", async () => {
     const tag = await addTag(db, "rides", "non-drop");
     const result = await createEvent(db, editor, draft({ tagIds: [tag], cta: { label: "Register", url: "https://example.org" } }));

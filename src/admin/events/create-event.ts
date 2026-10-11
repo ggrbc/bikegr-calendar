@@ -11,6 +11,7 @@ export function contentColumns(draft: ContentDraft) {
     calendar: draft.calendar,
     title: draft.title,
     description: draft.description,
+    preview: draft.preview,
     location: draft.location,
     imageUrl: draft.imageUrl,
     ...ctaToColumns(draft.cta),
