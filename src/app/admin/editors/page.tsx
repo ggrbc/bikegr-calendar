@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { listEditorsForAdmin } from "@/admin/editors/editors";
-import { ROLE_LABELS } from "@/admin/editors/rules";
+import { ROLE_LABELS, roleChoices } from "@/admin/editors/rules";
 import { requireAdmin } from "@/auth/dal";
 import { getDb } from "@/db";
 import {
@@ -28,7 +28,7 @@ async function EditorList() {
   return (
     <>
       <Card title="Invite an Editor" titleId="invite-heading" className="mb-8">
-        <InviteForm roleLabels={ROLE_LABELS} />
+        <InviteForm roleLabels={roleChoices()} />
       </Card>
 
       <Card title="Editors" titleId="list-heading">

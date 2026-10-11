@@ -14,7 +14,7 @@ export interface EditFormProps {
   name: string;
   /** Present only when the Admin may change the role (an active Editor other than the Admin). */
   role?: EditorRole;
-  roleLabels: Record<EditorRole, string>;
+  roleLabels: Partial<Record<EditorRole, string>>;
 }
 
 /**

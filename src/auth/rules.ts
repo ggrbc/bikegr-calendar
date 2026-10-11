@@ -1,5 +1,5 @@
 /** Pure auth rules. No database, no Next.js, so they are easy to test. */
-import { EDITOR_ROLES, type Editor, type EditorRole } from "@/db/schema";
+import { INVITE_ROLES, type Editor, type EditorRole } from "@/db/schema";
 
 /**
  * NFKC first, so a look-alike character (for example a fullwidth `＠`) becomes plain ASCII before
@@ -88,7 +88,7 @@ export function parseInviteInput(raw: {
   if (!isValidEmail(email)) return { ok: false, error: "Enter a valid email address." };
 
   const role = raw.role;
-  if (typeof role !== "string" || !(EDITOR_ROLES as readonly string[]).includes(role)) {
+  if (typeof role !== "string" || !(INVITE_ROLES as readonly string[]).includes(role)) {
     return { ok: false, error: "Select a role: Admin or Editor." };
   }
 

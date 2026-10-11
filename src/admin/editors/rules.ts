@@ -30,7 +30,23 @@ const LAST_ADMIN: EditorRefusal = {
 };
 
 /** The display label of each role. A new role adds one entry here. */
-export const ROLE_LABELS: Record<EditorRole, string> = { admin: "Admin", editor: "Editor" };
+export const ROLE_LABELS: Record<EditorRole, string> = {
+  admin: "Admin",
+  editor: "Editor",
+  event_manager: "Event manager",
+};
+
+/**
+ * The roles a form offers. Nobody becomes an Event manager in a form (only a grant does it), so an
+ * Event manager's own select shows "Event manager" as the current value, with the two promotions.
+ */
+export function roleChoices(current?: EditorRole): Partial<Record<EditorRole, string>> {
+  const choices: Partial<Record<EditorRole, string>> = {};
+  if (current === "event_manager") choices.event_manager = ROLE_LABELS.event_manager;
+  choices.editor = ROLE_LABELS.editor;
+  choices.admin = ROLE_LABELS.admin;
+  return choices;
+}
 
 const isActiveAdmin = (editor: EditorFacts) => canInvite(editor);
 
@@ -50,6 +66,10 @@ export function checkRoleChange(facts: {
   if (actor.id === target.id) return { reason: "self", error: "You cannot change your own role." };
   if (target.deactivatedAt) {
     return { reason: "deactivated", error: "This Editor is deactivated. Reactivate them first." };
+  }
+  // A person becomes an Event manager only through a grant (src/admin/events/managers.ts).
+  if (role === "event_manager" && target.role !== "event_manager") {
+    return { reason: "not-allowed", error: "Add the person as a manager on the Event page." };
   }
   if (isActiveAdmin(target) && role !== "admin" && activeAdmins <= 1) return LAST_ADMIN;
   return null;

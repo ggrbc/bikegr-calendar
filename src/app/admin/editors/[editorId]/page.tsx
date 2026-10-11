@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { getEditorForAdmin } from "@/admin/editors/editors";
-import { ROLE_LABELS } from "@/admin/editors/rules";
+import { roleChoices } from "@/admin/editors/rules";
 import { requireAdmin } from "@/auth/dal";
 import { getDb } from "@/db";
 import { Card, linkClass, mutedClass, PageHeader } from "../../_components/ui";
@@ -32,7 +32,7 @@ async function EditorDetail({ params }: { params: Promise<{ editorId: string }> 
             editorId={editor.id}
             name={editor.name ?? ""}
             role={isMe || deactivated ? undefined : editor.role}
-            roleLabels={ROLE_LABELS}
+            roleLabels={roleChoices(editor.role)}
           />
           {deactivated && !isMe && <RoleNote>Reactivate this Editor to change the role.</RoleNote>}
         </Card>
