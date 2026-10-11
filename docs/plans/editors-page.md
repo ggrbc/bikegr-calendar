@@ -1,7 +1,7 @@
 # Plan — Editors list, Editor edit page, rename
 
 Stream: `editors-page`. Terms follow [CONTEXT.md](../../CONTEXT.md) (Editor, Admin). Branch
-`editors-page`, from `origin/main`. Jeremy approved the goal; the open decisions below wait for his answers.
+`editors-page`, from `origin/main`. **Approved by Jeremy, 2026-10-10**, with the decisions in "Decisions" below.
 
 ## Context
 
@@ -71,15 +71,26 @@ Stream: `editors-page`. Terms follow [CONTEXT.md](../../CONTEXT.md) (Editor, Adm
 - The invite form keeps its optional name; a name now has the 100-character limit.
 - Existing names that break the new rules are not migrated. They show as they are; a save checks them.
 
-## Open decisions
+## Decisions (Jeremy answered)
 
-1. **Can a person clear their own name?** (Empty saves as null; the header then shows the email.)
-   - A. Allow, as for the invite (name is optional). **Recommended:** matches today's data; one rule.
-   - B. Require a name on the account page and the edit page; only the invite may leave it empty.
-2. **One Save or two on the edit page when the role is not available (own page)?**
-   - A. One "Save" form; the Role is a read-only line with the reason ("You cannot change your own
-     role."). **Recommended:** simple, nothing to click that fails.
-   - B. A disabled select with the reason under it.
-3. **Does the Admin's own edit page differ from `/admin/account`?**
-   - A. Both work; the Admin's own edit page also shows Details. **Recommended:** no special redirect.
-   - B. The Admin's own "Edit" link goes to `/admin/account`.
+1. **The name is required (B).** On `/admin/account` and the edit page an empty name is refused
+   ("Enter a name."). His reason: "Some people's emails have nothing to do with their name."
+2. **The invite needs a name too.** `parseInviteInput` refuses an empty name; the invite field is
+   required. `parseEditorName` returns a `ParseResult` and has no null result. All current Editors
+   have names, so there is no data change.
+3. **Role on the Admin's own edit page (C):** no Role at all, and no Deactivate / Reactivate
+   section. Their own page has only the Details card and the Name form. (A deactivated Editor's page
+   also has no Role select, with a note to reactivate first.)
+4. **The Admin's own Edit link (A):** it goes to their own edit page, like every other row.
+
+Changes to the Approach above: the name is never null (`parseEditorName` refuses empty text);
+`checkRename` refuses with the new reason `not-allowed`; the edit page's Save writes the name first,
+then the role, and if the role fails the message says "The name is saved."; `revalidatePath("/admin",
+"layout")` clears the list, the edit pages, and the header.
+
+## For the `event-managers` stream
+
+The edit page is in small parts: `DetailsCard` (with `DetailRow`), `EditForm`, and `ActivationForm`
+under `src/app/admin/editors/[editorId]/`. A "Manages" card can go between Details and the form
+in `page.tsx`. `ROLE_LABELS` in `src/admin/editors/rules.ts` takes one new entry for
+`event_manager`; the list, the Details card, the role select, and the account page all read it.

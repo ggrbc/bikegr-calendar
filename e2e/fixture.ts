@@ -39,6 +39,21 @@ export const E2E_ADMIN = {
   sessionToken: "e2e-admin-session-token-not-a-secret",
 };
 
+/** An Editor that only the Editors spec changes (rename, role, deactivate), so other specs keep their names. */
+export const E2E_TARGET = {
+  id: "20000000-0000-4000-8000-000000000003",
+  email: "e2e.target@example.org",
+  name: "E2E Rename Target",
+};
+
+/** An Editor who renames themselves on /admin/account. Test-only values. */
+export const E2E_SELF = {
+  id: "20000000-0000-4000-8000-000000000004",
+  email: "e2e.self@example.org",
+  name: "E2E Self Rename",
+  sessionToken: "e2e-self-session-token-not-a-secret",
+};
+
 /** A fixed test-only `AUTH_SECRET` for the e2e web server (it also keys the rate-limit hashes). */
 export const E2E_AUTH_SECRET = "e2e-only-auth-secret-not-used-anywhere-else";
 

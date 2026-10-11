@@ -155,6 +155,15 @@ The admin offers three scopes when an Editor changes a Series. See
 - **First Admins:** jeremy@bikegr.org, bultentom@bikegr.org, nate@bikegr.org. They invite the
   Editors.
 - **Deactivate, never hard-delete** Editors, so audit trails keep their names.
+- **Names:** every Editor has a name; it is required (an email can have nothing to do with the
+  person's name). 1 to 100 characters, no control or invisible format characters. The invite needs
+  it. **Admins can rename any Editor** (also a deactivated one). **Every Editor can rename
+  themselves** on `/admin/account`; the name in the admin header links there. A rename has no
+  history entry.
+- **Editors pages:** `/admin/editors` lists Editor (name, email), Role, Status, and an Edit button.
+  `/admin/editors/[editorId]` (Admin only) shows the details (email, invited, first sign-in, last
+  active, deactivated), a Name and Role form, and Deactivate / Reactivate. On an Admin's own edit
+  page only Name works: no Role and no Deactivate (an Admin cannot change or deactivate themselves).
 - **Magic-link rate limit:** 20 link requests per hour per IP (an IPv6 address counts by its /64),
   and 5 per hour per active Editor's email. A limited request gets the same answer as a sent link,
   with no email, so the login page still does not show who is an Editor. Admin invites count too.
