@@ -59,6 +59,14 @@ describe("rule form to RRULE", () => {
     );
   });
 
+  it("every full moon writes FREQ=X-FULLMOON and reads back", () => {
+    const form: RuleForm = { repeat: "fullMoon", end: { kind: "count", count: 6 } };
+    expect(ruleFormToRrule(form)).toBe("FREQ=X-FULLMOON;COUNT=6");
+    expect(rruleToRuleForm("FREQ=X-FULLMOON;COUNT=6")).toEqual(form);
+    expect(rruleToRuleForm("FREQ=X-FULLMOON;BYDAY=TU")).toBeNull();
+    expect(describeRrule("FREQ=X-FULLMOON;UNTIL=20270430T235959")).toBe("Every full moon, until April 30, 2027");
+  });
+
   it("until a date writes UNTIL=<date>T235959; count writes COUNT=n", () => {
     expect(ruleFormToRrule(weekly({ end: { kind: "until", date: "2026-10-27" } }))).toBe(
       "FREQ=WEEKLY;BYDAY=TU;UNTIL=20261027T235959",

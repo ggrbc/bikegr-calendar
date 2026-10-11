@@ -10,6 +10,7 @@ describe("submissionFromFormData", () => {
     data.append("tagIds", "b");
     data.set("allDay", "on");
     data.set("repeats", "on");
+    data.set("repeatKind", "weekly");
     data.append("repeatDays", "TU");
     data.append("repeatDays", "TH");
     data.set("repeatUntil", "2026-12-31");
@@ -25,6 +26,7 @@ describe("submissionFromFormData", () => {
       tagIds: ["a", "b"],
       allDay: true,
       repeats: true,
+      repeatKind: "weekly",
       repeatDays: ["TU", "TH"],
       repeatUntil: "2026-12-31",
       submitterEmail: "sam@example.org",

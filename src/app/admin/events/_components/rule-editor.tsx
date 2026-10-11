@@ -34,6 +34,7 @@ const REPEAT_LABELS: Record<RepeatKind, string> = {
   monthlyWeekday: "Monthly, on a weekday (for example the 2nd Tuesday)",
   monthlyDay: "Monthly, on a day of the month",
   yearly: "Yearly, on a date",
+  fullMoon: "Every full moon",
   advanced: "Advanced: RRULE text (Admins)",
 };
 
@@ -60,6 +61,8 @@ function newForm(kind: RuleForm["repeat"], startDate: string, end: RuleEnd): Rul
       return { repeat: "monthlyDay", day, end };
     case "yearly":
       return { repeat: "yearly", month: Number(date.slice(5, 7)), day, end };
+    case "fullMoon":
+      return { repeat: "fullMoon", end };
   }
 }
 
@@ -102,6 +105,7 @@ export function RuleEditor({
     "monthlyWeekday",
     "monthlyDay",
     "yearly",
+    "fullMoon",
     ...(isAdmin ? (["advanced"] as const) : []),
   ];
   const readOnly = value.mode === "advanced" && !isAdmin;
@@ -297,6 +301,12 @@ function RuleFormFields({
             />
           </Field>
         </div>
+      )}
+      {form.repeat === "fullMoon" && (
+        <p className={hintClass}>
+          On the date of each full moon in Grand Rapids, at the same time. The first date moves to the
+          next full moon if the start date is not one.
+        </p>
       )}
       <EndFields end={form.end} onChange={(end) => onChange({ ...form, end })} error={errors.ruleEnd} />
     </div>

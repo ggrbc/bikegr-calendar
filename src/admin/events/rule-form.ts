@@ -5,7 +5,7 @@
  * A stored rule "fits" the form only if the form writes back the same parts and values (the order
  * of the items in `BYDAY` and `BYMONTH` may change). Other rules are Advanced (Admins only).
  */
-import type { LocalDate } from "@/engine";
+import { FULL_MOON_FREQ, type LocalDate } from "@/engine";
 
 export const WEEKDAYS = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
@@ -23,7 +23,8 @@ export type RuleForm =
   | { repeat: "weekly"; interval: number; days: Weekday[]; months: number[]; end: RuleEnd }
   | { repeat: "monthlyWeekday"; positions: MonthPosition[]; weekday: Weekday; end: RuleEnd }
   | { repeat: "monthlyDay"; day: number; end: RuleEnd }
-  | { repeat: "yearly"; month: number; day: number; end: RuleEnd };
+  | { repeat: "yearly"; month: number; day: number; end: RuleEnd }
+  | { repeat: "fullMoon"; end: RuleEnd };
 
 export type RuleFormErrors = Partial<Record<"days" | "interval" | "positions" | "day" | "end", string>>;
 
@@ -57,6 +58,9 @@ export function ruleFormToRrule(form: RuleForm): string {
       break;
     case "yearly":
       parts.push("FREQ=YEARLY", `BYMONTH=${form.month}`, `BYMONTHDAY=${form.day}`);
+      break;
+    case "fullMoon":
+      parts.push(`FREQ=${FULL_MOON_FREQ}`);
       break;
   }
   if (form.end.kind === "until") parts.push(`UNTIL=${form.end.date.replace(/-/g, "")}T235959`);
@@ -173,6 +177,11 @@ function parseForm(parts: Map<string, string>): RuleForm | null {
     const days = intList(parts.get("BYMONTHDAY"), 1, 31);
     if (!months || !days || months.length !== 1 || days.length !== 1) return null;
     return { repeat: "yearly", month: months[0], day: days[0], end };
+  }
+
+  if (freq === FULL_MOON_FREQ) {
+    if (!only(parts, ["FREQ", ...END_PARTS])) return null;
+    return { repeat: "fullMoon", end };
   }
   return null;
 }

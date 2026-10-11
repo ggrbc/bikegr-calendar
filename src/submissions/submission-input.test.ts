@@ -18,6 +18,7 @@ function values(patch: Partial<SubmissionValues> = {}): SubmissionValues {
     start: "2026-10-13T18:00",
     end: "2026-10-13T20:00",
     repeats: false,
+    repeatKind: "weekly",
     repeatDays: [],
     repeatUntil: "",
     submitterName: "Sam Rider",
@@ -97,6 +98,21 @@ describe("parseSubmissionInput", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.event.rule.timing).toEqual({ kind: "timed", start: "2026-10-13T18:00", end: "2026-10-13T20:00" });
+  });
+
+  it("every full moon until a date stores FREQ=X-FULLMOON;UNTIL=<date>T235959 and ignores days", () => {
+    const moon = { start: "2026-10-26T21:00", end: "2026-10-26T23:00", repeats: true, repeatKind: "fullMoon" };
+    const result = parse({ ...moon, repeatDays: ["XX"], repeatUntil: "2027-04-30" });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.event.rule.rrule).toBe("FREQ=X-FULLMOON;UNTIL=20270430T235959");
+    expect(result.value.event.rule.timing).toEqual({ kind: "timed", start: "2026-10-26T21:00", end: "2026-10-26T23:00" });
+  });
+
+  it("a full-moon repeat that does not start on a full moon is refused and names the next one", () => {
+    expect(errorsOf({ repeats: true, repeatKind: "fullMoon", repeatUntil: "2026-12-31" }).start).toBe(
+      "The first date must be a full moon, such as Mon, Oct 26.",
+    );
   });
 
   it("an all-day Submission is accepted", () => {

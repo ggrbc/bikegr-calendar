@@ -320,6 +320,8 @@ function parseRuleForm(value: unknown): RuleForm | null {
       return { repeat: "monthlyDay", day: numberValue(raw.day), end };
     case "yearly":
       return { repeat: "yearly", month: numberValue(raw.month), day: numberValue(raw.day), end };
+    case "fullMoon":
+      return { repeat: "fullMoon", end };
     default:
       return null;
   }

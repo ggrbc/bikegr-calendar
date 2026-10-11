@@ -76,6 +76,9 @@ export function describeRule(form: RuleForm): string {
     case "yearly":
       text = `Every year on ${MONTH_NAMES[form.month - 1]} ${form.day}`;
       break;
+    case "fullMoon":
+      text = "Every full moon";
+      break;
   }
   return text + endText(form.end);
 }

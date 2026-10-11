@@ -4,15 +4,16 @@
  * The public Submission form, in the bikegr.org look. It posts FormData (the image file goes with
  * it) to `submitEventAction`. The submit handler stops the browser's own submit, so a refused send
  * keeps every value on screen. The Submitter never sees the words "Series" or "rule": the repeat is
- * "Repeats every week on [days] until [date]".
+ * "Repeats every week on [days] until [date]" or "Repeats every full moon until [date]".
  */
 import { type FormEvent, type ReactNode, startTransition, useActionState, useCallback, useId, useState } from "react";
 import { PREVIEW_MAX } from "@/admin/events/event-input";
 import { ACCEPT, MAX_SELECT_BYTES, MAX_UPLOAD_BYTES } from "@/admin/images/limits";
 import { ShrinkFailed, shrinkForUpload } from "@/admin/images/shrink-in-browser";
 import type { PickerTag } from "@/admin/tags/tags";
+import { shortDate } from "@/agenda/dates";
 import { CALENDAR_NAMES } from "@/agenda/site";
-import { addMinutes, type CalendarSlug, isLocalDateTime } from "@/engine";
+import { addDays, addMinutes, type CalendarSlug, fullMoonDates, isLocalDate, isLocalDateTime } from "@/engine";
 import { FIELDS } from "@/submissions/form-data";
 import { HONEYPOT_LABEL } from "@/submissions/spam-rules";
 import { LIMITS } from "@/submissions/submission-input";
@@ -37,6 +38,14 @@ const DAYS = [
 ] as const;
 
 const IDLE: SubmitState = { status: "idle" };
+
+/** "Mon, Oct 26; Tue, Nov 24; or Wed, Dec 23": the next three full moons on or after `from`. */
+function upcomingFullMoons(from: string): string {
+  const date = isLocalDate(from) ? from : "";
+  if (!date) return "";
+  const dates = fullMoonDates(date, addDays(date, 100)).slice(0, 3).map(shortDate);
+  return `${dates.slice(0, -1).join("; ")}; or ${dates[dates.length - 1]}`;
+}
 
 function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) return null;
@@ -141,6 +150,7 @@ export function SubmissionForm({
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [repeats, setRepeats] = useState(false);
+  const [repeatKind, setRepeatKind] = useState<"weekly" | "fullMoon">("weekly");
   const [token, setToken] = useState<string | null>(null);
   const [clientError, setClientError] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
@@ -296,22 +306,52 @@ export function SubmissionForm({
             onChange={(e) => setRepeats(e.target.checked)}
             className="size-4 accent-brand-orange-text"
           />
-          Repeats every week
+          Repeats
         </label>
         {repeats && (
           <div className="flex flex-col gap-5 border-l-2 border-brand-divider pl-5">
-            <fieldset aria-describedby={errors.repeatDays ? "repeat-days-error" : undefined}>
-              <legend className="mb-2">On these days</legend>
-              <div className="flex flex-wrap gap-4">
-                {DAYS.map(([value, label]) => (
+            <fieldset>
+              <legend className="mb-2">How often</legend>
+              <div className="flex flex-wrap gap-6">
+                {(
+                  [
+                    ["weekly", "Every week"],
+                    ["fullMoon", "Every full moon"],
+                  ] as const
+                ).map(([value, label]) => (
                   <label key={value} className="flex items-center gap-2">
-                    <input type="checkbox" name={FIELDS.repeatDays} value={value} className="size-4 accent-brand-orange-text" />
+                    <input
+                      type="radio"
+                      name={FIELDS.repeatKind}
+                      value={value}
+                      checked={repeatKind === value}
+                      onChange={() => setRepeatKind(value)}
+                      className="size-4 accent-brand-orange-text"
+                    />
                     {label}
                   </label>
                 ))}
               </div>
-              <FieldError id="repeat-days-error" message={errors.repeatDays} />
             </fieldset>
+            {repeatKind === "weekly" ? (
+              <fieldset aria-describedby={errors.repeatDays ? "repeat-days-error" : undefined}>
+                <legend className="mb-2">On these days</legend>
+                <div className="flex flex-wrap gap-4">
+                  {DAYS.map(([value, label]) => (
+                    <label key={value} className="flex items-center gap-2">
+                      <input type="checkbox" name={FIELDS.repeatDays} value={value} className="size-4 accent-brand-orange-text" />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <FieldError id="repeat-days-error" message={errors.repeatDays} />
+              </fieldset>
+            ) : (
+              <p className="text-[14px]">
+                On the date of each full moon in Grand Rapids. Start on a full moon:{" "}
+                {upcomingFullMoons(start.slice(0, 10) || today)}.
+              </p>
+            )}
             <Field
               name="repeat-until"
               label="Until (the date of the last one)"

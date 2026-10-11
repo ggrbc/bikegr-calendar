@@ -25,7 +25,7 @@ async function fillRide(page: Page, title: string) {
   await page.getByLabel("Description").fill("A social ride. Lights after dark.");
   await page.getByLabel("Location").fill("Riverside Park");
   await page.getByLabel("Starts (required)").fill(`${tuesday}T18:00`);
-  await page.getByLabel("Repeats every week").check();
+  await page.getByLabel("Repeats", { exact: true }).check();
   await page.getByRole("checkbox", { name: "Tue", exact: true }).check();
   await page.getByLabel("Until (the date of the last one)").fill(until);
   await page.getByLabel("Your name (required)").fill("Sam Rider");
@@ -182,7 +182,7 @@ test("screenshots of /submit and /admin/review at 1280 and 375 px", async ({ pag
   for (const width of [1280, 375]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/submit?calendar=rides");
-    await page.getByLabel("Repeats every week").check();
+    await page.getByLabel("Repeats", { exact: true }).check();
     await page.screenshot({ path: `${dir}/submit-${width}.png`, fullPage: true });
     await page.goto("/admin/review");
     // The queue streams in after the shell; wait for it and the nav.
