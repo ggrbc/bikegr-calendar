@@ -6,6 +6,7 @@
  * no local-time repeats are needed, and UTC works the same in every client.
  */
 import { badgeText } from "@/agenda/agenda-days";
+import { descriptionText } from "@/agenda/description-markdown";
 import type { AgendaRow } from "@/agenda/occurrence-rows";
 import { occurrenceUrl } from "@/agenda/occurrence-url";
 import { UID_DOMAIN } from "@/agenda/site";
@@ -58,7 +59,7 @@ export function occurrenceDetails(row: AgendaRow): string {
   return [
     status,
     row.occurrenceDetails?.trim() ?? "",
-    row.description.trim(),
+    descriptionText(row.description),
     row.cta ? `${row.cta.label}: ${row.cta.url}` : "",
     occurrenceUrl(row.eventId, row.originalStart),
   ]

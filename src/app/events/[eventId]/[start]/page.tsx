@@ -6,7 +6,7 @@ import { cache } from "react";
 import { badgeText } from "@/agenda/agenda-days";
 import { dateLine, normalizeLocation } from "@/agenda/card-text";
 import { dayHeading, shortDate } from "@/agenda/dates";
-import { excerpt } from "@/agenda/description-text";
+import { listingText } from "@/agenda/listing-text";
 import { findOccurrence } from "@/agenda/find-occurrence";
 import { eventJsonLd, jsonLdText } from "@/agenda/json-ld";
 import { occurrenceIcsPath, occurrenceUrl } from "@/agenda/occurrence-url";
@@ -45,7 +45,7 @@ export async function generateMetadata({ params }: PageProps<"/events/[eventId]/
   const { row } = result;
   const date = dayHeading(timingStart(row.timing).slice(0, 10));
   const url = occurrenceUrl(row.eventId, row.originalStart);
-  const description = excerpt(row.description) || `${row.title} on ${date}`;
+  const description = listingText(row, 160) || `${row.title} on ${date}`;
   return {
     title: `${row.title} — ${date} — Bike GR Calendar`,
     description,
