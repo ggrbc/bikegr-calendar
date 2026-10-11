@@ -109,6 +109,8 @@ function buildOccurrence(
   };
   if (change?.title !== undefined) occurrence.title = change.title;
   if (change?.location !== undefined) occurrence.location = change.location;
+  const details = change?.occurrenceDetails ?? event.occurrenceDetails;
+  if (details) occurrence.occurrenceDetails = details;
   return occurrence;
 }
 

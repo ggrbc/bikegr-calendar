@@ -123,6 +123,7 @@ describe("ruleInputToColumns", () => {
       exdates: ["2026-05-12T18:00"],
       scheduleStatus: "scheduled",
       scheduleNote: null,
+      occurrenceDetails: null,
     });
   });
 
@@ -177,6 +178,7 @@ describe("overrideInputToRow", () => {
       location: null,
       scheduleStatus: null,
       scheduleNote: null,
+      occurrenceDetails: null,
     });
   });
 

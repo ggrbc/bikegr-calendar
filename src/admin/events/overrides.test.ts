@@ -17,6 +17,7 @@ function same(originalStart = "2026-10-20T18:00", patch: Partial<OverrideDraft> 
     location: "Shop",
     scheduleStatus: "scheduled",
     scheduleNote: null,
+    occurrenceDetails: null,
     ...patch,
   };
 }

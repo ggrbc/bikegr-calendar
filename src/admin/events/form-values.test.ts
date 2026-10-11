@@ -25,6 +25,7 @@ const row: FormRow = {
   exdates: ["2026-10-20T18:00"],
   scheduleStatus: "scheduled",
   scheduleNote: null,
+  occurrenceDetails: null,
 };
 
 describe("form values", () => {

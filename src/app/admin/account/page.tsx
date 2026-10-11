@@ -1,11 +1,11 @@
 import { Suspense } from "react";
 import { ROLE_LABELS } from "@/admin/editors/rules";
-import { requireEditor } from "@/auth/dal";
+import { requireSignedIn } from "@/auth/dal";
 import { Card, mutedClass, PageHeader } from "../_components/ui";
 import { AccountForm } from "./account-form";
 
 async function Account() {
-  const me = await requireEditor();
+  const me = await requireSignedIn();
   return (
     <div className="flex flex-col gap-6">
       <Card title="Details" titleId="account-heading">

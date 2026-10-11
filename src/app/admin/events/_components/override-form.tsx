@@ -1,12 +1,14 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState } from "react";
 import type { FieldErrors, OverrideFormValues } from "@/admin/events/event-input";
 import { clearOverrideAction, saveOverrideAction, type SaveState } from "../actions";
-import { ScheduleFields, TimingFields } from "./event-form";
+import { TimingFields } from "./event-form";
+import { ScheduleFields } from "./schedule-fields";
 import { buttonClass, hintClass, panelClass } from "../../_components/ui";
 import { Field, inputClass } from "./fields";
 import { errorsOf, IDLE, SaveStatus } from "./save-status";
+import { submitForm } from "./submit-form";
 
 export interface OverrideFormProps {
   id: string;
@@ -23,14 +25,14 @@ export function OverrideForm(props: OverrideFormProps) {
   const shown = clearState.status !== "idle" && state.status === "idle" ? clearState : state;
   return (
     <div className="flex flex-col gap-4">
-      <SaveStatus state={shown} />
+      <SaveStatus state={shown} pending={pending || clearing} />
       <OverrideBody
         key={props.version}
         {...props}
         errors={errorsOf(state)}
         pending={pending || clearing}
         submit={(values) => dispatch({ id: props.id, version: props.version, values })}
-        clear={() => clear({ id: props.id, version: props.version, originalStart: props.initial.originalStart })}
+        clear={() => startTransition(() => clear({ id: props.id, version: props.version, originalStart: props.initial.originalStart }))}
       />
     </div>
   );
@@ -53,7 +55,7 @@ function OverrideBody({
   const [values, setValues] = useState(initial);
   const set = (patch: Partial<OverrideFormValues>) => setValues((v) => ({ ...v, ...patch }));
   return (
-    <form action={() => submit(values)} className={`${panelClass} flex flex-col gap-6`}>
+    <form onSubmit={(event) => submitForm(event, () => submit(values))} className={`${panelClass} flex flex-col gap-6`}>
       <TimingFields
         values={{ allDay, start: values.start, end: values.end }}
         // The kind of time slot stays the Series' kind.
@@ -76,7 +78,13 @@ function OverrideBody({
           onChange={(e) => set({ location: e.target.value })}
         />
       </Field>
-      <ScheduleFields status={values.scheduleStatus} note={values.scheduleNote} onChange={set} errors={errors} />
+      <ScheduleFields
+        status={values.scheduleStatus}
+        note={values.scheduleNote}
+        details={values.occurrenceDetails}
+        onChange={set}
+        errors={errors}
+      />
       <p className={hintClass}>
         A new time shows as “Rescheduled” on the old and the new date. Fields that you do not change stay
         the same as the Series.

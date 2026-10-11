@@ -22,6 +22,7 @@ export type EventRuleColumns = Pick<
   EventRow,
   "id" | "allDay" | "rrule" | "exdates" | "scheduleStatus" | "scheduleNote"
 > &
+  Partial<Pick<EventRow, "occurrenceDetails">> &
   TimingColumns;
 
 export function eventRowToRuleInput(row: EventRuleColumns): EventRuleInput {
@@ -32,6 +33,7 @@ export function eventRowToRuleInput(row: EventRuleColumns): EventRuleInput {
     exdates: row.exdates,
     scheduleStatus: row.scheduleStatus,
     scheduleNote: row.scheduleNote,
+    ...(row.occurrenceDetails ? { occurrenceDetails: row.occurrenceDetails } : {}),
   };
 }
 
@@ -45,6 +47,7 @@ export type OverrideColumns = Pick<
   | "scheduleStatus"
   | "scheduleNote"
 > &
+  Partial<Pick<OverrideRow, "occurrenceDetails">> &
   TimingColumns;
 
 // ---------------------------------------------------------------------------------------------
@@ -79,6 +82,7 @@ export function ruleInputToColumns(rule: EventRuleInput): RuleColumns {
     exdates: rule.exdates,
     scheduleStatus: rule.scheduleStatus,
     scheduleNote: rule.scheduleNote,
+    occurrenceDetails: rule.occurrenceDetails ?? null,
   };
 }
 
@@ -105,6 +109,7 @@ export function overrideInputToRow(override: OverrideInput, eventId: string): Ov
     location: override.location ?? null,
     scheduleStatus: override.scheduleStatus ?? null,
     scheduleNote: override.scheduleNote ?? null,
+    occurrenceDetails: override.occurrenceDetails ?? null,
   };
 }
 
@@ -118,5 +123,6 @@ export function overrideRowToInput(row: OverrideColumns): OverrideInput {
   if (row.location !== null) input.location = row.location;
   if (row.scheduleStatus !== null) input.scheduleStatus = row.scheduleStatus;
   if (row.scheduleNote !== null) input.scheduleNote = row.scheduleNote;
+  if (row.occurrenceDetails) input.occurrenceDetails = row.occurrenceDetails;
   return input;
 }

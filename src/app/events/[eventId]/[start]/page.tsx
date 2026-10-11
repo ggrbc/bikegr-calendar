@@ -5,8 +5,8 @@ import { io } from "next/cache";
 import { cache } from "react";
 import { badgeText } from "@/agenda/agenda-days";
 import { dateLine, normalizeLocation } from "@/agenda/card-text";
-import { dayHeading } from "@/agenda/dates";
-import { descriptionParagraphs, excerpt } from "@/agenda/description-text";
+import { dayHeading, shortDate } from "@/agenda/dates";
+import { excerpt } from "@/agenda/description-text";
 import { findOccurrence } from "@/agenda/find-occurrence";
 import { eventJsonLd, jsonLdText } from "@/agenda/json-ld";
 import { occurrenceIcsPath, occurrenceUrl } from "@/agenda/occurrence-url";
@@ -15,6 +15,7 @@ import { getDb } from "@/db";
 import { timingStart } from "@/engine";
 import { googleCalendarUrl, outlookUrl } from "@/feeds/add-to-calendar";
 import { Badge } from "../../../_components/badge";
+import { ParagraphText } from "../../../_components/paragraph-text";
 import { pillButton } from "../../../_components/filter-form";
 import { SiteHeader } from "../../../_components/site-header";
 
@@ -132,31 +133,25 @@ export default async function OccurrencePage({ params }: PageProps<"/events/[eve
                 </p>
               )}
 
-              <div className="mt-8 space-y-4 text-[15.84px] font-light leading-[1.92]">
-                {descriptionParagraphs(row.description).map((lines, p) => (
-                  <p key={p}>
-                    {lines.map((parts, l) => (
-                      <span key={l}>
-                        {l > 0 && <br />}
-                        {parts.map((part, i) =>
-                          part.kind === "link" ? (
-                            <a
-                              key={i}
-                              href={part.href}
-                              className="break-all font-normal text-brand-orange-text underline underline-offset-4"
-                              rel="nofollow noopener noreferrer"
-                            >
-                              {part.text}
-                            </a>
-                          ) : (
-                            <span key={i}>{part.text}</span>
-                          ),
-                        )}
-                      </span>
-                    ))}
-                  </p>
-                ))}
-              </div>
+              {row.occurrenceDetails && (
+                <section
+                  aria-labelledby="occurrence-details"
+                  className="mt-8 rounded-[6px] border border-brand-divider bg-white p-5 [overflow-wrap:anywhere]"
+                >
+                  <h2 id="occurrence-details" className="font-chivo text-[19px] font-normal">
+                    For {shortDate(timingStart(row.timing).slice(0, 10))}
+                  </h2>
+                  <ParagraphText
+                    text={row.occurrenceDetails}
+                    className="mt-2 space-y-3 text-[15.84px] font-light leading-[1.8]"
+                  />
+                </section>
+              )}
+
+              <ParagraphText
+                text={row.description}
+                className="mt-8 space-y-4 text-[15.84px] font-light leading-[1.92]"
+              />
 
               <p className="mt-8 border-l-4 border-brand-green pl-4 text-[15.84px] font-light leading-[1.92]">
                 <strong className="font-semibold">Note:</strong> Plans can change! Please check with the

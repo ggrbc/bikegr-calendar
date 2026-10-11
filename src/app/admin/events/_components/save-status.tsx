@@ -4,7 +4,9 @@ import { buttonClass, noticeClass } from "../../_components/ui";
 import type { SaveState } from "../actions";
 
 /** The result of a save. A conflict keeps the input on screen and offers a reload. */
-export function SaveStatus({ state }: { state: SaveState }) {
+export function SaveStatus({ state, pending = false }: { state: SaveState; pending?: boolean }) {
+  // Hidden while a save runs, so the next result is a new element and a screen reader announces it.
+  if (pending) return null;
   switch (state.status) {
     case "idle":
       return null;

@@ -25,6 +25,7 @@ import { ContentFields, Field, inputClass } from "./fields";
 import { OccurrencePreview } from "./occurrence-preview";
 import { RuleEditor, SkippedDates } from "./rule-editor";
 import { errorsOf, IDLE, SaveStatus } from "./save-status";
+import { submitForm } from "./submit-form";
 
 type Scope = "all" | "later" | "one";
 
@@ -102,7 +103,7 @@ function AllDatesForm(props: SeriesEditorProps) {
   const [state, dispatch, pending] = useActionState<SaveState, unknown>(saveEventAction, IDLE);
   return (
     <div className="flex flex-col gap-4">
-      <SaveStatus state={state} />
+      <SaveStatus state={state} pending={pending} />
       <AllDatesBody
         key={props.version}
         {...props}
@@ -138,7 +139,7 @@ function AllDatesBody({
   }, [values.exdates, series, overrides, today]);
 
   return (
-    <form action={() => submit(values)} className="flex flex-col gap-6">
+    <form onSubmit={(event) => submitForm(event, () => submit(values))} className="flex flex-col gap-6">
       <p className={noticeClass("info")}>
         Repeat: {describeRrule(series.rrule)}, {timeText(series.timing)}. To change the time or the repeat, pick
         “This date and later”.
@@ -174,7 +175,7 @@ function SplitPanel(props: SeriesEditorProps) {
   const [state, dispatch, pending] = useActionState<SaveState, unknown>(splitSeriesAction, IDLE);
   return (
     <div className="flex flex-col gap-4">
-      <SaveStatus state={state} />
+      <SaveStatus state={state} pending={pending} />
       <SplitBody
         key={props.version}
         {...props}
@@ -311,7 +312,7 @@ function SplitBody({
   }, [plan, values.splitDate, today]);
 
   return (
-    <form action={() => submit(values)} className="flex flex-col gap-6">
+    <form onSubmit={(event) => submitForm(event, () => submit(values))} className="flex flex-col gap-6">
       <div className={`${panelClass} flex flex-col gap-6`}>
       <Field id="split-date" label="From this date" error={errors.splitDate}>
         <input

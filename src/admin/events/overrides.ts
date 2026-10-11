@@ -27,7 +27,7 @@ interface Target {
 }
 
 /** Checks that the Event is a Series that makes this original start; gives the original slot. */
-function checkOccurrence(row: EventRow, originalStart: OriginalStart) {
+export function checkOccurrence(row: EventRow, originalStart: OriginalStart) {
   const rule = eventRowToRuleInput(row);
   if (rule.rrule === null) throw invalid({}, "This Event does not repeat. Change it in the Event form.");
   const makes =
@@ -75,6 +75,7 @@ export async function saveOverride(
       location: changed(draft.location, row.location),
       scheduleStatus: draft.scheduleStatus === row.scheduleStatus ? null : draft.scheduleStatus,
       scheduleNote: changed(draft.scheduleNote, row.scheduleNote),
+      occurrenceDetails: draft.occurrenceDetails,
     };
     const empty = Object.values(values).every((v) => v === null);
     const existing = await findOverride(tx, row.id, draft.originalStart);

@@ -104,6 +104,6 @@ describe("Editor rules", () => {
   });
 
   it("every role has a label", () => {
-    expect(ROLE_LABELS).toEqual({ admin: "Admin", editor: "Editor" });
+    expect(ROLE_LABELS).toEqual({ admin: "Admin", editor: "Editor", event_manager: "Event manager" });
   });
 });

@@ -31,7 +31,9 @@ export const CALENDARS = ["rides", "advocacy"] as const;
 export const REVIEW_STATUSES = ["pending", "approved", "rejected"] as const;
 /** Stored Schedule status values. `rescheduled` is derived by the engine and never stored. */
 export const STORED_SCHEDULE_STATUSES = ["scheduled", "tentative", "cancelled", "postponed"] as const;
-export const EDITOR_ROLES = ["admin", "editor"] as const;
+export const EDITOR_ROLES = ["admin", "editor", "event_manager"] as const;
+/** The roles an Admin can invite or choose in a form. An `event_manager` comes only from a grant. */
+export const INVITE_ROLES = ["admin", "editor"] as const;
 
 export const calendarEnum = pgEnum("calendar", CALENDARS);
 export const reviewStatusEnum = pgEnum("review_status", REVIEW_STATUSES);
@@ -110,6 +112,8 @@ export const events = pgTable(
     /** Schedule status of a one-time Event. A Series uses Overrides instead. */
     scheduleStatus: scheduleStatusEnum("schedule_status").notNull().default("scheduled"),
     scheduleNote: text("schedule_note"),
+    /** Longer public text on a one-time Event's only Occurrence. A Series uses Overrides instead. */
+    occurrenceDetails: text("occurrence_details"),
 
     ctaLabel: text("cta_label"),
     ctaUrl: text("cta_url"),
@@ -155,6 +159,7 @@ export const events = pgTable(
             then ${sql.raw(`'^(${RE_DATE}(,${RE_DATE})*)?$'`)}
             else ${sql.raw(`'^(${RE_DATE_TIME}(,${RE_DATE_TIME})*)?$'`)} end)`,
     ),
+    check("events_occurrence_details_length", sql`char_length(${t.occurrenceDetails}) <= 2000`),
     check("events_cta_pair", sql`(${t.ctaLabel} is null) = (${t.ctaUrl} is null)`),
     index("events_review_queue_idx")
       .on(t.createdAt)
@@ -186,6 +191,7 @@ export const overrides = pgTable(
     location: text("location"),
     scheduleStatus: scheduleStatusEnum("schedule_status"),
     scheduleNote: text("schedule_note"),
+    occurrenceDetails: text("occurrence_details"),
 
     createdAt: createdAt(),
     createdBy: uuid("created_by").references(() => editors.id),
@@ -194,6 +200,7 @@ export const overrides = pgTable(
   },
   (t) => [
     primaryKey({ columns: [t.eventId, t.originalStart] }),
+    check("overrides_occurrence_details_length", sql`char_length(${t.occurrenceDetails}) <= 2000`),
     check(
       "overrides_original_start_format",
       sql`${t.originalStart} ~ ${sql.raw(`'^${RE_DATE}(T[0-9]{2}:[0-9]{2})?$'`)}`,
@@ -216,6 +223,25 @@ export const overrides = pgTable(
 );
 
 export type OverrideRow = typeof overrides.$inferSelect;
+
+// ---------------------------------------------------------------------------------------------
+// Event managers: a grant links an account (role `event_manager`) to an Event. The database cannot
+// check the role (a CHECK cannot read another table); src/admin/events/managers.ts does.
+
+export const eventManagers = pgTable(
+  "event_managers",
+  {
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    editorId: uuid("editor_id")
+      .notNull()
+      .references(() => editors.id, { onDelete: "cascade" }),
+    grantedBy: uuid("granted_by").references(() => editors.id),
+    grantedAt: instant("granted_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.eventId, t.editorId] }), index("event_managers_editor_idx").on(t.editorId)],
+);
 
 // ---------------------------------------------------------------------------------------------
 // Tags

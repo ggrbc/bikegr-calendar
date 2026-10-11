@@ -29,6 +29,8 @@ Tockify and are embedded in the Bike GR Squarespace site. One organization, two 
 | **Delete** | Remove a whole Event that should never have existed (duplicate, test, spam). It is hidden everywhere but kept for history; an Admin can restore it. Occurrences are cancelled, never deleted. |
 | **Editor** | An invited person who logs in and manages Events and the Review queue in both Calendars. |
 | **Admin** | An Editor who can also invite and deactivate Editors and change settings. |
+| **Event manager** | An invited person who can change the Occurrences of the Events that an Editor gave them: the Schedule status, the Schedule note, and the Occurrence details. Not an Editor. |
+| **Occurrence details** | Longer public text on one Occurrence (route, conditions, a map link). Shown on the detail page and in the Feed, not on the agenda card. |
 | **Embed** | One Calendar as shown inside a Squarespace page (an iframe placed by a script). |
 | **Feed** | A machine-readable export of approved Occurrences — ICS for calendar apps. |
 | **Call to action (CTA)** | An optional button on an Event with a label and a URL (e.g. "Register"). Tockify calls it a "promotion button". |
@@ -44,3 +46,4 @@ Tockify and are embedded in the Bike GR Squarespace site. One organization, two 
 - "Space", "tenant", or "sub-calendar" — say **Calendar**.
 - "Advocacy tag" — Advocacy is a **Calendar**, not a Tag.
 - Weekday Tags (Monday … Sunday) — use the **Day filter**.
+- "Ride leader" or "group leader" in code — say **Event manager**.

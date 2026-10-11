@@ -175,6 +175,61 @@ The admin offers three scopes when an Editor changes a Series. See
 - Later: "claimed by" marker on the Review queue; per-Calendar Editor access (one join table, default
   all Calendars).
 
+## Event managers
+
+Group leaders of a Series (for example the Wednesday Evening Ride) post the weekly route, the
+conditions, and weather cancellations. They are **Event managers**: not Editors. Decision record:
+[adr/0002-event-managers-share-the-editor-account-table.md](adr/0002-event-managers-share-the-editor-account-table.md).
+Plan: [plans/event-managers.md](plans/event-managers.md).
+
+- **What they can change.** Only the Occurrences of the Events that an Editor gave them: the Schedule
+  status (`scheduled`, `tentative`, `cancelled`, `postponed`; not `rescheduled`), the Schedule note,
+  and the **Occurrence details**. For a Series the write is an Override with these three fields only.
+  For a one-time Event it is the same three fields on the Event row. Never the title, time, rule,
+  Tags, image, CTA, location, Calendar, Series split, Review status, or Delete.
+- **Account.** A row in `editors` with role `event_manager`: the same invite, login, Deactivate, and
+  session revocation as an Editor. The table `event_managers` (event, person, granted by, granted
+  at) holds the grants. Grants are only for approved Events. A Deleted Event keeps its grants and
+  My Events hides it until a Restore.
+- **Who gives access.** Any Editor or Admin, in the "Managers" section of the Event edit page: an
+  email and a name. A new person gets the normal invite. A person with an Event manager account gets
+  the grant and a short email ("You can now manage …"). An Editor, an Admin, or a deactivated account
+  is refused. Each grant and each removal is in the Event history with the Editor's name. A Series
+  split copies every grant to the new Series (history entry); the manager keeps the old Series too.
+  "Event manager" is not in the role select or the invite form. An Admin can make an Event manager an
+  Editor or an Admin; the grants then stay with no effect.
+- **Access rules.** `requireEditor` and `requireAdmin` (src/auth/dal.ts) refuse an Event manager and
+  send them to My Events, so every Editor page and server action refuses them without a check of its
+  own. `src/auth/access.test.ts` lists every page and action from the file system and fails for a new
+  one without a guard. An Event manager reaches only My Events, the form of a date of a managed Event,
+  `/admin/account`, and Sign out.
+- **My Events** (`/admin/my-events`): one card per managed Event with the next 8 dates and a
+  "Show more" link (up to one year ahead). "Edit" opens a small form (Schedule status, Schedule note,
+  Occurrence details). A date that started more than 7 days ago is closed (read-only). With no grant:
+  "You manage no Events now."
+- **Writes.** `saveManagerOccurrence` (src/admin/events/manager-occurrence.ts) checks the grant, the
+  account, the Event, the date, and the window in one transaction, and updates only the three columns.
+  An Editor's time, title, or location on the same Override stay. "Scheduled" again clears only the
+  status; the Override row goes only when every field in it is empty. The change is public at once
+  (the public cache is invalidated) and goes into the Event history under the manager's name.
+- **Occurrence details.** Plain text, 2,000 characters at most (a database check). Paragraphs at blank
+  lines; `http` and `https` addresses become links (`rel="nofollow noopener noreferrer"`), rendered as
+  React elements, never HTML. Shown on the detail page in a box "For Wed, Oct 14" above the Event
+  description, and in the Feed (ICS `DESCRIPTION`) after the status line and before the Event
+  description. Not on the agenda card. Editors set them in the Override form and in the form of a
+  one-time Event.
+
+- **Rate limits.** The grant and the invite have no rate limit of their own: Editors are trusted, and
+  a new person gets the normal invite (the magic link limits in
+  [plans/magic-link-rate-limit.md](plans/magic-link-rate-limit.md) still apply to each sign-in).
+- **Migration note.** Migration 0003 adds the enum value `event_manager` (`ALTER TYPE … ADD VALUE`).
+  Postgres cannot use a new enum value in the transaction that adds it. A later migration that uses
+  `event_manager` (a column default, an insert) must not run in the same transaction as 0003 on a
+  fresh database; give it its own transaction. 0003 itself does not use the value.
+- **My Events dates.** A date is open while its actual start (after an Editor's reschedule) is no more
+  than 7 days in the past, and its original start is no more than one year ahead. The last 7 days
+  show as "Recent dates" above the next 8 dates and do not count in the 8.
+
 ## Public side
 
 - **Views:** agenda at cutover. Month grid and cards (Tockify's "pinboard") after cutover.

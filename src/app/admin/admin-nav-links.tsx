@@ -3,6 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
+import type { EditorRole } from "@/db/schema";
+
+/** An Event manager sees only these (the account page is also the name link in the header). */
+const MANAGER_LINKS = [
+  { href: "/admin/my-events", label: "My Events" },
+  { href: "/admin/account", label: "Account" },
+] as { href: string; label: string; count?: number }[];
 
 /**
  * The admin nav links. The link of the current section has `aria-current="page"` and an orange
@@ -27,7 +34,8 @@ function focusHeading(main: HTMLElement): boolean {
   return true;
 }
 
-export function AdminNavLinks({ isAdmin, waiting }: { isAdmin: boolean; waiting: number }) {
+export function AdminNavLinks({ role, waiting }: { role: EditorRole; waiting: number }) {
+  const isAdmin = role === "admin";
   const pathname = usePathname();
   const lastPath = useRef(pathname);
 
@@ -51,7 +59,7 @@ export function AdminNavLinks({ isAdmin, waiting }: { isAdmin: boolean; waiting:
     };
   }, [pathname]);
 
-  const links = [
+  const links = role === "event_manager" ? MANAGER_LINKS : [
     { href: "/admin/events", label: "Events" },
     { href: "/admin/review", label: "Review queue", count: waiting },
     { href: "/admin/tags", label: "Tags" },

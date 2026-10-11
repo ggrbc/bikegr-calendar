@@ -283,6 +283,7 @@ describe("Review queue and review writes", () => {
         location: null,
         scheduleStatus: "cancelled",
         scheduleNote: null,
+        occurrenceDetails: null,
       });
       expect(override).toMatchObject({ ok: false, reason: "invalid", message: expect.stringMatching(/Submission/) });
     });

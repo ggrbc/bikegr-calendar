@@ -31,6 +31,8 @@ export interface AgendaRow {
   cta: { label: string; url: string } | null;
   scheduleStatus: ScheduleStatus;
   scheduleNote: string | null;
+  /** Longer public text on this Occurrence. Absent when none. Not shown on the agenda card. */
+  occurrenceDetails?: string;
   /** ISO 8601 instant: the later of the Event's and its Override's `updated_at`. */
   lastModified: string;
 }
@@ -52,6 +54,7 @@ export function expandEvent(event: SnapshotEvent, window: QueryWindow): AgendaRo
       cta: event.cta,
       scheduleStatus: occurrence.scheduleStatus,
       scheduleNote: occurrence.scheduleNote,
+      ...(occurrence.occurrenceDetails ? { occurrenceDetails: occurrence.occurrenceDetails } : {}),
       lastModified:
         overrideUpdated && overrideUpdated > event.updatedAt ? overrideUpdated : event.updatedAt,
     };

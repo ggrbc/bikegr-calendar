@@ -90,6 +90,7 @@ async function OccurrencePage({ params, searchParams }: { params: Promise<{ id: 
     location: occurrence.location ?? row.location ?? "",
     scheduleStatus: stored?.scheduleStatus ?? row.scheduleStatus,
     scheduleNote: occurrence.scheduleNote ?? "",
+    occurrenceDetails: occurrence.occurrenceDetails ?? "",
   };
 
   return (

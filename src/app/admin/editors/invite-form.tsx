@@ -8,7 +8,7 @@ import { NameField } from "./name-field";
 
 const initial: InviteState = { result: "idle" };
 
-export function InviteForm({ roleLabels }: { roleLabels: Record<EditorRole, string> }) {
+export function InviteForm({ roleLabels }: { roleLabels: Partial<Record<EditorRole, string>> }) {
   const [state, action, pending] = useActionState(inviteEditorAction, initial);
   // After a refusal React 19 resets the form; a new key takes the posted values as the defaults.
   const values = state.result === "error" ? state.values : undefined;
