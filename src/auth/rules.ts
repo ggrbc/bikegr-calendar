@@ -45,6 +45,27 @@ export function isValidEmail(email: string): boolean {
   return EMAIL.test(email);
 }
 
+/** The longest Editor name. */
+export const MAX_NAME_LENGTH = 100;
+
+// Control characters (`\p{Cc}`, for example NUL) and invisible format characters (`\p{Cf}`, for
+// example a zero-width space or an RTL override) would let a name look like another name.
+const BAD_NAME_CHARACTER = /[\p{Cc}\p{Cf}]/u;
+
+/**
+ * An Editor's name: trimmed, 1 to 100 characters, no control or invisible format characters. The
+ * name is required (an email can have nothing to do with the person's name).
+ */
+export function parseEditorName(raw: unknown): ParseResult<string> {
+  const name = typeof raw === "string" ? raw.trim() : "";
+  if (name === "") return { ok: false, error: "Enter a name." };
+  if ([...name].length > MAX_NAME_LENGTH) {
+    return { ok: false, error: `Use ${MAX_NAME_LENGTH} characters or fewer for the name.` };
+  }
+  if (BAD_NAME_CHARACTER.test(name)) return { ok: false, error: "The name has a character that is not allowed." };
+  return { ok: true, value: name };
+}
+
 export function parseInviteInput(raw: {
   email: unknown;
   role: unknown;
@@ -58,6 +79,7 @@ export function parseInviteInput(raw: {
     return { ok: false, error: "Select a role: Admin or Editor." };
   }
 
-  const name = typeof raw.name === "string" && raw.name.trim() !== "" ? raw.name.trim() : null;
-  return { ok: true, value: { email, role: role as EditorRole, name } };
+  const name = parseEditorName(raw.name);
+  if (!name.ok) return name;
+  return { ok: true, value: { email, role: role as EditorRole, name: name.value } };
 }

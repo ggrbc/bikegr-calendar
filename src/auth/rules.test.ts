@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canInvite, canSignIn, isValidEmail, normalizeEmail, parseInviteInput } from "./rules";
+import { canInvite, canSignIn, isValidEmail, normalizeEmail, parseEditorName, parseInviteInput } from "./rules";
 
 describe("canSignIn", () => {
   it("invited active Editor may sign in", () => {
@@ -73,18 +73,52 @@ describe("parseInviteInput", () => {
     });
   });
 
-  it("a missing name becomes null", () => {
-    const result = parseInviteInput({ email: "a@b.org", role: "admin", name: "" });
-    expect(result).toEqual({ ok: true, value: { email: "a@b.org", role: "admin", name: null } });
+  it("a missing, empty, or blank name is refused", () => {
+    for (const name of [undefined, "", "   ", null]) {
+      expect(parseInviteInput({ email: "a@b.org", role: "admin", name }), String(name)).toMatchObject({ ok: false });
+    }
+  });
+
+  it("a name with a control character is refused", () => {
+    expect(parseInviteInput({ email: "a@b.org", role: "admin", name: "Sam\u0000" })).toMatchObject({ ok: false });
   });
 
   it("invite input rejects a bad email", () => {
-    expect(parseInviteInput({ email: "not-an-email", role: "editor" })).toMatchObject({ ok: false });
-    expect(parseInviteInput({ email: "a b@c.org", role: "editor" })).toMatchObject({ ok: false });
-    expect(parseInviteInput({ email: null, role: "editor" })).toMatchObject({ ok: false });
+    expect(parseInviteInput({ email: "not-an-email", role: "editor", name: "Sam" })).toMatchObject({ ok: false });
+    expect(parseInviteInput({ email: "a b@c.org", role: "editor", name: "Sam" })).toMatchObject({ ok: false });
+    expect(parseInviteInput({ email: null, role: "editor", name: "Sam" })).toMatchObject({ ok: false });
   });
 
   it("invite input rejects an unknown role", () => {
-    expect(parseInviteInput({ email: "a@b.org", role: "owner" })).toMatchObject({ ok: false });
+    expect(parseInviteInput({ email: "a@b.org", role: "owner", name: "Sam" })).toMatchObject({ ok: false });
+  });
+});
+
+describe("parseEditorName", () => {
+  it("trims the name", () => {
+    expect(parseEditorName("  Sam Rider ")).toEqual({ ok: true, value: "Sam Rider" });
+  });
+
+  it("refuses empty text, blank text, and a non-string", () => {
+    for (const raw of ["", "   ", "\t\n", null, undefined, 5]) {
+      expect(parseEditorName(raw), String(raw)).toMatchObject({ ok: false, error: "Enter a name." });
+    }
+  });
+
+  it("allows 100 characters and refuses 101", () => {
+    expect(parseEditorName("a".repeat(100))).toMatchObject({ ok: true });
+    expect(parseEditorName("a".repeat(101))).toMatchObject({ ok: false });
+  });
+
+  it("refuses control characters and invisible format characters", () => {
+    for (const bad of ["Sam\u0000", "Sam\nRider", "Sam\u200bRider", "\u202eSam", "Sam\ufeff"]) {
+      expect(parseEditorName(bad), JSON.stringify(bad)).toMatchObject({ ok: false });
+    }
+  });
+
+  it("keeps ordinary names with accents, apostrophes, and hyphens", () => {
+    for (const good of ["José Núñez", "Mary O'Neil", "Ann-Marie Smith", "李雷"]) {
+      expect(parseEditorName(good), good).toEqual({ ok: true, value: good });
+    }
   });
 });
