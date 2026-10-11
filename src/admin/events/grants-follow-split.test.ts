@@ -60,6 +60,37 @@ describe("a Series split and Event managers", () => {
     expect((await historyOf(db, result.id)).map((h) => h.action)).not.toContain("managers-copied");
   });
 
+  it("timed to all-day: an Override with a time and details keeps the details and loses the time; one with only a time goes", async () => {
+    const override = (originalStart: string, patch: Record<string, unknown>) => ({
+      originalStart,
+      timing: { kind: "timed" as const, start: `${originalStart.slice(0, 10)}T19:00`, end: `${originalStart.slice(0, 10)}T21:00` },
+      title: "Tuesday Ride",
+      location: "Shop",
+      scheduleStatus: "scheduled" as const,
+      scheduleNote: null,
+      occurrenceDetails: null,
+      ...patch,
+    });
+    await saveOverride(db, erin, { id: oldId, version: 1 }, override("2026-11-10T18:00", { occurrenceDetails: "Route: loop" }));
+    await saveOverride(db, erin, { id: oldId, version: 2 }, override("2026-11-17T18:00", {}));
+    const result = await splitSeries(
+      db,
+      erin,
+      { id: oldId, version: 3 },
+      splitDraft("2026-11-03", { time: { kind: "allDay", days: 1 } }),
+      { today: TODAY },
+    );
+    if (!result.ok) throw new Error(result.message);
+    expect(result.kind).toBe("split");
+    const moved = await db.select().from(overrides).where(eq(overrides.eventId, result.id));
+    expect(moved).toMatchObject([
+      { originalStart: "2026-11-10", occurrenceDetails: "Route: loop", allDay: null, startLocal: null, endLocal: null },
+    ]);
+    expect(moved).toHaveLength(1);
+    // The old Series keeps neither (both dates are on or after the split date).
+    expect(await db.select().from(overrides).where(eq(overrides.eventId, oldId))).toHaveLength(0);
+  });
+
   it("an Override with only Occurrence details moves with the dates to the new Series", async () => {
     await saveOverride(db, erin, { id: oldId, version: 1 }, {
       originalStart: "2026-11-10T18:00",

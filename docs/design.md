@@ -219,6 +219,17 @@ Plan: [plans/event-managers.md](plans/event-managers.md).
   description. Not on the agenda card. Editors set them in the Override form and in the form of a
   one-time Event.
 
+- **Rate limits.** The grant and the invite have no rate limit of their own: Editors are trusted, and
+  a new person gets the normal invite (the magic link limits in
+  [plans/magic-link-rate-limit.md](plans/magic-link-rate-limit.md) still apply to each sign-in).
+- **Migration note.** Migration 0003 adds the enum value `event_manager` (`ALTER TYPE … ADD VALUE`).
+  Postgres cannot use a new enum value in the transaction that adds it. A later migration that uses
+  `event_manager` (a column default, an insert) must not run in the same transaction as 0003 on a
+  fresh database; give it its own transaction. 0003 itself does not use the value.
+- **My Events dates.** A date is open while its actual start (after an Editor's reschedule) is no more
+  than 7 days in the past, and its original start is no more than one year ahead. The last 7 days
+  show as "Recent dates" above the next 8 dates and do not count in the 8.
+
 ## Public side
 
 - **Views:** agenda at cutover. Month grid and cards (Tockify's "pinboard") after cutover.

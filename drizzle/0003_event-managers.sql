@@ -1,3 +1,6 @@
+-- Note: ALTER TYPE ... ADD VALUE cannot be followed by a use of the new value (a default, an
+-- insert) in the same transaction. A later migration that uses 'event_manager' must run in its own
+-- transaction, not together with this file on a fresh database. See docs/design.md, "Event managers".
 ALTER TYPE "public"."editor_role" ADD VALUE 'event_manager';--> statement-breakpoint
 CREATE TABLE "event_managers" (
 	"event_id" uuid NOT NULL,

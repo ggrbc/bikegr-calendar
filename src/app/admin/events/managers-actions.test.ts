@@ -5,7 +5,8 @@ const mocks = vi.hoisted(() => ({
   addManager: vi.fn(),
   removeManager: vi.fn(),
   signIn: vi.fn(async () => {}),
-  notifyManagerGranted: vi.fn(async () => {}),
+  notifyManagerGranted: vi.fn(async () => true),
+  createTransport: vi.fn(() => ({ kind: "capture", send: async () => {} })),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -16,7 +17,7 @@ vi.mock("@/db", () => ({
   getDb: () => ({ select: () => ({ from: () => ({ where: async () => [{ title: "Tuesday Ride" }] }) }) }),
 }));
 vi.mock("@/admin/events/managers", () => ({ addManager: mocks.addManager, removeManager: mocks.removeManager }));
-vi.mock("@/email/transport", () => ({ createEmailTransport: () => ({ kind: "capture", send: async () => {} }) }));
+vi.mock("@/email/transport", () => ({ createEmailTransport: mocks.createTransport }));
 vi.mock("@/email/notify", () => ({ appOrigin: () => "http://localhost:3000", notifyManagerGranted: mocks.notifyManagerGranted }));
 
 import { addManagerAction, removeManagerAction } from "./managers-actions";
@@ -51,6 +52,26 @@ describe("Managers actions", () => {
       "http://localhost:3000",
     );
     expect(mocks.signIn).not.toHaveBeenCalled();
+  });
+
+  it("a grant email that did not send is said so, and the grant stays", async () => {
+    mocks.addManager.mockResolvedValue({ ok: true, kind: "granted", editor: sam });
+    mocks.notifyManagerGranted.mockResolvedValueOnce(false);
+    const state = await addManagerAction(idle, form({ eventId: EVENT, email: sam.email, name: "" }));
+    expect(state).toMatchObject({
+      result: "ok",
+      message: "Sam Leader can now manage Tuesday Ride. The email did not send.",
+    });
+  });
+
+  it("a transport that cannot be made counts as an email that did not send", async () => {
+    mocks.addManager.mockResolvedValue({ ok: true, kind: "granted", editor: sam });
+    mocks.createTransport.mockImplementationOnce(() => {
+      throw new Error("no transport");
+    });
+    const state = await addManagerAction(idle, form({ eventId: EVENT, email: sam.email, name: "" }));
+    expect(state).toMatchObject({ message: "Sam Leader can now manage Tuesday Ride. The email did not send." });
+    expect(mocks.notifyManagerGranted).not.toHaveBeenCalled();
   });
 
   it("a second grant sends nothing", async () => {

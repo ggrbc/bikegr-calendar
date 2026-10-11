@@ -125,6 +125,15 @@ describe("Event managers: grants", () => {
     expect(await historyOf(db, id)).toHaveLength(3);
   });
 
+  it("a manager who became an Editor shows as 'no effect', and the Editor can still remove the grant", async () => {
+    await addManager(db, erin, { eventId: id, email: "sam@example.org", name: "Sam Leader" });
+    await db.update(editors).set({ role: "editor" }).where(eq(editors.email, "sam@example.org"));
+    const [row] = await listManagers(db, id);
+    expect(row).toMatchObject({ status: "no-effect", role: "editor" });
+    expect(await removeManager(db, erin, { eventId: id, editorId: row.editorId })).toMatchObject({ ok: true });
+    expect(await listManagers(db, id)).toEqual([]);
+  });
+
   it("a Deleted Event keeps its grants; Restore brings the Event back to the list", async () => {
     await addManager(db, erin, { eventId: id, email: "sam@example.org", name: "Sam Leader" });
     const [sam] = await db.select().from(editors).where(eq(editors.email, "sam@example.org"));

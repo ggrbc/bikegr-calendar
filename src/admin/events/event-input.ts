@@ -507,7 +507,8 @@ export function parseManagerOccurrenceInput(input: unknown): Parsed<ManagerOccur
   const eventId = text(raw, "eventId");
   if (!UUID.test(eventId)) errors.eventId = "This Event does not exist.";
   const originalStart = text(raw, "originalStart");
-  if (!isLocalDate(originalStart) && !isLocalDateTime(originalStart)) {
+  const shapeOk = isLocalDate(originalStart) || isLocalDateTime(originalStart);
+  if (!shapeOk || !isRealDate(originalStart.slice(0, 10))) {
     errors.originalStart = "This is not a date of the Event.";
   }
   const schedule = parseSchedule(raw, errors);

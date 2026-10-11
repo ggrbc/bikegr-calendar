@@ -136,7 +136,7 @@ export default async function OccurrencePage({ params }: PageProps<"/events/[eve
               {row.occurrenceDetails && (
                 <section
                   aria-labelledby="occurrence-details"
-                  className="mt-8 rounded-[6px] border border-brand-divider bg-white p-5"
+                  className="mt-8 rounded-[6px] border border-brand-divider bg-white p-5 [overflow-wrap:anywhere]"
                 >
                   <h2 id="occurrence-details" className="font-chivo text-[19px] font-normal">
                     For {shortDate(timingStart(row.timing).slice(0, 10))}

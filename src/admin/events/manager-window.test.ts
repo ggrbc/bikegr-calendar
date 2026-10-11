@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { editors, events } from "@/db/schema";
 import { createTestDb } from "@/db/test-db";
 import type { Db } from "@/db/types";
@@ -77,6 +77,20 @@ describe("the 7-day window of an Event manager", () => {
     expect(await cancel("2026-10-27T18:00")).toMatchObject({ ok: false });
     const [card] = await listManagedEvents(db, sam.id, TODAY);
     expect(card.dates.map((d) => d.originalStart)).not.toContain("2026-10-27T18:00");
+  });
+
+  it("an impossible date in a forged request is the normal refusal, not a failed save", async () => {
+    const logged: unknown[] = [];
+    const spy = vi.spyOn(console, "error").mockImplementation((...args) => void logged.push(args));
+    for (const originalStart of ["2026-02-30T18:00", "2026-13-01T18:00", "2026-02-30"]) {
+      expect(await cancel(originalStart)).toMatchObject({
+        ok: false,
+        reason: "invalid",
+        errors: { originalStart: "This is not a date of the Event." },
+      });
+    }
+    spy.mockRestore();
+    expect(logged).toEqual([]);
   });
 
   it("the save does not need the version: an Event that moved on since the page loaded does not conflict", async () => {

@@ -20,7 +20,7 @@ describe("the manager grant email", () => {
   it("is sent to one person, and a send error never throws", async () => {
     const sent: EmailMessage[] = [];
     const transport: EmailTransport = { kind: "capture", send: async (m) => void sent.push(m) };
-    await notifyManagerGranted(transport, { to: "sam@example.org", title: "Ride" }, "https://calendar.bikegr.org");
+    expect(await notifyManagerGranted(transport, { to: "sam@example.org", title: "Ride" }, "https://calendar.bikegr.org")).toBe(true);
     expect(sent).toHaveLength(1);
     expect(sent[0].to).toEqual(["sam@example.org"]);
     expect(sent[0].text).toContain("https://calendar.bikegr.org/login");
@@ -29,7 +29,7 @@ describe("the manager grant email", () => {
     const failing: EmailTransport = { kind: "capture", send: async () => { throw new Error("boom sam@example.org"); } };
     await expect(
       notifyManagerGranted(failing, { to: "sam@example.org", title: "Ride" }, "https://x.org", (line) => logs.push(line)),
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(false);
     expect(logs.join("")).not.toContain("sam@example.org");
   });
 });

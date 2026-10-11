@@ -130,12 +130,31 @@ test("an Editor adds a manager, who changes one date; the public pages show it",
   await shoot(manager, "date-form");
   await manager.getByRole("button", { name: "Save" }).click();
   await expect(manager.getByRole("status")).toContainText("The change is public now");
+  // The form keeps what was saved (React 19 resets a `<form action>`; this form must not).
+  await expect(manager.getByLabel("Schedule status")).toHaveValue("cancelled");
+  await expect(manager.getByLabel("Schedule note")).toHaveValue("Thunderstorms. See you next week.");
   await shoot(manager, "date-form-saved");
 
-  // --- The public detail page and the Feed.
+  // --- Un-cancel: set Scheduled, Save, and the public page has no badge. Then cancel again.
   const detail = await browser.newPage();
-  await detail.goto(`/events/${SERIES_ID}/${segment(changed)}`);
-  await expect(detail.getByText("Cancelled", { exact: true }).first()).toBeVisible();
+  await manager.getByLabel("Schedule status").selectOption("scheduled");
+  await manager.getByRole("button", { name: "Save" }).click();
+  await expect(manager.getByRole("status")).toContainText("The change is public now");
+  await expect(manager.getByLabel("Schedule status")).toHaveValue("scheduled");
+  await expect(async () => {
+    await detail.goto(`/events/${SERIES_ID}/${segment(changed)}`);
+    await expect(detail.getByText("Cancelled", { exact: true })).toHaveCount(0, { timeout: 1000 });
+  }).toPass();
+  await expect(detail.getByText("Thunderstorms. See you next week.")).toBeVisible(); // the note stays
+  await manager.getByLabel("Schedule status").selectOption("cancelled");
+  await manager.getByRole("button", { name: "Save" }).click();
+  await expect(manager.getByRole("status")).toContainText("The change is public now");
+
+  // --- The public detail page and the Feed.
+  await expect(async () => {
+    await detail.goto(`/events/${SERIES_ID}/${segment(changed)}`);
+    await expect(detail.getByText("Cancelled", { exact: true }).first()).toBeVisible({ timeout: 1000 });
+  }).toPass();
   await expect(detail.getByText("Thunderstorms. See you next week.")).toBeVisible();
   const box = detail.getByRole("region", { name: /^For / });
   await expect(box).toContainText("Street tires are fine.");

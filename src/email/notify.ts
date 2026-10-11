@@ -28,11 +28,14 @@ export function appOrigin(env: Record<string, string | undefined> = process.env)
   }
 }
 
-async function safeSend(kind: string, transport: EmailTransport, message: EmailMessage, log: Log): Promise<void> {
+/** True when the message was sent; a failure is logged and gives false. */
+async function safeSend(kind: string, transport: EmailTransport, message: EmailMessage, log: Log): Promise<boolean> {
   try {
     await transport.send(message);
+    return true;
   } catch (error) {
     log(`[email] ${kind} failed: ${error instanceof Error ? error.constructor.name : typeof error}`);
+    return false;
   }
 }
 
@@ -88,15 +91,15 @@ export async function notifyApproved(
   await safeSend("approved", transport, { to: [review.submitterEmail], ...email }, log);
 }
 
-/** An existing account got a manager grant: a short email with a sign-in link. */
+/** An existing account got a manager grant: a short email with a sign-in link. True when sent. */
 export async function notifyManagerGranted(
   transport: EmailTransport,
   grant: { to: string; title: string },
   origin: string,
   log: Log = defaultLog,
-): Promise<void> {
+): Promise<boolean> {
   const email = composeManagerGrantEmail({ title: grant.title, signInUrl: `${origin}/login` });
-  await safeSend("manager-grant", transport, { to: [grant.to], ...email }, log);
+  return safeSend("manager-grant", transport, { to: [grant.to], ...email }, log);
 }
 
 export async function notifyRejected(

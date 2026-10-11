@@ -63,12 +63,21 @@ export async function addManagerAction(_prev: ManagerFormState, formData: FormDa
   }
 
   const [event] = await db.select({ title: events.title }).from(events).where(eq(events.id, eventId));
-  await notifyManagerGranted(
-    createEmailTransport(),
-    { to: result.editor.email, title: event?.title ?? "an Event" },
-    appOrigin(),
-  );
-  return { result: "ok", message: `${who} is added. They got an email with a sign-in link.`, stamp: Date.now() };
+  const title = event?.title ?? "an Event";
+  let sent = false;
+  try {
+    // A transport that cannot be made (a bad setting) counts as an email that did not send.
+    sent = await notifyManagerGranted(createEmailTransport(), { to: result.editor.email, title }, appOrigin());
+  } catch (error) {
+    console.error("[email] manager-grant failed:", error instanceof Error ? error.constructor.name : typeof error);
+  }
+  return {
+    result: "ok",
+    message: sent
+      ? `${who} can now manage ${title}. They got an email with a sign-in link.`
+      : `${who} can now manage ${title}. The email did not send.`,
+    stamp: Date.now(),
+  };
 }
 
 export async function removeManagerAction(_prev: ManagerFormState, formData: FormData): Promise<ManagerFormState> {

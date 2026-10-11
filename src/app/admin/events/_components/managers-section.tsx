@@ -4,6 +4,7 @@ import { AddManagerForm, RemoveManagerForm } from "./manager-forms";
 
 const STATUS_LABELS: Record<ManagerRow["status"], string> = {
   invited: "Invited",
+  "no-effect": "Editor (no effect)",
   active: "Active",
   deactivated: "Deactivated",
 };

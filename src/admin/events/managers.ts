@@ -25,18 +25,21 @@ import {
 export const NOT_APPROVED_MESSAGE = "Only an approved Event can have managers. Approve it first.";
 export const DEACTIVATED_MESSAGE = "This person is deactivated. Ask an Admin to reactivate them first.";
 
-export type ManagerStatus = "invited" | "active" | "deactivated";
+/** `no-effect`: the person is an Editor or Admin now, so the grant does nothing. */
+export type ManagerStatus = "invited" | "active" | "deactivated" | "no-effect";
 
 export interface ManagerRow {
   editorId: string;
   name: string | null;
   email: string;
+  role: Editor["role"];
   status: ManagerStatus;
 }
 
 const label = (editor: Pick<Editor, "name" | "email">) => editor.name ?? editor.email;
 
-function statusOf(editor: Pick<Editor, "deactivatedAt" | "emailVerified">): ManagerStatus {
+function statusOf(editor: Pick<Editor, "deactivatedAt" | "emailVerified" | "role">): ManagerStatus {
+  if (editor.role !== "event_manager") return "no-effect";
   if (editor.deactivatedAt) return "deactivated";
   return editor.emailVerified ? "active" : "invited";
 }
@@ -175,6 +178,7 @@ export async function listManagers(db: Pick<Db, "select">, eventId: string): Pro
       editorId: editors.id,
       name: editors.name,
       email: editors.email,
+      role: editors.role,
       deactivatedAt: editors.deactivatedAt,
       emailVerified: editors.emailVerified,
     })
@@ -184,7 +188,7 @@ export async function listManagers(db: Pick<Db, "select">, eventId: string): Pro
     .orderBy(asc(sql`lower(coalesce(${editors.name}, ${editors.email}))`));
   return rows.map(({ deactivatedAt, emailVerified, ...row }) => ({
     ...row,
-    status: statusOf({ deactivatedAt, emailVerified }),
+    status: statusOf({ deactivatedAt, emailVerified, role: row.role }),
   }));
 }
 
