@@ -4,7 +4,7 @@
  * gitignored `.scratch/` folder.
  */
 import { type BrowserContext, expect, type Page, test } from "@playwright/test";
-import { E2E_ADMIN, E2E_EDITOR, E2E_SELF, E2E_TARGET } from "./fixture";
+import { E2E_ADMIN, E2E_EDITOR, E2E_LONG, E2E_SELF, E2E_TARGET } from "./fixture";
 
 const logIn = (context: BrowserContext, sessionToken: string) =>
   context.addCookies([{ name: "authjs.session-token", value: sessionToken, domain: "localhost", path: "/", httpOnly: true }]);
@@ -46,7 +46,7 @@ test.describe("as an Admin", () => {
     await shoot(page, "list");
   });
 
-  test("renames an Editor, changes the role, and deactivates and reactivates from the edit page", async ({ page }) => {
+  test("renames an Editor, changes the role, and deactivates and reactivates from the edit page", async ({ context, page }) => {
     await page.goto("/admin/editors");
     await row(page, E2E_TARGET.email).getByRole("link", { name: /^Edit/ }).click();
     await expect(page.getByRole("heading", { level: 1, name: E2E_TARGET.name })).toBeVisible();
@@ -62,20 +62,25 @@ test.describe("as an Admin", () => {
     await expect(page.getByRole("status")).toHaveText("Saved.");
     await expect(page.getByRole("heading", { level: 1, name: "Renamed By Admin" })).toBeVisible();
 
-    // An empty name is refused by the server too (skip the browser's required check).
-    await nameInput(page).evaluate((input: HTMLInputElement) => input.removeAttribute("required"));
-    await nameInput(page).fill("   ");
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.locator("p[role=alert]")).toHaveText("Enter a name.");
-
-    // Role.
-    await nameInput(page).fill("Renamed By Admin");
+    // A refused save keeps the typed text (React 19 resets a form after its action).
     await roleSelect(page).selectOption("admin");
+    await nameInput(page).fill("Bad\u200bName");
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.locator("p[role=alert]")).toHaveText("The name has a character that is not allowed.");
+    await expect(nameInput(page)).toHaveValue("Bad\u200bName");
+    await expect(roleSelect(page)).toHaveValue("admin");
+
+    // Fix the name only. The kept role is saved with it.
+    await nameInput(page).fill("Renamed Twice");
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByRole("status")).toContainText("is now an Admin");
+    await expect(page.getByRole("heading", { level: 1, name: "Renamed Twice" })).toBeVisible();
+
+    // Role only: the name is not typed again.
     await roleSelect(page).selectOption("editor");
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByRole("status")).toContainText("is now an Editor");
+    await expect(nameInput(page)).toHaveValue("Renamed Twice");
 
     // Deactivate (the confirm dialog), then reactivate.
     page.once("dialog", (dialog) => dialog.dismiss());
@@ -89,9 +94,20 @@ test.describe("as an Admin", () => {
     await page.getByRole("button", { name: "Reactivate" }).click();
     await expect(page.getByText("is active again")).toBeVisible();
 
-    // The list shows the new name.
+    // A stale form is refused: another Admin renamed this Editor after the page loaded.
+    const other = await context.newPage();
+    await other.goto(`/admin/editors/${E2E_TARGET.id}`);
+    await nameInput(other).fill("Changed Elsewhere");
+    await other.getByRole("button", { name: "Save" }).click();
+    await expect(other.getByRole("status")).toHaveText("Saved.");
+    await other.close();
+    await nameInput(page).fill("Stale Name");
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.locator("p[role=alert]")).toHaveText("Another Admin changed this Editor. Reload the page.");
+
+    // The list shows the stored name, not the stale one.
     await page.getByRole("link", { name: "← Editors" }).click();
-    await expect(row(page, E2E_TARGET.email).locator("div.font-semibold")).toHaveText("Renamed By Admin");
+    await expect(row(page, E2E_TARGET.email).locator("div.font-semibold")).toHaveText("Changed Elsewhere");
     await expect(row(page, E2E_TARGET.email).getByText("Active")).toBeVisible();
   });
 
@@ -110,6 +126,28 @@ test.describe("as an Admin", () => {
       await expect(page.getByText("This page could not be found.")).toBeVisible();
       await expect(page.getByRole("region", { name: "Details" })).toHaveCount(0);
     }
+  });
+
+  test("long text with no spaces does not scroll sideways at 375 px", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 800 });
+    for (const path of ["/admin/editors", `/admin/editors/${E2E_LONG.id}`]) {
+      await page.goto(path);
+      await expect(page.getByText(E2E_LONG.name).first()).toBeVisible();
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      expect(overflow, path).toBeLessThanOrEqual(0);
+    }
+    await shoot(page, "long-text");
+  });
+
+  test("the invite form keeps the typed text after a refusal", async ({ page }) => {
+    await page.goto("/admin/editors");
+    const invite = page.getByRole("region", { name: "Invite an Editor" });
+    await invite.getByLabel("Email").fill("someone@example.org");
+    await invite.getByRole("textbox", { name: "Name", exact: true }).fill("Bad\u200bName");
+    await invite.getByRole("button", { name: "Send invite" }).click();
+    await expect(invite.getByRole("alert")).toContainText("not allowed");
+    await expect(invite.getByLabel("Email")).toHaveValue("someone@example.org");
+    await expect(invite.getByRole("textbox", { name: "Name", exact: true })).toHaveValue("Bad\u200bName");
   });
 
   test("the invite form needs a name", async ({ page }) => {

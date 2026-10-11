@@ -46,6 +46,13 @@ export const E2E_TARGET = {
   name: "E2E Rename Target",
 };
 
+/** An Editor with a 64-character address part and a 100-character name, both with no spaces. */
+export const E2E_LONG = {
+  id: "20000000-0000-4000-8000-000000000005",
+  email: `${"a".repeat(64)}@example.org`,
+  name: "N".repeat(100),
+};
+
 /** An Editor who renames themselves on /admin/account. Test-only values. */
 export const E2E_SELF = {
   id: "20000000-0000-4000-8000-000000000004",

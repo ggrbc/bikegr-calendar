@@ -8,7 +8,7 @@ async function Account() {
   const me = await requireEditor();
   return (
     <div className="flex flex-col gap-6">
-      <Card title="Your account" titleId="account-heading">
+      <Card title="Details" titleId="account-heading">
         <dl className="grid max-w-md grid-cols-[auto_1fr] gap-x-6 gap-y-2">
           <dt className="font-semibold">Email</dt>
           <dd className="min-w-0">{me.email}</dd>

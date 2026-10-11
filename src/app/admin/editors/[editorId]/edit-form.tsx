@@ -17,19 +17,34 @@ export interface EditFormProps {
   roleLabels: Record<EditorRole, string>;
 }
 
-/** Name, Role (when allowed), and one Save. The role select is left out, not disabled, on the Admin's own page. */
+/**
+ * Name, Role (when allowed), and one Save. The role select is left out, not disabled, on the Admin's
+ * own page. The hidden `nameWas` and `roleWas` are what this form loaded with: the server writes only
+ * a field that changed, and refuses the save if the stored value is not the one this form showed.
+ */
 export function EditForm({ editorId, name, role, roleLabels }: EditFormProps) {
   const [state, action, pending] = useActionState(saveEditorAction, idle);
+  // `key`: React 19 resets the form after the action; a new key takes the posted values as defaults.
+  const key = state.result === "idle" ? "idle" : state.stamp;
+  const shown = state.result === "idle" ? undefined : state.values;
   return (
     <form action={action} className="flex max-w-md flex-col gap-3">
       <input type="hidden" name="editorId" value={editorId} />
-      <NameField id="editor-name" defaultValue={name} />
+      <input type="hidden" name="nameWas" value={name} />
+      {role && <input type="hidden" name="roleWas" value={role} />}
+      <NameField key={`name-${key}`} id="editor-name" defaultValue={shown?.name ?? name} />
       {role && (
         <>
           <label htmlFor="editor-role" className={labelClass}>
             Role
           </label>
-          <select id="editor-role" name="role" defaultValue={role} key={role} className={inputClass}>
+          <select
+            key={`role-${key}`}
+            id="editor-role"
+            name="role"
+            defaultValue={shown?.role ?? role}
+            className={inputClass}
+          >
             {Object.entries(roleLabels).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}

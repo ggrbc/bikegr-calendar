@@ -40,7 +40,7 @@ async function EditorList() {
   return (
     <>
       <Card title="Invite an Editor" titleId="invite-heading" className="mb-8">
-        <InviteForm />
+        <InviteForm roleLabels={ROLE_LABELS} />
       </Card>
 
       <Card title="Editors" titleId="list-heading">
@@ -62,9 +62,9 @@ async function EditorList() {
               return (
                 <tr role="row" key={editor.id} className={stackRowClass}>
                   <td role="cell" className={`${stackTdClass} max-lg:before:content-none`}>
-                    {editor.name && <div className="font-semibold">{editor.name}</div>}
-                    {/* The email breaks only before the "@", never inside a word. */}
-                    <div>{splitAtSign(editor.email)}</div>
+                    {editor.name && <div className="font-semibold [overflow-wrap:anywhere]">{editor.name}</div>}
+                    {/* The email breaks before the "@"; `anywhere` only helps when one part is too long for the screen. */}
+                    <div className="[overflow-wrap:anywhere]">{splitAtSign(editor.email)}</div>
                   </td>
                   <td role="cell" data-label="Role" className={stackTdClass}>
                     {ROLE_LABELS[editor.role]}

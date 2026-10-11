@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ROLE_LABELS } from "@/admin/editors/rules";
 import { requireEditor } from "@/auth/dal";
 import { getDb } from "@/db";
 import { countPending } from "@/submissions/queue";
@@ -16,7 +17,6 @@ export async function AdminNav() {
 /** The Editor's name and role, a link to the public calendar, and Sign out. */
 export async function AdminUser() {
   const editor = await requireEditor();
-  const isAdmin = editor.role === "admin";
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
       <Link href="/" className={linkClass}>
@@ -26,7 +26,7 @@ export async function AdminUser() {
         <Link href="/admin/account" className={linkClass}>
           {editor.name ?? editor.email}
         </Link>
-        <Badge tone="neutral">{isAdmin ? "Admin" : "Editor"}</Badge>
+        <Badge tone="neutral">{ROLE_LABELS[editor.role]}</Badge>
       </span>
       <form action={signOutAction}>
         <button type="submit" className={buttonClass("secondary", "sm")}>
