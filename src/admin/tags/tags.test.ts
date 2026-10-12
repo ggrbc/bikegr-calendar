@@ -6,6 +6,7 @@ import type { Db } from "@/db/types";
 import type { CalendarSlug } from "@/engine";
 import {
   addTag,
+  describeTag,
   listPickerTags,
   listTagsForAdmin,
   mergeTags,
@@ -156,6 +157,39 @@ describe("Tag management", () => {
         ok: false,
         reason: "not-found",
       });
+    });
+  });
+
+  describe("describe", () => {
+    it("Describe sets the description; empty text clears it", async () => {
+      const t = await tag("rides", "Alley Cat");
+      const set = await describeTag(db, editorId, { tagId: t.id, description: " Part race, part scavenger hunt. " });
+      expect(set).toMatchObject({ ok: true, value: { description: "Part race, part scavenger hunt." } });
+      expect((await reload(t.id)).updatedBy).toBe(editorId);
+
+      expect(await describeTag(db, editorId, { tagId: t.id, description: "" })).toMatchObject({ ok: true });
+      expect((await reload(t.id)).description).toBeNull();
+    });
+
+    it("Describe refuses a description over 200 characters and changes nothing", async () => {
+      const t = await tag("rides", "Fat Bike", { description: "Wide tires." });
+      const result = await describeTag(db, editorId, { tagId: t.id, description: "a".repeat(201) });
+      expect(result).toMatchObject({ ok: false, reason: "invalid" });
+      expect((await reload(t.id)).description).toBe("Wide tires.");
+    });
+
+    it("Describe of a missing Tag is refused", async () => {
+      for (const tagId of [crypto.randomUUID(), "not-a-uuid"]) {
+        expect(await describeTag(db, editorId, { tagId, description: "X" })).toMatchObject({
+          ok: false,
+          reason: "not-found",
+        });
+      }
+    });
+
+    it("The database refuses a description over 200 characters", async () => {
+      const t = await tag("rides", "Long");
+      await expect(db.update(tags).set({ description: "a".repeat(201) }).where(eq(tags.id, t.id))).rejects.toThrow();
     });
   });
 

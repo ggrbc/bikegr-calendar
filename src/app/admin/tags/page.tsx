@@ -9,6 +9,7 @@ import {
   Badge,
   Card,
   EmptyState,
+  hintClass,
   mutedClass,
   PageHeader,
   stackRowClass,
@@ -48,6 +49,7 @@ async function CalendarTags({ calendar }: { calendar: CalendarSlug }) {
               <tr role="row" key={tag.id} className={stackRowClass}>
                 <td role="cell" className={`${stackTdClass} font-semibold max-lg:before:content-none`}>
                   {tag.name}
+                  {tag.description && <p className={`${hintClass} font-normal`}>{tag.description}</p>}
                 </td>
                 <td role="cell" data-label="Slug" className={stackTdClass}>
                   <span className="font-mono text-sm">{tag.slug}</span>
@@ -64,6 +66,7 @@ async function CalendarTags({ calendar }: { calendar: CalendarSlug }) {
                       id: tag.id,
                       name: tag.name,
                       slug: tag.slug,
+                      description: tag.description,
                       retired: tag.retiredAt !== null,
                       eventCount: tag.eventCount,
                     }}

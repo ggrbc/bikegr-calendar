@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type { CalendarSlug } from "@/engine";
-import { buttonClass, inputClass, labelClass, smallInputClass } from "../_components/ui";
+import { descriptionLength, TAG_DESCRIPTION_MAX } from "@/admin/tags/description";
+import { buttonClass, hintClass, inputClass, labelClass, smallInputClass } from "../_components/ui";
 import { addTagAction, type TagFormState, tagRowAction } from "./actions";
 
 const idle: TagFormState = { result: "idle" };
@@ -50,15 +51,16 @@ export function AddTagForm({ calendar }: { calendar: CalendarSlug }) {
 }
 
 export interface TagRowProps {
-  tag: { id: string; name: string; slug: string; retired: boolean; eventCount: number };
+  tag: { id: string; name: string; slug: string; description: string | null; retired: boolean; eventCount: number };
   /** Other active Tags of the same Calendar. */
   mergeTargets: { id: string; name: string }[];
 }
 
-/** The rename, retire or unretire, and merge controls of one Tag. */
+/** The rename, description, retire or unretire, and merge controls of one Tag. */
 export function TagActions({ tag, mergeTargets }: TagRowProps) {
   // One action for the row, so the row shows only the last message.
   const [state, action, pending] = useActionState(tagRowAction, idle);
+  const [currentLength, setDescriptionLength] = useState(() => descriptionLength(tag.description ?? ""));
 
   function confirmMerge(event: React.FormEvent<HTMLFormElement>) {
     const select = event.currentTarget.elements.namedItem("targetId") as HTMLSelectElement | null;
@@ -83,6 +85,33 @@ export function TagActions({ tag, mergeTargets }: TagRowProps) {
             <button type="submit" disabled={pending} className={button}>
               Save
             </button>
+          </form>
+        </details>
+
+        <details>
+          <summary className={summary}>Description</summary>
+          <form action={action} className="mt-2 flex flex-col gap-2">
+            <input type="hidden" name="tagId" value={tag.id} />
+            <input type="hidden" name="intent" value="describe" />
+            <label className="sr-only" htmlFor={`describe-${tag.id}`}>
+              Description of {tag.name}
+            </label>
+            <textarea
+              id={`describe-${tag.id}`}
+              name="description"
+              defaultValue={tag.description ?? ""}
+              onChange={(e) => setDescriptionLength(descriptionLength(e.target.value))}
+              rows={3}
+              className={`${input} w-full max-w-sm`}
+            />
+            <p className={hintClass}>
+              Shown as an info tip on the Event page. Leave empty for none. {currentLength} / {TAG_DESCRIPTION_MAX}
+            </p>
+            <div>
+              <button type="submit" disabled={pending} className={button}>
+                Save
+              </button>
+            </div>
           </form>
         </details>
 

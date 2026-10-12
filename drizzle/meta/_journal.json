@@ -43,6 +43,13 @@
       "when": 1791769195149,
       "tag": "0005_cta-skip-details",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791771517966,
+      "tag": "0006_tag-description",
+      "breakpoints": true
     }
   ]
 }

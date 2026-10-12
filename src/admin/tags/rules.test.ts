@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseCalendar, parseTagName, TAG_NAME_MAX } from "./rules";
+import { parseCalendar, parseTagDescription, parseTagName, TAG_DESCRIPTION_MAX, TAG_NAME_MAX } from "./rules";
 
 describe("Tag rules", () => {
   it("Tag name is trimmed, inner spaces collapsed, and the slug comes from tagSlug", () => {
@@ -22,6 +22,18 @@ describe("Tag rules", () => {
   it("Tag name over 40 characters is refused", () => {
     expect(parseTagName("a".repeat(TAG_NAME_MAX))).toMatchObject({ ok: true });
     expect(parseTagName("a".repeat(TAG_NAME_MAX + 1))).toMatchObject({ ok: false });
+  });
+
+  it("Tag description is trimmed and collapsed to one line; empty means none", () => {
+    expect(parseTagDescription("  Part race,\n  part   hunt. ")).toEqual({ ok: true, value: "Part race, part hunt." });
+    expect(parseTagDescription("   ")).toEqual({ ok: true, value: null });
+    expect(parseTagDescription(null)).toEqual({ ok: true, value: null });
+  });
+
+  it("Tag description over 200 characters is refused (counted in code points, as Postgres does)", () => {
+    expect(parseTagDescription("é".repeat(TAG_DESCRIPTION_MAX))).toMatchObject({ ok: true });
+    expect(parseTagDescription("🚲".repeat(TAG_DESCRIPTION_MAX))).toMatchObject({ ok: true });
+    expect(parseTagDescription("a".repeat(TAG_DESCRIPTION_MAX + 1))).toMatchObject({ ok: false });
   });
 
   it("Calendar must be rides or advocacy", () => {

@@ -17,6 +17,8 @@ import { isHttpUrl } from "./safe-url";
 export interface AgendaTag {
   name: string;
   slug: string;
+  /** Set on an Event's Tags only, when the Tag has one (the Event page's info tip). */
+  description?: string;
 }
 
 export interface CalendarTag extends AgendaTag {
@@ -85,7 +87,7 @@ export async function snapshotEvents(
   const overrideRows = await db.select().from(overrides).where(inArray(overrides.eventId, ids));
   const tagRows = withTags
     ? await db
-        .select({ eventId: eventTags.eventId, name: tags.name, slug: tags.slug })
+        .select({ eventId: eventTags.eventId, name: tags.name, slug: tags.slug, description: tags.description })
         .from(eventTags)
         .innerJoin(tags, eq(tags.id, eventTags.tagId))
         .where(and(inArray(eventTags.eventId, ids), isNull(tags.retiredAt)))
@@ -112,7 +114,9 @@ export async function snapshotEvents(
           : null,
       rule: eventRowToRuleInput(event),
       overrides: eventOverrides.map(overrideRowToInput),
-      tags: (tagsByEvent.get(event.id) ?? []).map(({ name, slug }) => ({ name, slug })),
+      tags: (tagsByEvent.get(event.id) ?? []).map(({ name, slug, description }) =>
+        description ? { name, slug, description } : { name, slug },
+      ),
       updatedAt: event.updatedAt.toISOString(),
       overrideUpdatedAt: Object.fromEntries(
         eventOverrides.map((o) => [o.originalStart, o.updatedAt.toISOString()]),
