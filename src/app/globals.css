@@ -55,6 +55,26 @@ body {
  * navigation (admin-nav-links.tsx). They are focus targets, not controls, so they get no ring.
  * Unlayered, like the rule above.
  */
+/*
+ * A Tag's info tip (tag-info.tsx), a popover. With CSS anchor positioning it opens under its
+ * button, centered on it but kept 16 px inside the viewport, and above it when there is no room
+ * below; without anchor positioning, the browser centers it in the viewport.
+ * The wrapper sets --tip-anchor, a name unique on the page.
+ */
+.tag-info-button {
+  anchor-name: var(--tip-anchor);
+}
+@supports (position-area: bottom) {
+  .tag-info:popover-open {
+    position-anchor: var(--tip-anchor);
+    inset: auto;
+    margin: 6px 16px 0;
+    position-area: bottom;
+    justify-self: anchor-center;
+    position-try-fallbacks: flip-block;
+  }
+}
+
 main[tabindex="-1"]:focus,
 main[tabindex="-1"]:focus-visible,
 #admin-main h1[tabindex="-1"]:focus,

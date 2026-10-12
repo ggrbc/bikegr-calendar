@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { inArray } from "drizzle-orm";
-import { events, overrides } from "@/db/schema";
+import { eq, inArray } from "drizzle-orm";
+import { events, overrides, tags } from "@/db/schema";
 import { createTestDb } from "@/db/test-db";
 import type { Db } from "@/db/types";
 import { expandSnapshot } from "./occurrence-rows";
@@ -86,6 +86,23 @@ describe("loadSnapshot", () => {
     expect(unsafe.cta).toBeNull();
     expect(safe.cta).toEqual({ label: "Click", url: "https://example.org" });
     await db.delete(events).where(inArray(events.id, rows.map((r) => r.id)));
+  });
+
+  it("an Event's Tag carries its description only when it has one", async () => {
+    const row = await addEvent(db, { title: "Alley Cat Night" });
+    const alleyCat = await addTag(db, "rides", "Alley Cat", "alley-cat");
+    await db.update(tags).set({ description: "Part race, part scavenger hunt." }).where(eq(tags.id, alleyCat.id));
+    const plain = await addTag(db, "rides", "Night", "night");
+    await tagEvent(db, row.id, alleyCat.id, "rides");
+    await tagEvent(db, row.id, plain.id, "rides");
+
+    const [snapshot] = await snapshotEvents(db, [row]);
+    expect(snapshot.tags).toEqual([
+      { name: "Alley Cat", slug: "alley-cat", description: "Part race, part scavenger hunt." },
+      { name: "Night", slug: "night" },
+    ]);
+    await db.delete(events).where(eq(events.id, row.id));
+    await db.delete(tags).where(inArray(tags.id, [alleyCat.id, plain.id]));
   });
 
   it("is plain data that survives structured clone (Next.js cache serialization)", async () => {

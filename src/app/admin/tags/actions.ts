@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { mergeTags, renameTag, retireTag, unretireTag, addTag, type TagResult } from "@/admin/tags/tags";
+import { describeTag, mergeTags, renameTag, retireTag, unretireTag, addTag, type TagResult } from "@/admin/tags/tags";
 import { parseCalendar } from "@/admin/tags/rules";
 import { invalidatePublicEvents } from "@/agenda/cache";
 import { requireEditor } from "@/auth/dal";
@@ -39,7 +39,7 @@ export async function addTagAction(_prev: TagFormState, formData: FormData): Pro
 
 /**
  * One action for every control of a Tag row, so the row shows one message: the last one.
- * `intent` is `rename`, `retire`, `unretire`, or `merge`.
+ * `intent` is `rename`, `describe`, `retire`, `unretire`, or `merge`.
  */
 export async function tagRowAction(_prev: TagFormState, formData: FormData): Promise<TagFormState> {
   const editor = await requireEditor();
@@ -50,6 +50,12 @@ export async function tagRowAction(_prev: TagFormState, formData: FormData): Pro
     case "rename": {
       const result = await renameTag(db, editor.id, { tagId, name: formData.get("name") });
       return toState(result, (tag) => `Renamed to "${tag.name}". The slug stays "${tag.slug}".`);
+    }
+    case "describe": {
+      const result = await describeTag(db, editor.id, { tagId, description: formData.get("description") });
+      return toState(result, (tag) =>
+        tag.description ? `Saved the description of "${tag.name}".` : `Removed the description of "${tag.name}".`,
+      );
     }
     case "retire": {
       const result = await retireTag(db, editor.id, { tagId });

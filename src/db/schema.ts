@@ -257,6 +257,8 @@ export const tags = pgTable(
     name: text("name").notNull(),
     /** Stable, URL-safe. Renaming a Tag keeps it. */
     slug: text("slug").notNull(),
+    /** Plain text, shown as an info tip next to the Tag on the Event page. */
+    description: text("description"),
     retiredAt: instant("retired_at"),
     retiredBy: uuid("retired_by").references(() => editors.id),
     createdAt: createdAt(),
@@ -268,6 +270,7 @@ export const tags = pgTable(
     unique("tags_calendar_slug_unique").on(t.calendar, t.slug),
     unique("tags_id_calendar_unique").on(t.id, t.calendar),
     check("tags_slug_format", sql`${t.slug} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`),
+    check("tags_description_length", sql`char_length(${t.description}) <= 200`),
   ],
 );
 

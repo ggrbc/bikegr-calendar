@@ -19,6 +19,7 @@ import { ParagraphText } from "../../../_components/paragraph-text";
 import { pillButton } from "../../../_components/filter-form";
 import { RichText } from "../../../_components/rich-text";
 import { SiteHeader } from "../../../_components/site-header";
+import { TagInfo } from "../../../_components/tag-info";
 
 /**
  * One Occurrence. Blocking (no <Suspense>): it reads `params` and the database before it renders.
@@ -121,6 +122,7 @@ export default async function OccurrencePage({ params }: PageProps<"/events/[eve
                       <Link href={`${calendarHref}?tag=${encodeURIComponent(tag.slug)}`} className="hover:underline">
                         {tag.name}
                       </Link>
+                      {tag.description && <TagInfo name={tag.name} slug={tag.slug} description={tag.description} />}
                     </span>
                   ))}
                 </p>

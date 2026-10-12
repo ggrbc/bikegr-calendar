@@ -6,7 +6,7 @@ import { and, asc, count, eq, inArray, isNotNull, isNull, ne, sql } from "drizzl
 import { eventTags, events, tags } from "@/db/schema";
 import type { Db } from "@/db/types";
 import type { CalendarSlug } from "@/engine";
-import { parseTagName } from "./rules";
+import { parseTagDescription, parseTagName } from "./rules";
 
 export type Tag = typeof tags.$inferSelect;
 
@@ -52,6 +52,7 @@ export interface AdminTag {
   id: string;
   name: string;
   slug: string;
+  description: string | null;
   retiredAt: Date | null;
   /** Linked Events that are not deleted, any Review status. */
   eventCount: number;
@@ -64,6 +65,7 @@ export async function listTagsForAdmin(db: Db, calendar: CalendarSlug): Promise<
       id: tags.id,
       name: tags.name,
       slug: tags.slug,
+      description: tags.description,
       retiredAt: tags.retiredAt,
       eventCount: count(events.id),
     })
@@ -170,6 +172,23 @@ export async function renameTag(
       .returning();
     return { ok: true, value: updated } as const;
   });
+}
+
+/** Sets or clears (empty text) the description that the Event page shows as an info tip. */
+export async function describeTag(
+  db: Db,
+  editorId: string,
+  input: { tagId: string; description: unknown },
+): Promise<TagResult<Tag>> {
+  const parsed = parseTagDescription(input.description);
+  if (!parsed.ok) return refuse("invalid", parsed.error);
+  if (!isUuid(input.tagId)) return NOT_FOUND;
+  const [updated] = await db
+    .update(tags)
+    .set({ description: parsed.value, updatedBy: editorId, updatedAt: new Date() })
+    .where(eq(tags.id, input.tagId))
+    .returning();
+  return updated ? ({ ok: true, value: updated } as const) : NOT_FOUND;
 }
 
 /** Retires a Tag. It keeps its Event links; the public agenda and the pickers hide it. */
