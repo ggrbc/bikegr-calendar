@@ -239,8 +239,10 @@ role or deactivate controls ("You"). Actions call `revalidatePath("/admin/editor
 
 1. `requireEditor()`.
 2. `formData.get("file")` must be a `File`; size 1 byte … 4 MB (`MAX_UPLOAD_BYTES`).
-3. Store: `blobCredentials(process.env)` null → "Image upload is not set up." Else
-   `vercelBlobStore()` (OIDC first, then a read-write token; the import's logic).
+3. Store: `requestBlobStore()` null → "Image upload is not set up." Else
+   `vercelBlobStore()` (OIDC first, then a read-write token; the import's logic). On Vercel the
+   OIDC token is in the `x-vercel-oidc-token` request header, not `process.env`, so
+   `requestBlobStore()` passes the header to `blobCredentials`.
 4. `uploadEventImage(new Uint8Array(await file.arrayBuffer()), { store })`:
    1. `toEventWebp(bytes)` with `sharp`:
       - `sharp(bytes, { limitInputPixels: 40_000_000, failOn: "error" })` — refuses a

@@ -219,4 +219,11 @@ describe("image copy", () => {
     expect(blobCredentials({ VERCEL_OIDC_TOKEN: "t" })).toBeNull();
     expect(blobCredentials({ BLOB_STORE_ID: " " })).toBeNull();
   });
+
+  it("credentials: a Vercel Function's request OIDC token counts as the OIDC token", () => {
+    expect(blobCredentials({ BLOB_STORE_ID: "store_1" }, "t")).toBe("oidc");
+    expect(blobCredentials({ BLOB_STORE_ID: "store_1" }, " ")).toBeNull();
+    expect(blobCredentials({ BLOB_STORE_ID: "store_1" }, null)).toBeNull();
+    expect(blobCredentials({}, "t")).toBeNull();
+  });
 });

@@ -1,8 +1,8 @@
 "use server";
 
 import { requireEditor } from "@/auth/dal";
-import { blobCredentials, vercelBlobStore } from "@/import/images";
 import { MAX_UPLOAD_BYTES } from "./limits";
+import { requestBlobStore } from "./request-blob-store";
 import { uploadEventImage, type UploadResult } from "./upload-image";
 
 /**
@@ -22,6 +22,6 @@ export async function uploadEventImageAction(formData: FormData): Promise<Upload
     return { ok: false, error: "The image is larger than 4 MB. Make it smaller and try again." };
   }
 
-  const store = blobCredentials(process.env) ? vercelBlobStore() : null;
+  const store = await requestBlobStore();
   return uploadEventImage(new Uint8Array(await file.arrayBuffer()), { store });
 }

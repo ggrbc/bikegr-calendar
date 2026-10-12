@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { io } from "next/cache";
+import { requestBlobStore } from "@/admin/images/request-blob-store";
 import { todayInDetroit } from "@/agenda/dates";
 import { CALENDAR_NAMES, SITE_ORIGIN } from "@/agenda/site";
-import { blobCredentials } from "@/import/images";
 import { cachedPickerTags } from "@/submissions/picker-tags";
 import { MESSAGES } from "@/submissions/submit-event";
 import { submissionCalendar } from "@/submissions/submission-input";
@@ -46,7 +46,7 @@ async function SubmitBody({ searchParams }: { searchParams: Promise<Record<strin
       initialCalendar={calendar}
       tagsByCalendar={tagsByCalendar}
       siteKey={turnstile.siteKey}
-      imageEnabled={blobCredentials(process.env) !== null}
+      imageEnabled={(await requestBlobStore()) !== null}
       today={todayInDetroit(new Date())}
     />
   );
