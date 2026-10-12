@@ -96,10 +96,14 @@ Needs Node 24, pnpm 10, and Docker.
 - Vercel deploys `main` to production on each merge. Each PR gets a Preview deploy (behind Vercel
   login; the Submission form is closed there).
 - Work goes through PRs: a plan, a build with tests first, an independent review, then the PR.
-- **Migrations do not run on deploy.** After a PR with a new file in `drizzle/` merges, run
-  `pnpm db:migrate` against production with a temporary, gitignored env file that holds the
-  production `DATABASE_URL`, and delete the file at once. Never put a database URL or a secret on a
-  command line.
+- **Migrations run on Production deploys.** `vercel.json` runs `pnpm db:migrate:deploy` after
+  `next build`; it applies new files in `drizzle/` only when `VERCEL_ENV` is `production` (Preview
+  and local builds skip it). A failed migration fails the deploy, and the old deploy keeps serving.
+  The old code runs against the new schema until the new deploy goes live, so a migration must not
+  break the code before it (add first, drop in a later PR).
+- To migrate by hand (for example, to fix a failed deploy), run `pnpm db:migrate` with a temporary,
+  gitignored env file that holds the production `DATABASE_URL`, and delete the file at once. Never
+  put a database URL or a secret on a command line.
 - Production env values live in Vercel and in Bike GR's password manager, never in the repo. The
   names are in [.env.example](.env.example): `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL`,
   `RESEND_API_KEY`, `EMAIL_FROM`, `BLOB_STORE_ID` (Blob uses Vercel OIDC), `TURNSTILE_SITE_KEY`,
