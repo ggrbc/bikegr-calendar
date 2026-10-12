@@ -7,3 +7,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Learned Workspace Facts
+
+- Migrations run on Vercel Production deploys (`vercel.json` runs `pnpm db:migrate:deploy` after `next build`; Preview and local builds skip it). The old code runs against the new schema until the deploy goes live, so migrations must be backward compatible. Manual `pnpm db:migrate` is only a fallback (README's Deployment section).
