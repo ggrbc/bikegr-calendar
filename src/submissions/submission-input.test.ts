@@ -149,7 +149,7 @@ describe("parseSubmissionInput", () => {
     expect(errorsOf({ ctaLabel: "Register", ctaUrl: "javascript:alert(1)" }).cta).toBeDefined();
     expect(errorsOf({ ctaLabel: "Register", ctaUrl: "" }).cta).toBeDefined();
     const ok = parse({ ctaLabel: "Register", ctaUrl: "https://example.org/register" });
-    expect(ok.ok && ok.value.event.cta).toEqual({ label: "Register", url: "https://example.org/register" });
+    expect(ok.ok && ok.value.event.cta).toEqual({ label: "Register", url: "https://example.org/register", skipDetails: false });
   });
 
   it("refuses Advanced rule text and any rule other than the simple repeat", () => {

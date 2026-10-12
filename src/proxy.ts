@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { detailGate, statusPageHtml } from "@/agenda/detail-gate";
 import { findOccurrence } from "@/agenda/find-occurrence";
 import { proxyDb } from "@/agenda/proxy-db";
+import { SITE_ORIGIN } from "@/agenda/site";
 
 /** Auth.js session cookie names (the `__Secure-` form is used on HTTPS). */
 const SESSION_COOKIES = ["authjs.session-token", "__Secure-authjs.session-token"];
@@ -31,11 +32,20 @@ function admin(request: NextRequest) {
  * a styled page (Next.js 16.4 sends the prerendered page with 200, and an RSC request gets 307).
  */
 async function eventDetail(request: NextRequest) {
-  const decision = await detailGate(request.nextUrl.pathname, (eventId, segment) =>
+  const decision = await detailGate(
+    request.nextUrl.pathname,
     // The decision needs only the Event and its Overrides: no Tags read.
-    findOccurrence(proxyDb(), eventId, segment, { withTags: false }),
+    (eventId, segment) => findOccurrence(proxyDb(), eventId, segment, { withTags: false }),
+    undefined,
+    undefined,
+    [new URL(SITE_ORIGIN).host, request.nextUrl.host],
   );
   if (decision.kind === "next") return NextResponse.next();
+  if (decision.kind === "redirect") {
+    const response = NextResponse.redirect(decision.url, 307);
+    response.headers.set("cache-control", "no-store");
+    return response;
+  }
   return new NextResponse(statusPageHtml(decision.status), {
     status: decision.status,
     headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },

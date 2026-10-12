@@ -35,6 +35,7 @@ Tockify and are embedded in the Bike GR Squarespace site. One organization, two 
 | **Embed** | One Calendar as shown inside a Squarespace page (an iframe placed by a script). |
 | **Feed** | A machine-readable export of approved Occurrences — ICS for calendar apps. |
 | **Call to action (CTA)** | An optional button on an Event with a label and a URL (e.g. "Register"). Tockify calls it a "promotion button". |
+| **Skip details** | A CTA option: the agenda title and the Event's detail page go straight to the CTA URL instead of showing the detail page. Tockify calls it "Skip details page completely". |
 | **Source ID** | The ID of an Event in the system it was imported from (the Tockify event ID). Used to make the import safe to run again. |
 
 ## Avoid

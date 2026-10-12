@@ -153,12 +153,13 @@ describe("ruleInputToColumns", () => {
 });
 
 describe("ctaToColumns", () => {
-  it("CTA maps to the label and URL pair; no CTA gives two nulls", () => {
-    expect(ctaToColumns({ label: "Register", url: "https://example.org" })).toStrictEqual({
+  it("CTA maps to the label, URL, and skip flag; no CTA gives two nulls and no skip", () => {
+    expect(ctaToColumns({ label: "Register", url: "https://example.org", skipDetails: true })).toStrictEqual({
       ctaLabel: "Register",
       ctaUrl: "https://example.org",
+      ctaSkipDetails: true,
     });
-    expect(ctaToColumns(null)).toStrictEqual({ ctaLabel: null, ctaUrl: null });
+    expect(ctaToColumns(null)).toStrictEqual({ ctaLabel: null, ctaUrl: null, ctaSkipDetails: false });
   });
 });
 

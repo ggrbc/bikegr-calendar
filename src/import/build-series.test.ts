@@ -17,7 +17,7 @@ function occurrence(date: string, changes: Partial<TockifyOccurrence> = {}): Toc
     location: "Velo City Cycles",
     categories: ["Group-Ride", "Non-Drop", "Tuesday"],
     imageUrl: "https://img.example/ride.png",
-    cta: { label: "Ride Details", url: "https://example.org/ride" },
+    cta: { label: "Ride Details", url: "https://example.org/ride", skipDetails: false },
     unknownTitlePrefix: null,
     ...changes,
   };
@@ -137,7 +137,7 @@ describe("Series build", () => {
   it.each([
     ["description", { description: "Other text." }],
     ["image", { imageUrl: "https://img.example/other.png" }],
-    ["CTA", { cta: { label: "Register", url: "https://example.org/reg" } }],
+    ["CTA", { cta: { label: "Register", url: "https://example.org/reg", skipDetails: false } }],
     ["Tags", { categories: ["Race"] }],
   ])("different %s flags contentDiffers", (field, change) => {
     const occurrences = tuesdays(4).map((date, i) => occurrence(date, i === 2 ? change : {}));

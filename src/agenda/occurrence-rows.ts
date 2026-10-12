@@ -30,7 +30,8 @@ export interface AgendaRow {
   imageUrl: string | null;
   /** Not retired, sorted by name. */
   tags: AgendaTag[];
-  cta: { label: string; url: string } | null;
+  /** `skipDetails`: links to the detail page go to `url` instead. */
+  cta: { label: string; url: string; skipDetails: boolean } | null;
   scheduleStatus: ScheduleStatus;
   scheduleNote: string | null;
   /** Longer public text on this Occurrence. Absent when none. Not shown on the agenda card. */

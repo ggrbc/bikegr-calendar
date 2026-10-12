@@ -11,14 +11,22 @@ import type { LocalDate } from "@/engine";
 import { todayInDetroit } from "./dates";
 import { checkDetailUrl, type FindResult } from "./find-occurrence";
 import { parseOccurrencePath } from "./occurrence-url";
+import { SITE_ORIGIN } from "./site";
+import { skipDetailsUrl } from "./skip-details";
 
-export type GateDecision = { kind: "next" } | { kind: "status"; status: 404 | 410 };
+export type GateDecision =
+  | { kind: "next" }
+  | { kind: "status"; status: 404 | 410 }
+  /** Skip details (src/agenda/skip-details.ts): the page (not its `.ics` file) goes to the CTA URL. */
+  | { kind: "redirect"; url: string };
 
 export async function detailGate(
   pathname: string,
   find: (eventId: string, segment: string) => Promise<FindResult>,
   log: (line: string) => void = console.error,
   today: LocalDate = todayInDetroit(new Date()),
+  /** Hosts of this calendar (the request's and the production one), for the Skip details loop guard. */
+  ownHosts: readonly string[] = [new URL(SITE_ORIGIN).host],
 ): Promise<GateDecision> {
   const parsed = parseOccurrencePath(pathname);
   if (!parsed) return { kind: "next" };
@@ -33,7 +41,8 @@ export async function detailGate(
   }
   if (result.kind === "gone") return { kind: "status", status: 410 };
   if (result.kind === "missing") return { kind: "status", status: 404 };
-  return { kind: "next" };
+  const skipUrl = parsed.isIcs ? null : skipDetailsUrl(result.row, ownHosts);
+  return skipUrl ? { kind: "redirect", url: skipUrl } : { kind: "next" };
 }
 
 const PAGE_TEXT = {

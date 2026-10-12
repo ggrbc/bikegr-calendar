@@ -147,9 +147,15 @@ describe("Tockify Occurrence mapping", () => {
     expect(vevent({ CATEGORIES: "CATEGORIES:A\\\\,B" }).categories).toEqual(["A\\", "B"]);
   });
 
-  it("promotion button gives a CTA label and URL", () => {
-    expect(vevent().cta).toEqual({ label: "Ride Details", url: "https://example.org/ride" });
+  it("promotion button gives a CTA label, URL, and skip details flag", () => {
+    expect(vevent().cta).toEqual({ label: "Ride Details", url: "https://example.org/ride", skipDetails: false });
     expect(vevent({ "X-TKF-PROMOTION-BUTTON": null }).cta).toBeNull();
+    const skip = vevent({
+      "X-TKF-PROMOTION-BUTTON": "X-TKF-PROMOTION-BUTTON;label=League;SKIP_DETAILS=TRUE:https://example.org/league",
+    });
+    expect(skip.cta).toEqual({ label: "League", url: "https://example.org/league", skipDetails: true });
+    const noParam = vevent({ "X-TKF-PROMOTION-BUTTON": "X-TKF-PROMOTION-BUTTON;label=League:https://example.org/l" });
+    expect(noParam.cta?.skipDetails).toBe(false);
   });
 
   it("a promotion button URL that is not http or https is dropped; the Event stays", () => {
