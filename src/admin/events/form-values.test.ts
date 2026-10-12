@@ -16,6 +16,7 @@ const row: FormRow = {
   location: null,
   ctaLabel: null,
   ctaUrl: null,
+  ctaSkipDetails: false,
   imageUrl: null,
   allDay: false,
   startLocal: "2026-10-06T18:00",

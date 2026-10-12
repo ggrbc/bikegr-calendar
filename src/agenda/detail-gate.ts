@@ -12,7 +12,11 @@ import { todayInDetroit } from "./dates";
 import { checkDetailUrl, type FindResult } from "./find-occurrence";
 import { parseOccurrencePath } from "./occurrence-url";
 
-export type GateDecision = { kind: "next" } | { kind: "status"; status: 404 | 410 };
+export type GateDecision =
+  | { kind: "next" }
+  | { kind: "status"; status: 404 | 410 }
+  /** The Event skips its details page: the page (not its `.ics` file) goes to the CTA URL. */
+  | { kind: "redirect"; url: string };
 
 export async function detailGate(
   pathname: string,
@@ -33,6 +37,7 @@ export async function detailGate(
   }
   if (result.kind === "gone") return { kind: "status", status: 410 };
   if (result.kind === "missing") return { kind: "status", status: 404 };
+  if (result.row.cta?.skipDetails && !parsed.isIcs) return { kind: "redirect", url: result.row.cta.url };
   return { kind: "next" };
 }
 

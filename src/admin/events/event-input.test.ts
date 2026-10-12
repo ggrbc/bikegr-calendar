@@ -31,6 +31,7 @@ function values(patch: Partial<EventFormValues> = {}): EventFormValues {
     tagIds: [TAG],
     ctaLabel: "",
     ctaUrl: "",
+    ctaSkipDetails: false,
     imageUrl: "",
     allDay: false,
     start: "2026-10-06T18:00",
@@ -97,7 +98,17 @@ describe("Event input", () => {
       });
     }
     const ok = parseEventInput(values({ ctaLabel: "Register", ctaUrl: "https://example.org/r" }), editor);
-    expect(ok.ok && ok.value.cta).toEqual({ label: "Register", url: "https://example.org/r" });
+    expect(ok.ok && ok.value.cta).toEqual({ label: "Register", url: "https://example.org/r", skipDetails: false });
+  });
+
+  it("skip details is kept only with a CTA, and only for a true boolean", () => {
+    const cta = { ctaLabel: "Register", ctaUrl: "https://example.org/r" };
+    const skip = parseEventInput(values({ ...cta, ctaSkipDetails: true }), editor);
+    expect(skip.ok && skip.value.cta?.skipDetails).toBe(true);
+    const text = parseEventInput({ ...values(cta), ctaSkipDetails: "true" }, editor);
+    expect(text.ok && text.value.cta?.skipDetails).toBe(false);
+    const noCta = parseEventInput(values({ ctaSkipDetails: true }), editor);
+    expect(noCta.ok && noCta.value.cta).toBeNull();
   });
 
   it("the image URL is accepted when the upload made it, when it is the stored URL, or when empty", () => {

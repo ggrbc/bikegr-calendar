@@ -172,6 +172,13 @@ describe("schema", () => {
     );
   });
 
+  it("skip details needs a CTA", async () => {
+    await expectConstraint(
+      () => db.insert(events).values({ ...timed, ctaSkipDetails: true }),
+      "events_cta_skip_details_needs_cta",
+    );
+  });
+
   it("tag slug is unique per Calendar", async () => {
     await db.insert(tags).values({ calendar: "rides", name: "Non-Drop", slug: "non-drop" });
     await db.insert(tags).values({ calendar: "advocacy", name: "Non-Drop", slug: "non-drop" });

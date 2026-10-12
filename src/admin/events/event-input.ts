@@ -50,6 +50,7 @@ export interface ContentValues {
   tagIds: string[];
   ctaLabel: string;
   ctaUrl: string;
+  ctaSkipDetails: boolean;
   imageUrl: string;
 }
 
@@ -116,7 +117,7 @@ export interface ContentDraft {
   preview: string | null;
   location: string | null;
   tagIds: string[];
-  cta: { label: string; url: string } | null;
+  cta: { label: string; url: string; skipDetails: boolean } | null;
   imageUrl: string | null;
 }
 
@@ -226,7 +227,7 @@ function parseContent(raw: Raw, ctx: ParseContext, errors: FieldErrors): Content
   if (ctaLabel !== "" || ctaUrl !== "") {
     if (ctaLabel === "" || ctaUrl === "") errors.cta = "Give both a button label and a URL, or neither.";
     else if (!isHttpUrl(ctaUrl)) errors.cta = "Use a web address that starts with http:// or https://.";
-    else cta = { label: ctaLabel, url: ctaUrl };
+    else cta = { label: ctaLabel, url: ctaUrl, skipDetails: raw.ctaSkipDetails === true };
   }
 
   const imageUrl = text(raw, "imageUrl");

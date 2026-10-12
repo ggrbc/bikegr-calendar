@@ -28,11 +28,17 @@ export function OccurrenceCard({
   const { row } = entry;
   const moved = entry.kind === "movedAway";
   const struck = row.scheduleStatus === "cancelled" || moved;
-  const href = occurrencePath(row.eventId, row.originalStart);
-  // In the Embed, detail pages open in a new tab on the calendar domain.
-  const linkProps = embed ? { target: "_blank", rel: "noopener" } : {};
+  const skipUrl = row.cta?.skipDetails ? row.cta.url : null;
+  const href = skipUrl ?? occurrencePath(row.eventId, row.originalStart);
+  // In the Embed, detail pages open in a new tab on the calendar domain. The CTA URL always does.
+  const linkProps = skipUrl
+    ? { target: "_blank", rel: "noopener noreferrer" }
+    : embed
+      ? { target: "_blank", rel: "noopener" }
+      : {};
   const Title = headingLevel === 2 ? "h2" : "h3";
   const description = moved ? "" : listingText(row, 300);
+  const TitleLink = skipUrl ? "a" : Link;
 
   return (
     <li className="flex gap-5 py-6 sm:gap-8 sm:py-8">
@@ -63,13 +69,13 @@ export function OccurrenceCard({
           </p>
         )}
         <Title className="font-chivo text-[19px] font-normal leading-snug text-brand-orange-text sm:text-[26px] sm:text-brand-orange">
-          <Link
+          <TitleLink
             href={href}
             {...linkProps}
             className={`hover:underline ${struck ? "line-through decoration-brand-gray/60" : ""}`}
           >
             {row.title}
-          </Link>
+          </TitleLink>
         </Title>
         <p className="mt-1.5 font-chivo text-[15px] text-brand-gray">
           {dateLine(moved ? row.originalTiming : row.timing)}

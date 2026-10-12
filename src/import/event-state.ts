@@ -29,6 +29,7 @@ export interface EventState extends RuleColumns {
   imageUrl?: string | null;
   ctaLabel: string | null;
   ctaUrl: string | null;
+  ctaSkipDetails: boolean;
   tagSlugs: string[];
   overrides: OverrideState[];
 }
@@ -47,6 +48,7 @@ export type EventStateColumns = Pick<
   | "imageUrl"
   | "ctaLabel"
   | "ctaUrl"
+  | "ctaSkipDetails"
   | "allDay"
   | "startLocal"
   | "endLocal"
@@ -101,6 +103,7 @@ function build(
     location: row.location,
     ctaLabel: row.ctaLabel,
     ctaUrl: row.ctaUrl,
+    ctaSkipDetails: row.ctaSkipDetails,
     allDay: row.allDay,
     startLocal: row.startLocal,
     endLocal: row.endLocal,

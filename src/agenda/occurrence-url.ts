@@ -50,11 +50,13 @@ export function occurrenceIcsPath(eventId: string, originalStart: OriginalStart)
  * Reads `/events/<eventId>/<segment>` or `/events/<eventId>/<segment>/event.ics`. The parts are
  * not checked here; `findOccurrence` does that.
  */
-export function parseOccurrencePath(pathname: string): { eventId: string; segment: string } | null {
+export function parseOccurrencePath(
+  pathname: string,
+): { eventId: string; segment: string; isIcs: boolean } | null {
   const parts = pathname.split("/").filter((part) => part !== "");
   if (parts[0] !== "events") return null;
   if (parts.length === 3 || (parts.length === 4 && parts[3] === "event.ics")) {
-    return { eventId: safeDecode(parts[1]), segment: safeDecode(parts[2]) };
+    return { eventId: safeDecode(parts[1]), segment: safeDecode(parts[2]), isIcs: parts.length === 4 };
   }
   return null;
 }

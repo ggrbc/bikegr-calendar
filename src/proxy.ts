@@ -36,6 +36,11 @@ async function eventDetail(request: NextRequest) {
     findOccurrence(proxyDb(), eventId, segment, { withTags: false }),
   );
   if (decision.kind === "next") return NextResponse.next();
+  if (decision.kind === "redirect") {
+    const response = NextResponse.redirect(decision.url, 307);
+    response.headers.set("cache-control", "no-store");
+    return response;
+  }
   return new NextResponse(statusPageHtml(decision.status), {
     status: decision.status,
     headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },

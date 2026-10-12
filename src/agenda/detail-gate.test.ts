@@ -18,6 +18,18 @@ describe("detailGate", () => {
     expect(await detailGate(`/events/${ID}/2026-10-14T1800`, async () => found)).toEqual({ kind: "next" });
   });
 
+  it("an Event that skips its details page redirects the page to the CTA URL, not the .ics file", async () => {
+    const cta = { label: "League", url: "https://example.org/league", skipDetails: true };
+    const skip: FindResult = { kind: "found", row: row({ cta }), event: snapshotEvent({ cta }) };
+    expect(await detailGate(`/events/${ID}/2026-10-14T1800`, async () => skip)).toEqual({
+      kind: "redirect",
+      url: "https://example.org/league",
+    });
+    expect(await detailGate(`/events/${ID}/2026-10-14T1800/event.ics`, async () => skip)).toEqual({ kind: "next" });
+    const keep: FindResult = { kind: "found", row: row({ cta: { ...cta, skipDetails: false } }), event: snapshotEvent() };
+    expect(await detailGate(`/events/${ID}/2026-10-14T1800`, async () => keep)).toEqual({ kind: "next" });
+  });
+
   it("checks the .ics path the same way, and passes the id and segment", async () => {
     const calls: string[][] = [];
     await detailGate(`/events/${ID}/2026-10-14/event.ics`, async (id, segment) => {

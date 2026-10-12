@@ -33,6 +33,7 @@ export type FormRow = Pick<
   | "location"
   | "ctaLabel"
   | "ctaUrl"
+  | "ctaSkipDetails"
   | "imageUrl"
   | "allDay"
   | "startLocal"
@@ -56,6 +57,7 @@ export function emptyEventValues(calendar: CalendarSlug, today: LocalDate): Even
     tagIds: [],
     ctaLabel: "",
     ctaUrl: "",
+    ctaSkipDetails: false,
     imageUrl: "",
     allDay: false,
     start: `${today}T18:00`,
@@ -78,6 +80,7 @@ function contentValues(row: FormRow, tagIds: string[]) {
     tagIds,
     ctaLabel: row.ctaLabel ?? "",
     ctaUrl: row.ctaUrl ?? "",
+    ctaSkipDetails: row.ctaSkipDetails,
     imageUrl: row.imageUrl ?? "",
   };
 }

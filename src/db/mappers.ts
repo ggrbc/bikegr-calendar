@@ -87,9 +87,9 @@ export function ruleInputToColumns(rule: EventRuleInput): RuleColumns {
 }
 
 export function ctaToColumns(
-  cta: { label: string; url: string } | null,
-): Pick<EventRow, "ctaLabel" | "ctaUrl"> {
-  return { ctaLabel: cta?.label ?? null, ctaUrl: cta?.url ?? null };
+  cta: { label: string; url: string; skipDetails: boolean } | null,
+): Pick<EventRow, "ctaLabel" | "ctaUrl" | "ctaSkipDetails"> {
+  return { ctaLabel: cta?.label ?? null, ctaUrl: cta?.url ?? null, ctaSkipDetails: cta?.skipDetails ?? false };
 }
 
 /**

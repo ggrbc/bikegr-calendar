@@ -25,7 +25,7 @@ describe("create an Event", () => {
 
   it("makes an approved Event with created_by, its Tags, version 1, and one create history row", async () => {
     const tag = await addTag(db, "rides", "non-drop");
-    const result = await createEvent(db, editor, draft({ tagIds: [tag], cta: { label: "Register", url: "https://example.org" } }));
+    const result = await createEvent(db, editor, draft({ tagIds: [tag], cta: { label: "Register", url: "https://example.org", skipDetails: false } }));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     const row = await eventRow(db, result.id);
