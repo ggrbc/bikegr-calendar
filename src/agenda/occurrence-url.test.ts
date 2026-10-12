@@ -30,14 +30,17 @@ describe("detail URL", () => {
     expect(parseOccurrencePath(`/events/${ID}/2026-10-14T1800`)).toEqual({
       eventId: ID,
       segment: "2026-10-14T1800",
+      isIcs: false,
     });
     expect(parseOccurrencePath(`/events/${ID}/2026-10-14/event.ics`)).toEqual({
       eventId: ID,
       segment: "2026-10-14",
+      isIcs: true,
     });
     expect(parseOccurrencePath("/events/%E0%A4%A/2026-10-14")).toEqual({
       eventId: "%E0%A4%A",
       segment: "2026-10-14",
+      isIcs: false,
     });
     expect(parseOccurrencePath("/events")).toBeNull();
     expect(parseOccurrencePath(`/events/${ID}`)).toBeNull();

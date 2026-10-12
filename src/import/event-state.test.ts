@@ -10,7 +10,7 @@ const event: ImportedEvent = {
   location: "Shop",
   tagSlugs: ["social", "group-ride"],
   imageUrl: "https://tockify.example/a.jpg",
-  cta: { label: "Register", url: "https://example.org" },
+  cta: { label: "Register", url: "https://example.org", skipDetails: false },
   rule: {
     eventId: "1",
     timing: { kind: "timed", start: "2026-09-02T18:00", end: "2026-09-02T20:00" },
@@ -34,6 +34,7 @@ const row = {
   imageUrl: "https://tockify.example/a.jpg",
   ctaLabel: "Register",
   ctaUrl: "https://example.org",
+  ctaSkipDetails: false,
   allDay: false,
   startLocal: "2026-09-02T18:00",
   endLocal: "2026-09-02T20:00",

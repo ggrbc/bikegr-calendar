@@ -84,7 +84,7 @@ describe("loadSnapshot", () => {
       .returning();
     const [unsafe, safe] = await snapshotEvents(db, rows);
     expect(unsafe.cta).toBeNull();
-    expect(safe.cta).toEqual({ label: "Click", url: "https://example.org" });
+    expect(safe.cta).toEqual({ label: "Click", url: "https://example.org", skipDetails: false });
     await db.delete(events).where(inArray(events.id, rows.map((r) => r.id)));
   });
 

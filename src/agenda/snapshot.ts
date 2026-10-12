@@ -34,7 +34,7 @@ export interface SnapshotEvent {
   preview: string | null;
   location: string | null;
   imageUrl: string | null;
-  cta: { label: string; url: string } | null;
+  cta: { label: string; url: string; skipDetails: boolean } | null;
   rule: EventRuleInput;
   overrides: OverrideInput[];
   /** Not retired, sorted by name. */
@@ -110,7 +110,7 @@ export async function snapshotEvents(
       // Only an http(s) URL goes into an href; a data: or javascript: CTA is left out.
       cta:
         event.ctaLabel !== null && event.ctaUrl !== null && isHttpUrl(event.ctaUrl)
-          ? { label: event.ctaLabel, url: event.ctaUrl }
+          ? { label: event.ctaLabel, url: event.ctaUrl, skipDetails: event.ctaSkipDetails }
           : null,
       rule: eventRowToRuleInput(event),
       overrides: eventOverrides.map(overrideRowToInput),

@@ -1,5 +1,5 @@
 {
-  "id": "0bba841d-2b5d-46a6-b0e8-a383599e8213",
+  "id": "dda9d3e2-d1dd-4d19-86e3-20c5f630dbbb",
   "prevId": "6310aae0-fc9f-40a5-820b-c6fc7b45b3ee",
   "version": "7",
   "dialect": "postgresql",
@@ -766,6 +766,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "cta_skip_details": {
+          "name": "cta_skip_details",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "image_url": {
           "name": "image_url",
           "type": "text",
@@ -990,6 +997,10 @@
         "events_cta_pair": {
           "name": "events_cta_pair",
           "value": "(\"events\".\"cta_label\" is null) = (\"events\".\"cta_url\" is null)"
+        },
+        "events_cta_skip_details_needs_cta": {
+          "name": "events_cta_skip_details_needs_cta",
+          "value": "not \"events\".\"cta_skip_details\" or \"events\".\"cta_url\" is not null"
         }
       },
       "isRLSEnabled": false
@@ -1273,12 +1284,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "retired_at": {
           "name": "retired_at",
           "type": "timestamp with time zone",
@@ -1384,10 +1389,6 @@
         "tags_slug_format": {
           "name": "tags_slug_format",
           "value": "\"tags\".\"slug\" ~ '^[a-z0-9]+(-[a-z0-9]+)*$'"
-        },
-        "tags_description_length": {
-          "name": "tags_description_length",
-          "value": "char_length(\"tags\".\"description\") <= 200"
         }
       },
       "isRLSEnabled": false

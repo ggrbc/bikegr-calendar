@@ -122,5 +122,6 @@ function readCategories(event: IcsEvent): string[] {
 function readCta(property: IcsProperty | undefined): Cta | null {
   const label = property?.params.label?.trim();
   const url = property?.value.trim();
-  return label && url && isHttpUrl(url) ? { label, url } : null;
+  if (!label || !url || !isHttpUrl(url)) return null;
+  return { label, url, skipDetails: property?.params.skip_details?.trim().toLowerCase() === "true" };
 }

@@ -73,7 +73,7 @@ describe("VEVENT", () => {
         scheduleStatus: "cancelled",
         scheduleNote: "Rain — see you next week",
         description: "Bring lights.",
-        cta: { label: "Register", url: "https://example.org/register" },
+        cta: { label: "Register", url: "https://example.org/register", skipDetails: false },
       }),
     );
     expect(prop(event, "description")).toBe(

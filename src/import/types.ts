@@ -15,6 +15,8 @@ import type {
 export interface Cta {
   label: string;
   url: string;
+  /** Tockify's "skip details page": links to the detail page go to `url` instead. */
+  skipDetails: boolean;
 }
 
 /** One `VEVENT` of the Tockify feed: one Occurrence, read and cleaned. */

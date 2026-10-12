@@ -131,6 +131,28 @@ function PreviewField({
   );
 }
 
+/** Tockify's "skip details page": the agenda title and the detail page go straight to the button URL. */
+function SkipDetailsField({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
+  const hintId = `cta-skip-details-hint-${useId()}`;
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          className={checkClass}
+          checked={checked}
+          aria-describedby={hintId}
+          onChange={(e) => onChange(e.target.checked)}
+        />
+        Skip the details page
+      </label>
+      <p id={hintId} className={hintClass}>
+        The Event title on the calendar and the Event&apos;s detail page link straight to the button URL.
+      </p>
+    </div>
+  );
+}
+
 /**
  * Title, description, place, Tags, image, and button: the fields that "All dates" changes.
  * `lockCalendar`: a Series split keeps the Calendar.
@@ -228,6 +250,10 @@ export function ContentFields<T extends ContentValues>({
           </Field>
         </div>
         <FieldError id="cta-error" message={errors.cta} />
+        <SkipDetailsField
+          checked={values.ctaSkipDetails}
+          onChange={(ctaSkipDetails) => set({ ctaSkipDetails })}
+        />
       </fieldset>
       <div>
         <ImageUploadField

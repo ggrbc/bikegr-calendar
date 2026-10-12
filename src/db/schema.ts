@@ -119,6 +119,8 @@ export const events = pgTable(
 
     ctaLabel: text("cta_label"),
     ctaUrl: text("cta_url"),
+    /** The agenda title and the detail URL go straight to the CTA URL (Tockify's "skip details page"). */
+    ctaSkipDetails: boolean("cta_skip_details").notNull().default(false),
     imageUrl: text("image_url"),
 
     submitterName: text("submitter_name"),
@@ -164,6 +166,7 @@ export const events = pgTable(
     check("events_occurrence_details_length", sql`char_length(${t.occurrenceDetails}) <= 2000`),
     check("events_preview_length", sql`char_length(${t.preview}) <= 300`),
     check("events_cta_pair", sql`(${t.ctaLabel} is null) = (${t.ctaUrl} is null)`),
+    check("events_cta_skip_details_needs_cta", sql`not ${t.ctaSkipDetails} or ${t.ctaUrl} is not null`),
     index("events_review_queue_idx")
       .on(t.createdAt)
       .where(sql`${t.reviewStatus} = 'pending' and ${t.deletedAt} is null`),

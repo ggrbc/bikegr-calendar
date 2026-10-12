@@ -105,6 +105,10 @@ before committing.
 - **Predecessor:** nullable link from a Series to the Series it was split from.
 - **No separate link field.** The CTA is the only external link. Excerpts are derived from the
   description, unless the Event has a Custom Preview.
+- **Skip details** (`cta_skip_details`, Editors only; needs a CTA): the agenda title links to the CTA
+  URL, and the detail page redirects there (307, from the proxy). The `.ics` file and the Feed stay.
+  Only an Occurrence with Schedule status `scheduled` skips (any other status has a notice the
+  Visitor must see), and a CTA URL that is a detail page of this calendar never skips (no loop).
 - **Description.** Markdown with an allowed set: paragraphs, headings 1 and 2, bulleted and numbered
   lists, horizontal lines, bold, italic, links (`http`, `https`, `mailto`), and line breaks. Edited
   in a toolbar editor (Tiptap) on the Event editor and the Submission form. The detail page parses it
@@ -441,7 +445,7 @@ Public ICS feed: `https://tockify.com/api/feeds/ics/bikegr` (no auth). Facts che
 | `DESCRIPTION`, `LOCATION` | description, location |
 | `CATEGORIES` | Tags (after cleanup) and Calendar (see Approach) |
 | `X-TKF-FEATURED-IMAGE` | image — **copy into our blob storage**; the Tockify CloudFront URLs will stop working when the subscription ends |
-| `X-TKF-PROMOTION-BUTTON;label=…:<url>` | CTA label + URL (264 Occurrences have one) |
+| `X-TKF-PROMOTION-BUTTON;label=…;skip_details=…:<url>` | CTA label + URL (264 Occurrences have one); `skip_details=true` sets Skip details |
 | `DTSTART` / `DTEND` (UTC) | convert to wall-clock time in `America/Detroit` |
 | `DTSTART;VALUE=DATE` | all-day event |
 | UID `<eventId>` | Source ID |

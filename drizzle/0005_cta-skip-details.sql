@@ -1,0 +1,2 @@
+ALTER TABLE "events" ADD COLUMN "cta_skip_details" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "events" ADD CONSTRAINT "events_cta_skip_details_needs_cta" CHECK (not "events"."cta_skip_details" or "events"."cta_url" is not null);

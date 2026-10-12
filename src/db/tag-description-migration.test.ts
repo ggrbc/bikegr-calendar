@@ -1,5 +1,5 @@
 /**
- * Migration 0005: the starting descriptions of Non-Drop and Alley Cat. The test database already
+ * Migration 0006: the starting descriptions of Non-Drop and Alley Cat. The test database already
  * ran it (on no data), so the test runs its UPDATE again on data.
  */
 import { readFileSync } from "node:fs";
@@ -11,7 +11,7 @@ import { createTestDb } from "./test-db";
 import type { Db } from "./types";
 
 const update = readFileSync(
-  fileURLToPath(new URL("../../drizzle/0005_tag-description.sql", import.meta.url)),
+  fileURLToPath(new URL("../../drizzle/0006_tag-description.sql", import.meta.url)),
   "utf8",
 )
   .split("--> statement-breakpoint")
