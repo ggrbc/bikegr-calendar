@@ -16,6 +16,19 @@ export function shouldMigrate(env: Record<string, string | undefined>): boolean 
   return env.VERCEL_ENV === "production";
 }
 
+type CodedError = Error & { code?: string; cause?: unknown };
+
+/**
+ * What to log for a failed migration: the Postgres code, which Drizzle keeps on `cause` of its
+ * `DrizzleQueryError`. Never the message: it can contain the connection string.
+ */
+export function failureCode(error: unknown): string {
+  if (!(error instanceof Error)) return "unknown error";
+  const { code, cause, name } = error as CodedError;
+  const causeCode = cause instanceof Error ? (cause as CodedError).code : undefined;
+  return causeCode ?? code ?? name;
+}
+
 async function main(): Promise<void> {
   if (!shouldMigrate(process.env)) {
     console.log("[migrate] Not a Vercel Production build; skipping migrations.");
@@ -33,9 +46,8 @@ async function main(): Promise<void> {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main().catch((error: Error & { code?: string }) => {
-    // Log only the code and name: the message can contain the connection string.
-    console.error("[migrate] Failed:", error.code ?? error.name);
+  main().catch((error: unknown) => {
+    console.error("[migrate] Failed:", failureCode(error));
     process.exit(1);
   });
 }
