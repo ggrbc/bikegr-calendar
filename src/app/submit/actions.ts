@@ -11,12 +11,12 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import type { FieldErrors } from "@/admin/events/event-input";
 import { MAX_UPLOAD_BYTES } from "@/admin/images/limits";
+import { requestBlobStore } from "@/admin/images/request-blob-store";
 import { uploadEventImage } from "@/admin/images/upload-image";
 import { todayInDetroit } from "@/agenda/dates";
 import { getDb } from "@/db";
 import { appOrigin, notifyNewSubmission } from "@/email/notify";
 import { createEmailTransport } from "@/email/transport";
-import { blobCredentials, vercelBlobStore } from "@/import/images";
 import { clientIp, hitRateLimit } from "@/rate-limit";
 import { submissionFromFormData } from "@/submissions/form-data";
 import { MESSAGES, submitEvent } from "@/submissions/submit-event";
@@ -40,7 +40,7 @@ export async function submitEventAction(_prev: SubmitState, data: FormData): Pro
   }
 
   const db = getDb();
-  const store = blobCredentials(process.env) ? vercelBlobStore() : null;
+  const store = await requestBlobStore();
   const requestHeaders = await headers();
   const ip = clientIp(requestHeaders);
   const hostname = expectedHostname(process.env, requestHeaders.get("host"));

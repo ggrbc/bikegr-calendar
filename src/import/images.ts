@@ -20,11 +20,17 @@ export type BlobCredentials = "oidc" | "readWrite" | null;
 
 /**
  * Which Blob credentials the environment has, in the order `@vercel/blob` uses them: a Vercel OIDC
- * token with a store ID first, then a read-write token.
+ * token with a store ID first, then a read-write token. In a deployed Vercel Function the OIDC token
+ * is only in the `x-vercel-oidc-token` request header, not in the environment: pass it as
+ * `requestOidcToken`.
  */
-export function blobCredentials(env: Record<string, string | undefined>): BlobCredentials {
+export function blobCredentials(
+  env: Record<string, string | undefined>,
+  requestOidcToken: string | null = null,
+): BlobCredentials {
   const set = (name: string) => (env[name]?.trim() ?? "") !== "";
-  if (set("VERCEL_OIDC_TOKEN") && set("BLOB_STORE_ID")) return "oidc";
+  const oidcToken = (requestOidcToken?.trim() ?? "") !== "" || set("VERCEL_OIDC_TOKEN");
+  if (oidcToken && set("BLOB_STORE_ID")) return "oidc";
   if (set("BLOB_READ_WRITE_TOKEN")) return "readWrite";
   return null;
 }
