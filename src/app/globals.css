@@ -55,6 +55,13 @@ body {
  * navigation (admin-nav-links.tsx). They are focus targets, not controls, so they get no ring.
  * Unlayered, like the rule above.
  */
+main[tabindex="-1"]:focus,
+main[tabindex="-1"]:focus-visible,
+#admin-main h1[tabindex="-1"]:focus,
+#admin-main h1[tabindex="-1"]:focus-visible {
+  outline: none;
+}
+
 /*
  * A Tag's info tip (tag-info.tsx), a popover. With CSS anchor positioning it opens under its
  * button, centered on it but kept 16 px inside the viewport, and above it when there is no room
@@ -73,11 +80,4 @@ body {
     justify-self: anchor-center;
     position-try-fallbacks: flip-block;
   }
-}
-
-main[tabindex="-1"]:focus,
-main[tabindex="-1"]:focus-visible,
-#admin-main h1[tabindex="-1"]:focus,
-#admin-main h1[tabindex="-1"]:focus-visible {
-  outline: none;
 }

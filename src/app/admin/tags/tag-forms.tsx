@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type { CalendarSlug } from "@/engine";
-import { TAG_DESCRIPTION_MAX } from "@/admin/tags/rules";
+import { descriptionLength, TAG_DESCRIPTION_MAX } from "@/admin/tags/description";
 import { buttonClass, hintClass, inputClass, labelClass, smallInputClass } from "../_components/ui";
 import { addTagAction, type TagFormState, tagRowAction } from "./actions";
 
@@ -60,6 +60,7 @@ export interface TagRowProps {
 export function TagActions({ tag, mergeTargets }: TagRowProps) {
   // One action for the row, so the row shows only the last message.
   const [state, action, pending] = useActionState(tagRowAction, idle);
+  const [currentLength, setDescriptionLength] = useState(() => descriptionLength(tag.description ?? ""));
 
   function confirmMerge(event: React.FormEvent<HTMLFormElement>) {
     const select = event.currentTarget.elements.namedItem("targetId") as HTMLSelectElement | null;
@@ -99,11 +100,13 @@ export function TagActions({ tag, mergeTargets }: TagRowProps) {
               id={`describe-${tag.id}`}
               name="description"
               defaultValue={tag.description ?? ""}
-              maxLength={TAG_DESCRIPTION_MAX}
+              onChange={(e) => setDescriptionLength(descriptionLength(e.target.value))}
               rows={3}
               className={`${input} w-full max-w-sm`}
             />
-            <p className={hintClass}>Shown as an info tip on the Event page. Leave empty for none.</p>
+            <p className={hintClass}>
+              Shown as an info tip on the Event page. Leave empty for none. {currentLength} / {TAG_DESCRIPTION_MAX}
+            </p>
             <div>
               <button type="submit" disabled={pending} className={button}>
                 Save

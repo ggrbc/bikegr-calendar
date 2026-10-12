@@ -3,6 +3,9 @@ import type { ParseResult } from "@/auth/rules";
 import { CALENDARS } from "@/db/schema";
 import type { CalendarSlug } from "@/engine";
 import { tagSlug } from "@/import/calendar-and-tags";
+import { descriptionLength, normalizeDescription, TAG_DESCRIPTION_MAX } from "./description";
+
+export { TAG_DESCRIPTION_MAX };
 
 export const TAG_NAME_MAX = 40;
 
@@ -25,15 +28,13 @@ export function parseTagName(raw: unknown): ParseResult<TagNameInput> {
   return { ok: true, value: { name, slug } };
 }
 
-export const TAG_DESCRIPTION_MAX = 200;
-
 /**
- * A Tag description from a form: trimmed, white space collapsed to one space (it shows as one
- * line), at most 200 characters. Empty means no description (null).
+ * A Tag description from a form: normalized (description.ts), at most 200 characters. Empty means
+ * no description (null).
  */
 export function parseTagDescription(raw: unknown): ParseResult<string | null> {
-  const description = typeof raw === "string" ? raw.trim().replace(/\s+/g, " ") : "";
-  if ([...description].length > TAG_DESCRIPTION_MAX) {
+  const description = typeof raw === "string" ? normalizeDescription(raw) : "";
+  if (descriptionLength(description) > TAG_DESCRIPTION_MAX) {
     return { ok: false, error: `Use ${TAG_DESCRIPTION_MAX} characters or fewer.` };
   }
   return { ok: true, value: description === "" ? null : description };
