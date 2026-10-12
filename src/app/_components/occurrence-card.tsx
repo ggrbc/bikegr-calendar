@@ -5,6 +5,7 @@ import { dateLine, tagLine, venueName } from "@/agenda/card-text";
 import { listingText } from "@/agenda/listing-text";
 import { occurrencePath } from "@/agenda/occurrence-url";
 import { CALENDAR_NAMES } from "@/agenda/site";
+import { skipDetailsUrl } from "@/agenda/skip-details";
 import { Badge } from "./badge";
 
 /**
@@ -28,7 +29,7 @@ export function OccurrenceCard({
   const { row } = entry;
   const moved = entry.kind === "movedAway";
   const struck = row.scheduleStatus === "cancelled" || moved;
-  const skipUrl = row.cta?.skipDetails ? row.cta.url : null;
+  const skipUrl = moved ? null : skipDetailsUrl(row);
   const href = skipUrl ?? occurrencePath(row.eventId, row.originalStart);
   // In the Embed, detail pages open in a new tab on the calendar domain. The CTA URL always does.
   const linkProps = skipUrl

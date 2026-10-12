@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { io } from "next/cache";
 import { cache } from "react";
 import { badgeText } from "@/agenda/agenda-days";
@@ -68,7 +68,6 @@ export default async function OccurrencePage({ params }: PageProps<"/events/[eve
   const result = await load(eventId, start);
   if (result.kind !== "found") notFound();
   const { row } = result;
-  if (row.cta?.skipDetails) redirect(row.cta.url);
 
   const url = occurrenceUrl(row.eventId, row.originalStart);
   const badge = badgeText(row);

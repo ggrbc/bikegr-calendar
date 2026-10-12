@@ -87,8 +87,19 @@ test("skip details: the agenda title and the detail page go to the button URL; t
   await expect(title).toHaveAttribute("href", CTA_URL);
   await expect(title).toHaveAttribute("target", "_blank");
 
-  // Turned off again: the detail page is back.
+  // Cancelled: the Visitor must see the notice, so the detail page is back.
+  const status = page.getByLabel("Schedule status").locator("visible=true");
   await page.goto(`/admin/events/${EVENT_ID}`);
+  await status.selectOption("cancelled");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: /^Saved/ })).toBeVisible();
+  expect((await request.get(detailPath, { maxRedirects: 0 })).status()).toBe(200);
+  await page.goto("/advocacy");
+  await expect(page.getByRole("link", { name: TITLE })).toHaveAttribute("href", detailPath);
+
+  // Scheduled again, with Skip details off: the detail page stays.
+  await page.goto(`/admin/events/${EVENT_ID}`);
+  await status.selectOption("scheduled");
   await page.getByLabel("Skip the details page").locator("visible=true").uncheck();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: /^Saved/ })).toBeVisible();

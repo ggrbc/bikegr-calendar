@@ -107,6 +107,8 @@ before committing.
   description, unless the Event has a Custom Preview.
 - **Skip details** (`cta_skip_details`, Editors only; needs a CTA): the agenda title links to the CTA
   URL, and the detail page redirects there (307, from the proxy). The `.ics` file and the Feed stay.
+  Only an Occurrence with Schedule status `scheduled` skips (any other status has a notice the
+  Visitor must see), and a CTA URL that is a detail page of this calendar never skips (no loop).
 - **Description.** Markdown with an allowed set: paragraphs, headings 1 and 2, bulleted and numbered
   lists, horizontal lines, bold, italic, links (`http`, `https`, `mailto`), and line breaks. Edited
   in a toolbar editor (Tiptap) on the Event editor and the Submission form. The detail page parses it

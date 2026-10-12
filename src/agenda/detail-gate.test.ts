@@ -30,6 +30,21 @@ describe("detailGate", () => {
     expect(await detailGate(`/events/${ID}/2026-10-14T1800`, async () => keep)).toEqual({ kind: "next" });
   });
 
+  it("Skip details shows the page for a cancelled Occurrence and for a CTA URL to this calendar's own detail page", async () => {
+    const path = `/events/${ID}/2026-10-14T1800`;
+    const skipping = (url: string, scheduleStatus: "scheduled" | "cancelled" = "scheduled"): FindResult => {
+      const cta = { label: "Agenda", url, skipDetails: true };
+      return { kind: "found", row: row({ cta, scheduleStatus }), event: snapshotEvent({ cta }) };
+    };
+    const cancelled = skipping("https://example.org/league", "cancelled");
+    expect(await detailGate(path, async () => cancelled)).toEqual({ kind: "next" });
+    const loop = skipping(`http://localhost:3100${path}`);
+    const gate = (result: FindResult) =>
+      detailGate(path, async () => result, () => {}, undefined, ["calendar.bikegr.org", "localhost:3100"]);
+    expect(await gate(loop)).toEqual({ kind: "next" });
+    expect(await gate(skipping(`https://calendar.bikegr.org${path}`))).toEqual({ kind: "next" });
+  });
+
   it("checks the .ics path the same way, and passes the id and segment", async () => {
     const calls: string[][] = [];
     await detailGate(`/events/${ID}/2026-10-14/event.ics`, async (id, segment) => {
